@@ -68,3 +68,10 @@ def test_run_classifies_played_move(capsys):
     out = capsys.readouterr().out
     assert code == 0
     assert "Move class:" in out
+
+
+def test_run_rejects_inconsistent_fen():
+    # --fen is the start position but prev+move implies the after-e4 position
+    with pytest.raises(SystemExit):
+        run(["--fen", chess.STARTING_FEN,
+             "--prev-fen", chess.STARTING_FEN, "--move", "e2e4"])

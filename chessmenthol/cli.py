@@ -17,7 +17,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--fen", required=True, help="Position to analyze (FEN).")
     p.add_argument("--depth", type=int, default=18, help="Search depth.")
-    p.add_argument("--lines", type=int, default=3, help="Number of PV lines.")
+    p.add_argument("--lines", type=int, default=3,
+                   help="Number of PV lines (>=2 enables the 'great' classification).")
     p.add_argument("--engine", default="stockfish",
                    choices=["stockfish", "stockfish_lite"])
     p.add_argument("--prev-fen", default=None,
@@ -51,20 +52,29 @@ def format_report(board: chess.Board, analysis: AnalysisInfo,
 
 
 def run(argv: Optional[List[str]] = None) -> int:
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
     board = chess.Board(args.fen)
+
+    prev = None
+    move = None
+    if args.prev_fen and args.move:
+        prev = chess.Board(args.prev_fen)
+        move = chess.Move.from_uci(args.move)
+        after = prev.copy()
+        after.push(move)
+        if after.epd() != board.epd():
+            parser.error(
+                "--fen must be the position after playing --move from --prev-fen"
+            )
+
+    classification = None
     with EngineManager() as em:
         em.select(args.engine)
         analysis = em.analyze(board, depth=args.depth, multipv=args.lines)
-        classification = None
-        if args.prev_fen and args.move:
-            prev = chess.Board(args.prev_fen)
-            move = chess.Move.from_uci(args.move)
-            after = prev.copy()
-            after.push(move)
+        if prev is not None and move is not None:
             before_a = em.analyze(prev, depth=args.depth, multipv=args.lines)
-            after_a = em.analyze(after, depth=args.depth, multipv=args.lines)
-            classification = classify_move(prev, move, before_a, after_a)
+            classification = classify_move(prev, move, before_a, analysis)
     print(format_report(board, analysis, classification))
     return 0
 

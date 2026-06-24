@@ -96,6 +96,7 @@ def _extract_binary(archive_bytes: bytes, asset_name: str, dest_dir: Path) -> Pa
                     f"Archive member {member!r} is not a regular file (symlink/hardlink?)")
             with open(out, "wb") as dst:
                 dst.write(src.read())
+        # restore the executable bit (tar only; a Windows .exe needs no Unix exec bit)
         out.chmod(out.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
     return out
 
