@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Dict, Optional
+from collections.abc import Iterator
 
 import chess
 import chess.engine
@@ -78,7 +79,7 @@ class EngineManager:
     def stream_analysis(self, board: chess.Board, *,
                         depth: Optional[int] = None,
                         time: Optional[float] = None,
-                        multipv: Optional[int] = None) -> "AnalysisStream":
+                        multipv: Optional[int] = None) -> AnalysisStream:
         mpv = multipv if multipv is not None else self._multipv
         if depth is None and time is None:
             depth = 18
@@ -111,28 +112,33 @@ class EngineManager:
 
 
 class AnalysisStream:
-    """Iterable of AnalysisInfo snapshots from a running multi-PV search.
+    """Single-use iterable of AnalysisInfo snapshots from a running multi-PV search.
 
     Iterating blocks until the next engine update; each yield rebuilds an
-    AnalysisInfo from the handle's latest per-line info. stop() cancels the
-    search; usable as a context manager (exit stops it).
+    AnalysisInfo from the handle's latest scored per-line info (engine `info
+    string` messages that carry no score are skipped). Iterate at most once.
+    stop() is idempotent and is also invoked on context-manager exit, so
+    calling stop() then leaving the `with` block is safe.
     """
 
     def __init__(self, result: "chess.engine.SimpleAnalysisResult", fen: str):
         self._result = result
         self._fen = fen
+        self._stopped = False
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[AnalysisInfo]:
         for _update in self._result:
             scored = [info for info in self._result.multipv if "score" in info]
             if scored:
                 yield AnalysisInfo.from_engine(self._fen, scored)
 
     def stop(self) -> None:
-        self._result.stop()
+        if not self._stopped:
+            self._stopped = True
+            self._result.stop()
 
     def __enter__(self) -> "AnalysisStream":
         return self
 
     def __exit__(self, *exc) -> None:
-        self._result.stop()
+        self.stop()

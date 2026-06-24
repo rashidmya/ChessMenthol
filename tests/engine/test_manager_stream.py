@@ -16,7 +16,7 @@ def test_stream_analysis_yields_snapshots_then_stops():
             if len(snapshots) >= 2:
                 stream.stop()
                 break
-    assert len(snapshots) >= 1
+    assert len(snapshots) >= 2
     assert all(isinstance(s, AnalysisInfo) for s in snapshots)
     assert snapshots[-1].best is not None
     depths = [s.depth for s in snapshots]
