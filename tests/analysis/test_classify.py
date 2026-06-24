@@ -97,3 +97,35 @@ def test_book_move_short_circuits():
 
     result = classify_move(board, e4, before, after_a, book=AlwaysBook())
     assert result.label == MoveClass.BOOK
+
+
+def test_great_move_is_only_move():
+    board, e4, after = _white_startpos_move("e2e4")
+    d4 = chess.Move.from_uci("d2d4")
+    # e4 is best AND second-best is far worse -> only move
+    before = mk_analysis(board.fen(), [(Eval(cp=50), [e4]), (Eval(cp=-150), [d4])])
+    after_a = mk_analysis(after.fen(), [(Eval(cp=50), [chess.Move.from_uci("e7e5")])])
+    result = classify_move(board, e4, before, after_a)
+    assert result.label == MoveClass.GREAT
+
+
+def test_brilliant_sound_sacrifice():
+    # White queen d1 -> h5, offered to the g6 pawn, but eval stays winning.
+    board = chess.Board("k7/8/6p1/8/8/8/8/3QK3 w - - 0 1")
+    qh5 = chess.Move.from_uci("d1h5")
+    after = board.copy()
+    after.push(qh5)
+    before = mk_analysis(board.fen(), [(Eval(cp=300), [qh5])])
+    after_a = mk_analysis(after.fen(), [(Eval(cp=300), [chess.Move.from_uci("a8b8")])])
+    result = classify_move(board, qh5, before, after_a)
+    assert result.label == MoveClass.BRILLIANT
+
+
+def test_missed_win():
+    board, e4, after = _white_startpos_move("e2e4")
+    best = chess.Move.from_uci("d2d4")
+    # Had a winning move (+400) but e4 only keeps +30 -> threw the win
+    before = mk_analysis(board.fen(), [(Eval(cp=400), [best]), (Eval(cp=60), [e4])])
+    after_a = mk_analysis(after.fen(), [(Eval(cp=30), [chess.Move.from_uci("e7e5")])])
+    result = classify_move(board, e4, before, after_a)
+    assert result.label == MoveClass.MISS
