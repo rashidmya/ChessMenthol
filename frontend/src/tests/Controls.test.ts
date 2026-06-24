@@ -38,4 +38,12 @@ describe('Controls', () => {
     setup();
     expect((screen.getByTestId('capture-btn') as HTMLButtonElement).disabled).toBe(true);
   });
+
+  it('emits set_fen with the typed FEN when Set is clicked', async () => {
+    const { onCommand } = setup();
+    const fen = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1';
+    await fireEvent.input(screen.getByTestId('fen-input'), { target: { value: fen } });
+    await fireEvent.click(screen.getByTestId('fen-set'));
+    expect(onCommand).toHaveBeenCalledWith({ type: 'set_fen', fen });
+  });
 });
