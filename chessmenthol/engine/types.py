@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -36,7 +37,7 @@ class Eval:
     def format_white(self) -> str:
         if self.mate is not None:
             return f"#{self.mate}"
-        return f"{(self.cp or 0) / 100:+.2f}"
+        return f"{(self.cp if self.cp is not None else 0) / 100:+.2f}"
 
 
 @dataclass(frozen=True)
@@ -46,7 +47,7 @@ class Line:
     multipv: int            # 1-based rank; 1 == best line
     eval: Eval
     depth: int
-    pv: List[chess.Move]
+    pv: List[chess.Move]    # mutable list field => Line is frozen but NOT hashable
 
     @property
     def move(self) -> Optional[chess.Move]:
@@ -59,14 +60,14 @@ class AnalysisInfo:
 
     fen: str
     depth: int
-    lines: List[Line]       # sorted ascending by multipv (lines[0] == best)
+    lines: List[Line]       # sorted ascending by multipv (lines[0] == best); not hashable
 
     @property
     def best(self) -> Optional[Line]:
         return self.lines[0] if self.lines else None
 
     @classmethod
-    def from_engine(cls, fen: str, infos) -> "AnalysisInfo":
+    def from_engine(cls, fen: str, infos: "Iterable[chess.engine.InfoDict]") -> "AnalysisInfo":
         lines: List[Line] = []
         for info in infos:
             lines.append(

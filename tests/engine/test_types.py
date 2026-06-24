@@ -1,7 +1,7 @@
 import chess
 import chess.engine
 
-from chessmenthol.engine.types import Eval
+from chessmenthol.engine.types import AnalysisInfo, Eval, Line
 
 
 def test_eval_from_cp_pov_score_is_white_relative():
@@ -23,6 +23,10 @@ def test_eval_from_mate():
     ev = Eval.from_pov_score(pov)
     assert ev.mate == 3
     assert ev.cp is None
+    pov_b = chess.engine.PovScore(chess.engine.Mate(2), chess.BLACK)
+    ev_b = Eval.from_pov_score(pov_b)
+    assert ev_b.mate == -2
+    assert ev_b.cp is None
 
 
 def test_scalar_maps_mate_near_mate_value():
@@ -41,9 +45,6 @@ def test_format_white():
     assert Eval(cp=-30).format_white() == "-0.30"
     assert Eval(mate=4).format_white() == "#4"
     assert Eval(mate=-1).format_white() == "#-1"
-
-
-from chessmenthol.engine.types import Line, AnalysisInfo
 
 
 def _info(multipv, score, pv, depth=20):
