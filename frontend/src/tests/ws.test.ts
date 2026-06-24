@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
-import { applyFrame, state, lastError } from '../lib/ws';
+import { applyFrame, state, lastError, errorSeq } from '../lib/ws';
 
 beforeEach(() => {
   state.set(null);
   lastError.set(null);
+  errorSeq.set(0);
 });
 
 describe('applyFrame', () => {
@@ -23,5 +24,12 @@ describe('applyFrame', () => {
     applyFrame({ type: 'error', message: 'bad fen' } as any);
     expect(get(lastError)).toBe('bad fen');
     expect(get(state)).toBeNull();
+  });
+
+  it('bumps errorSeq on each error frame', () => {
+    const before = get(errorSeq);
+    applyFrame({ type: 'error', message: 'illegal move: e1e3' } as any);
+    applyFrame({ type: 'error', message: 'illegal move: e1e3' } as any);
+    expect(get(errorSeq)).toBe(before + 2);
   });
 });

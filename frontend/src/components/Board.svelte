@@ -10,6 +10,8 @@
   export let orientation: 'white' | 'black' = 'white';
   /** Called with a UCI string when the USER makes a move on the board. */
   export let onMove: (uci: string) => void = () => {};
+  /** Bump this (e.g. on a rejected-move error) to force a re-sync to `fen`. */
+  export let revertSignal = 0;
 
   type CgApi = ReturnType<typeof Chessground>;
   let el: HTMLDivElement;
@@ -46,6 +48,12 @@
   onDestroy(() => cg?.destroy());
 
   $: if (cg) cg.set({ fen, orientation });
+  // When the server rejects a move (revertSignal bumps), force the board back to
+  // the authoritative fen even though its value did not change.
+  $: forceSync(revertSignal);
+  function forceSync(_signal: number): void {
+    if (cg) cg.set({ fen, orientation });
+  }
 </script>
 
 <div class="board" data-testid="board" bind:this={el}></div>

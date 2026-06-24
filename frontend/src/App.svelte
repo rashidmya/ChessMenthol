@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { state, lastError, connected, connect, send } from './lib/ws';
+  import { state, lastError, connected, errorSeq, connect, send } from './lib/ws';
   import type { Command } from './lib/types';
   import Board from './components/Board.svelte';
   import EvalBar from './components/EvalBar.svelte';
@@ -29,7 +29,7 @@
   <div class="app">
     <EvalBar evalDto={s?.eval ?? null} />
     <div class="board-wrap">
-      <Board {fen} {orientation} {onMove} />
+      <Board {fen} {orientation} {onMove} revertSignal={$errorSeq} />
     </div>
     <aside class="panel">
       <div class="box"><div class="label">Engine lines</div>
