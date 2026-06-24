@@ -41,3 +41,37 @@ def test_format_white():
     assert Eval(cp=-30).format_white() == "-0.30"
     assert Eval(mate=4).format_white() == "#4"
     assert Eval(mate=-1).format_white() == "#-1"
+
+
+from chessmenthol.engine.types import Line, AnalysisInfo
+
+
+def _info(multipv, score, pv, depth=20):
+    return {"multipv": multipv, "score": score, "pv": pv, "depth": depth}
+
+
+def test_line_move_is_first_pv_move():
+    mv = chess.Move.from_uci("e2e4")
+    line = Line(multipv=1, eval=Eval(cp=30), depth=20, pv=[mv])
+    assert line.move == mv
+
+
+def test_line_move_is_none_when_pv_empty():
+    assert Line(multipv=1, eval=Eval(cp=0), depth=1, pv=[]).move is None
+
+
+def test_analysis_from_engine_sorts_by_multipv_and_picks_best():
+    e4 = chess.Move.from_uci("e2e4")
+    d4 = chess.Move.from_uci("d2d4")
+    infos = [
+        _info(2, chess.engine.PovScore(chess.engine.Cp(10), chess.WHITE), [d4], 18),
+        _info(1, chess.engine.PovScore(chess.engine.Cp(30), chess.WHITE), [e4], 20),
+    ]
+    analysis = AnalysisInfo.from_engine(chess.Board().fen(), infos)
+    assert [l.multipv for l in analysis.lines] == [1, 2]
+    assert analysis.best.move == e4
+    assert analysis.depth == 20
+
+
+def test_analysis_best_is_none_when_no_lines():
+    assert AnalysisInfo(fen="x", depth=0, lines=[]).best is None

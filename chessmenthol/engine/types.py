@@ -37,3 +37,46 @@ class Eval:
         if self.mate is not None:
             return f"#{self.mate}"
         return f"{(self.cp or 0) / 100:+.2f}"
+
+
+@dataclass(frozen=True)
+class Line:
+    """One principal variation from a multi-PV analysis."""
+
+    multipv: int            # 1-based rank; 1 == best line
+    eval: Eval
+    depth: int
+    pv: List[chess.Move]
+
+    @property
+    def move(self) -> Optional[chess.Move]:
+        return self.pv[0] if self.pv else None
+
+
+@dataclass(frozen=True)
+class AnalysisInfo:
+    """A full analysis snapshot of one position."""
+
+    fen: str
+    depth: int
+    lines: List[Line]       # sorted ascending by multipv (lines[0] == best)
+
+    @property
+    def best(self) -> Optional[Line]:
+        return self.lines[0] if self.lines else None
+
+    @classmethod
+    def from_engine(cls, fen: str, infos) -> "AnalysisInfo":
+        lines: List[Line] = []
+        for info in infos:
+            lines.append(
+                Line(
+                    multipv=info.get("multipv", 1),
+                    eval=Eval.from_pov_score(info["score"]),
+                    depth=info.get("depth", 0),
+                    pv=list(info.get("pv", [])),
+                )
+            )
+        lines.sort(key=lambda l: l.multipv)
+        depth = max((l.depth for l in lines), default=0)
+        return cls(fen=fen, depth=depth, lines=lines)
