@@ -24,6 +24,6 @@
     "vitest": "^4.1.9"
   },
   "dependencies": {
-    "chessground": "^9.2.1"
+    "@lichess-org/chessground": "^10.1.1"
   }
 }
