@@ -1,7 +1,7 @@
 import chess
 import pytest
 
-from chessmenthol.cli import build_parser, format_report
+from chessmenthol.cli import build_parser, format_lines, format_report, run
 from chessmenthol.analysis.classify import Classification, MoveClass
 from chessmenthol.engine.types import AnalysisInfo, Eval, Line
 
@@ -45,8 +45,26 @@ def test_format_report_without_classification():
 
 @pytest.mark.engine
 def test_run_end_to_end_smoke(capsys):
-    from chessmenthol.cli import run
     code = run(["--fen", chess.STARTING_FEN, "--depth", "8", "--lines", "2"])
     out = capsys.readouterr().out
     assert code == 0
     assert "Lines:" in out
+
+
+def test_format_lines_handles_empty_pv():
+    board = chess.Board()
+    analysis = AnalysisInfo(board.fen(), 10, [Line(1, Eval(cp=0), 10, [])])
+    text = format_lines(board, analysis)
+    assert "[1]" in text
+    assert "+0.00" in text
+
+
+@pytest.mark.engine
+def test_run_classifies_played_move(capsys):
+    start = chess.STARTING_FEN
+    after_e4 = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
+    code = run(["--fen", after_e4, "--depth", "8", "--lines", "2",
+                "--prev-fen", start, "--move", "e2e4"])
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "Move class:" in out
