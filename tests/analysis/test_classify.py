@@ -129,3 +129,32 @@ def test_missed_win():
     after_a = mk_analysis(after.fen(), [(Eval(cp=30), [chess.Move.from_uci("e7e5")])])
     result = classify_move(board, e4, before, after_a)
     assert result.label == MoveClass.MISS
+
+
+def test_mistake_band():
+    board, e4, after = _white_startpos_move("e2e4")
+    best = chess.Move.from_uci("d2d4")
+    # best +150, played collapses to 0 -> cpl 150 (in the mistake band, not a miss)
+    before = mk_analysis(board.fen(), [(Eval(cp=150), [best]), (Eval(cp=120), [e4])])
+    after_a = mk_analysis(after.fen(), [(Eval(cp=0), [chess.Move.from_uci("e7e5")])])
+    result = classify_move(board, e4, before, after_a)
+    assert result.label == MoveClass.MISTAKE
+    assert result.cpl == 150
+
+
+def test_black_to_move_blunder_uses_mover_pov():
+    # Black to move (after 1.e4). White-POV evals: black's best keeps it near
+    # equal (-20cp); the played move hands White +400 -> a blunder for Black.
+    board = chess.Board("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1")
+    best = chess.Move.from_uci("c7c5")
+    played = chess.Move.from_uci("g8f6")  # legal, and not the best move
+    after = board.copy()
+    after.push(played)
+    before = mk_analysis(board.fen(),
+                         [(Eval(cp=-20), [best]),
+                          (Eval(cp=-10), [chess.Move.from_uci("e7e5")])])
+    after_a = mk_analysis(after.fen(), [(Eval(cp=400), [chess.Move.from_uci("f1c4")])])
+    result = classify_move(board, played, before, after_a)
+    assert result.is_best is False
+    assert result.cpl == 420  # mover(black) POV: 20 - (-400)
+    assert result.label == MoveClass.BLUNDER

@@ -54,6 +54,8 @@ def is_sacrifice(board_before: chess.Board, move: chess.Move,
     v1 approximation: the moved piece lands on a square attacked by the
     opponent, and (value risked - value captured) is at least one minor piece.
     Does not run a full static-exchange evaluation; tunable via sacrifice_min.
+    A square that is attacked but ALSO defended still counts as a sacrifice
+    when the net risk exceeds sacrifice_min (no defender/SEE check in v1).
     """
     t = thresholds or Thresholds()
     mover = board_before.turn
@@ -124,6 +126,10 @@ def classify_move(board_before: chess.Board, move: chess.Move,
         return Classification(MoveClass.BEST, cpl, is_best)
 
     # 5. Miss: a win was available and got thrown away.
+    # v1 limitation: a missed FORCED MATE whose played move stays winning
+    # (played_mover >= miss_keep) does NOT match here and falls through to the
+    # CPL bands below, where it is labelled BLUNDER because cpl explodes when
+    # best_mover is a mate score. Add a dedicated mate-miss threshold when tuning.
     if best_mover >= t.miss_win and played_mover < t.miss_keep:
         return Classification(MoveClass.MISS, cpl, is_best)
 
