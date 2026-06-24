@@ -63,7 +63,7 @@ def test_invalid_fen_emits_error_no_crash():
 def test_illegal_move_emits_error():
     orch, frames, holder = make_orchestrator()
     orch.handle({"type": "make_move", "uci": "e2e5"})  # illegal from start
-    assert frames[-1]["type"] == "error"
+    assert any(f["type"] == "error" for f in frames)
 
 
 def test_make_move_advances_board():
@@ -152,3 +152,14 @@ def test_stop_command_emits_idle_state_frame():
     idle = [f for f in frames if f["type"] == "state"][-1]
     assert idle["analyzing"] is False
     assert holder["s"].stopped >= 1
+
+
+def test_illegal_move_re_emits_state_so_client_can_revert():
+    orch, frames, holder = make_orchestrator()
+    orch.handle({"type": "make_move", "uci": "e2e5"})  # illegal from the start position
+    types = [f["type"] for f in frames]
+    assert "error" in types
+    # a state frame is also sent so the UI re-syncs its board to the real position
+    assert "state" in types
+    last_state = [f for f in frames if f["type"] == "state"][-1]
+    assert last_state["fen"] == chess.STARTING_FEN  # board unchanged

@@ -87,9 +87,11 @@ class Orchestrator:
             move = chess.Move.from_uci(uci)
         except ValueError:
             self._error(f"invalid move: {uci!r}")
+            self._send(self._state_frame(self._last_analysis, self._board))
             return
         if move not in self._board.legal_moves:
             self._error(f"illegal move: {uci}")
+            self._send(self._state_frame(self._last_analysis, self._board))
             return
         self._session.stop()  # join the prior worker before reading/mutating state
         before = self._last_analysis
