@@ -104,3 +104,40 @@ def test_set_engine_restarts_session():
     state = [f for f in frames if f["type"] == "state"][-1]
     assert state["engineId"] == "stockfish_lite"
     assert holder["s"].started > before
+
+
+def test_make_move_stops_session_before_mutating_board():
+    frames = []
+    log = []
+    holder = {}
+
+    class OrderSession:
+        def __init__(self, engine, on_update):
+            self._on_update = on_update
+
+        def start(self, board, *, depth=None, multipv=None, time_limit=None):
+            log.append(("start", board.fen()))
+
+        def stop(self):
+            # record the orchestrator's board AT THE MOMENT stop() is called
+            log.append(("stop", holder["orch"]._board.fen()))
+
+        def close(self):
+            pass
+
+    def factory(engine, on_update):
+        s = OrderSession(engine, on_update)
+        holder["s"] = s
+        return s
+
+    orch = Orchestrator(send=frames.append, engine=object(), session_factory=factory)
+    holder["orch"] = orch
+    orch.handle({"type": "make_move", "uci": "e2e4"})
+
+    # the session must have been stopped while the board was still the pre-move position
+    assert ("stop", chess.STARTING_FEN) in log
+    stop_i = log.index(("stop", chess.STARTING_FEN))
+    start_indices = [i for i, e in enumerate(log) if e[0] == "start"]
+    # ...and (re)started afterwards on the post-move position
+    assert start_indices and start_indices[-1] > stop_i
+    assert log[start_indices[-1]][1] != chess.STARTING_FEN

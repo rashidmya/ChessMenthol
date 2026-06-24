@@ -65,6 +65,7 @@ class Orchestrator:
         if not board.is_valid():
             self._error("invalid position")
             return
+        self._session.stop()  # join the prior worker before mutating shared state
         self._board = board
         self._reset_move_state()
         self._restart()
@@ -75,6 +76,7 @@ class Orchestrator:
         if not board.is_valid():
             self._error("turn change produces an invalid position")
             return
+        self._session.stop()  # join the prior worker before mutating shared state
         self._board = board
         self._reset_move_state()
         self._restart()
@@ -88,6 +90,7 @@ class Orchestrator:
         if move not in self._board.legal_moves:
             self._error(f"illegal move: {uci}")
             return
+        self._session.stop()  # join the prior worker before reading/mutating state
         before = self._last_analysis
         board_before = self._board.copy()
         self._board.push(move)
@@ -97,23 +100,30 @@ class Orchestrator:
         self._restart()
 
     def undo(self) -> None:
+        self._session.stop()  # join the prior worker before mutating shared state
         if self._board.move_stack:
             self._board.pop()
         self._reset_move_state()
         self._restart()
 
     def set_engine(self, engine_id: str) -> None:
+        self._session.stop()  # join the prior worker before mutating shared state
         self._engine_id = engine_id
         self._engine_started = False
         self._restart()
 
     def set_options(self, cmd: dict) -> None:
+        depth = self._depth
+        multipv = self._multipv
         if "depth" in cmd and cmd["depth"] is not None:
-            self._depth = int(cmd["depth"])
+            depth = int(cmd["depth"])
         if "multipv" in cmd and cmd["multipv"] is not None:
-            self._multipv = int(cmd["multipv"])
+            multipv = int(cmd["multipv"])
         threads = cmd.get("threads")
         hash_mb = cmd.get("hash")
+        self._session.stop()  # join the prior worker before mutating shared state
+        self._depth = depth
+        self._multipv = multipv
         if (threads is not None or hash_mb is not None) and self._engine_started:
             self._engine.configure(threads=threads, hash_mb=hash_mb)
         self._restart()
