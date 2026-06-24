@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from typing import Callable, Optional
@@ -7,6 +8,8 @@ from typing import Callable, Optional
 import chess
 
 from ..engine.types import AnalysisInfo
+
+logger = logging.getLogger(__name__)
 
 UpdateCallback = Callable[[AnalysisInfo, chess.Board], None]
 
@@ -32,13 +35,16 @@ class AnalysisSession:
     def start(self, board: chess.Board, *, depth=None, multipv=None, time_limit=None) -> None:
         self.stop()
         board_copy = board.copy()
+        # NB: the engine API names the per-move limit `time`, not `time_limit`.
         stream = self._engine.stream_analysis(
             board_copy, multipv=multipv, depth=depth, time=time_limit)
         thread = threading.Thread(target=self._run, args=(stream, board_copy), daemon=True)
         with self._lock:
             self._stream = stream
             self._thread = thread
-        thread.start()
+            # Start under the lock so a racing stop() can never observe a
+            # registered-but-unstarted thread (which would skip the join and leak it).
+            thread.start()
 
     def _run(self, stream, board) -> None:
         last_emit = 0.0
@@ -54,7 +60,8 @@ class AnalysisSession:
             if pending is not None:
                 self._on_update(pending, board)
         except Exception:
-            pass
+            # A worker thread must never raise; log for debuggability and exit quietly.
+            logger.exception("analysis worker thread crashed")
 
     def join(self, timeout: Optional[float] = None) -> None:
         with self._lock:
