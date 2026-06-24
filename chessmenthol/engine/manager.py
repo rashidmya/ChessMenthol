@@ -32,9 +32,17 @@ class EngineManager:
     def _start(self, engine_id: str) -> None:
         self.close()
         spec = self._registry[engine_id]
-        self._engine = chess.engine.SimpleEngine.popen_uci(str(spec.binary))
-        if spec.default_options:
-            self._engine.configure(dict(spec.default_options))
+        engine = chess.engine.SimpleEngine.popen_uci(str(spec.binary))
+        try:
+            if spec.default_options:
+                engine.configure(dict(spec.default_options))
+        except Exception:
+            try:
+                engine.quit()
+            except Exception:
+                pass
+            raise
+        self._engine = engine
         self._active_id = engine_id
 
     def configure(self, *, threads: Optional[int] = None,
@@ -81,7 +89,7 @@ class EngineManager:
             try:
                 self._engine.quit()
             except Exception:
-                pass
+                pass  # engine may have already crashed; don't mask the original error
             self._engine = None
 
     def __enter__(self) -> "EngineManager":
