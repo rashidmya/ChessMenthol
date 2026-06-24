@@ -141,3 +141,14 @@ def test_make_move_stops_session_before_mutating_board():
     # ...and (re)started afterwards on the post-move position
     assert start_indices and start_indices[-1] > stop_i
     assert log[start_indices[-1]][1] != chess.STARTING_FEN
+
+
+def test_stop_command_emits_idle_state_frame():
+    orch, frames, holder = make_orchestrator()
+    orch.handle({"type": "set_fen", "fen": chess.STARTING_FEN})
+    active = [f for f in frames if f["type"] == "state"][-1]
+    assert active["analyzing"] is True
+    orch.handle({"type": "stop"})
+    idle = [f for f in frames if f["type"] == "state"][-1]
+    assert idle["analyzing"] is False
+    assert holder["s"].stopped >= 1

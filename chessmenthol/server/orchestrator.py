@@ -29,6 +29,7 @@ class Orchestrator:
         self._last_analysis: Optional[AnalysisInfo] = None
         self._pending: Optional[Tuple[chess.Board, chess.Move, Optional[AnalysisInfo]]] = None
         self._last_move: Optional[dict] = None
+        self._analyzing = False
         factory = session_factory or (lambda eng, cb: AnalysisSession(eng, cb))
         self._session = factory(self._engine, self._on_update)
 
@@ -49,7 +50,7 @@ class Orchestrator:
             elif ctype == "set_options":
                 self.set_options(cmd)
             elif ctype == "stop":
-                self._session.stop()
+                self.stop_analysis()
             else:
                 self._error(f"unknown command: {ctype!r}")
         except (KeyError, ValueError) as exc:
@@ -128,6 +129,11 @@ class Orchestrator:
             self._engine.configure(threads=threads, hash_mb=hash_mb)
         self._restart()
 
+    def stop_analysis(self) -> None:
+        self._session.stop()
+        self._analyzing = False
+        self._send(self._state_frame(self._last_analysis, self._board))
+
     def close(self) -> None:
         self._session.close()
         if hasattr(self._engine, "close"):
@@ -144,6 +150,7 @@ class Orchestrator:
             self._engine.select(self._engine_id)
             self._engine_started = True
         self._session.start(self._board, depth=self._depth, multipv=self._multipv)
+        self._analyzing = True
         self._send(self._state_frame(self._last_analysis, self._board))
 
     def _on_update(self, analysis: AnalysisInfo, board: chess.Board) -> None:
@@ -169,7 +176,7 @@ class Orchestrator:
             "fen": self._board.fen(),
             "sideToMove": "white" if self._board.turn == chess.WHITE else "black",
             "engineId": self._engine_id,
-            "analyzing": True,
+            "analyzing": self._analyzing,
             "eval": adict["eval"],
             "depth": adict["depth"],
             "lines": adict["lines"],
