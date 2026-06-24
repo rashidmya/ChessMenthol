@@ -816,12 +816,12 @@ Expected: FAIL — cannot find the component.
 ```svelte
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { Chessground } from 'chessground';
-  import type { Api } from 'chessground/api';
+  import { Chessground } from '@lichess-org/chessground';
+  import type { Api } from '@lichess-org/chessground/api';
   import { moveToUci } from '../lib/board';
-  import 'chessground/assets/chessground.base.css';
-  import 'chessground/assets/chessground.brown.css';
-  import 'chessground/assets/chessground.cburnett.css';
+  import '@lichess-org/chessground/assets/chessground.base.css';
+  import '@lichess-org/chessground/assets/chessground.brown.css';
+  import '@lichess-org/chessground/assets/chessground.cburnett.css';
 
   export let fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
   export let orientation: 'white' | 'black' = 'white';
