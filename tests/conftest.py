@@ -8,7 +8,8 @@ _BUNDLED = Path(__file__).resolve().parent.parent / "chessmenthol" / "engines" /
 
 
 def _stockfish_available() -> bool:
-    if os.environ.get("CHESSMENTHOL_STOCKFISH"):
+    env = os.environ.get("CHESSMENTHOL_STOCKFISH")
+    if env and Path(env).is_file():
         return True
     if (_BUNDLED / "stockfish").exists() or (_BUNDLED / "stockfish.exe").exists():
         return True

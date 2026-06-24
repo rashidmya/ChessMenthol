@@ -15,6 +15,7 @@ import json
 import platform
 import stat
 import tarfile
+import urllib.error
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -41,6 +42,8 @@ def select_asset(asset_names: List[str], system: str, machine: str,
     machine = machine.lower()
     is_arm = machine in {"arm64", "aarch64"} or machine.startswith("armv8")
 
+    # macOS ARM has a single dedicated build; --variant (an x86-64 concept) is
+    # intentionally ignored here so we never select an x86 binary for Apple Silicon.
     if token == "macos" and is_arm:
         for name in asset_names:
             if "m1-apple-silicon" in name:
@@ -52,11 +55,11 @@ def select_asset(asset_names: List[str], system: str, machine: str,
                 if name.startswith(f"stockfish-{token}-{suffix}"):
                     return name
 
-    ladder = [variant] if variant else []
-    ladder += ["avx2", "sse41-popcnt", ""]  # "" == plain x86-64 (most compatible)
+    ladder: List[str] = [variant] if variant else []
+    for v in ["avx2", "sse41-popcnt", ""]:  # "" == plain x86-64 (most compatible)
+        if v not in ladder:
+            ladder.append(v)
     for v in ladder:
-        if v is None:
-            continue
         target = f"stockfish-{token}-x86-64" + (f"-{v}" if v else "")
         for name in asset_names:
             base = name.rsplit(".", 1)[0]  # strip .zip / .tar
@@ -67,9 +70,9 @@ def select_asset(asset_names: List[str], system: str, machine: str,
 
 def _binary_member(names: List[str]) -> str:
     for n in names:
-        if "/" not in n or n.endswith("/"):
+        if n.endswith("/"):
             continue
-        leaf = n.rsplit("/", 1)[1]
+        leaf = n.rsplit("/", 1)[-1]
         if leaf.startswith("stockfish") and not leaf.endswith((".txt", ".md", ".nnue")):
             return n
     raise RuntimeError(f"No stockfish binary in archive members: {names}")
@@ -88,6 +91,9 @@ def _extract_binary(archive_bytes: bytes, asset_name: str, dest_dir: Path) -> Pa
         with tarfile.open(fileobj=io.BytesIO(archive_bytes)) as tf:
             member = _binary_member(tf.getnames())
             src = tf.extractfile(member)
+            if src is None:
+                raise RuntimeError(
+                    f"Archive member {member!r} is not a regular file (symlink/hardlink?)")
             with open(out, "wb") as dst:
                 dst.write(src.read())
         out.chmod(out.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
@@ -99,8 +105,13 @@ def _fetch_release_assets(tag: str) -> list:
     req = urllib.request.Request(
         url, headers={"Accept": "application/vnd.github+json",
                       "User-Agent": "chessmenthol-fetch"})
-    with urllib.request.urlopen(req) as resp:
-        return json.load(resp)["assets"]
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return json.load(resp)["assets"]
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(
+            f"GitHub API error {e.code} fetching release {tag!r}. "
+            "If rate-limited (403), try again later or set a GITHUB_TOKEN.") from e
 
 
 def main(argv: Optional[List[str]] = None) -> int:
