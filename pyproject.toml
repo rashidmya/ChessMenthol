@@ -1,0 +1,22 @@
+[project]
+name = "chessmenthol"
+version = "0.1.0"
+description = "Cross-platform desktop chess assistant (engine + vision)."
+requires-python = ">=3.11"
+dependencies = ["chess>=1.11"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+chessmenthol-analyze = "chessmenthol.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["chessmenthol*"]
+
+[tool.pytest.ini_options]
+markers = ["engine: requires a real Stockfish binary"]
