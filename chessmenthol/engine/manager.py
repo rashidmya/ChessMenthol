@@ -75,6 +75,17 @@ class EngineManager:
             infos = [infos]
         return AnalysisInfo.from_engine(board.fen(), infos)
 
+    def stream_analysis(self, board: chess.Board, *,
+                        depth: Optional[int] = None,
+                        time: Optional[float] = None,
+                        multipv: Optional[int] = None) -> "AnalysisStream":
+        mpv = multipv if multipv is not None else self._multipv
+        if depth is None and time is None:
+            depth = 18
+        limit = chess.engine.Limit(depth=depth, time=time)
+        result = self._require().analysis(board, limit, multipv=mpv)
+        return AnalysisStream(result, board.fen())
+
     def _restart(self) -> None:
         if self._active_id is not None:
             self._start(self._active_id)
@@ -97,3 +108,31 @@ class EngineManager:
 
     def __exit__(self, *exc) -> None:
         self.close()
+
+
+class AnalysisStream:
+    """Iterable of AnalysisInfo snapshots from a running multi-PV search.
+
+    Iterating blocks until the next engine update; each yield rebuilds an
+    AnalysisInfo from the handle's latest per-line info. stop() cancels the
+    search; usable as a context manager (exit stops it).
+    """
+
+    def __init__(self, result: "chess.engine.SimpleAnalysisResult", fen: str):
+        self._result = result
+        self._fen = fen
+
+    def __iter__(self):
+        for _update in self._result:
+            scored = [info for info in self._result.multipv if "score" in info]
+            if scored:
+                yield AnalysisInfo.from_engine(self._fen, scored)
+
+    def stop(self) -> None:
+        self._result.stop()
+
+    def __enter__(self) -> "AnalysisStream":
+        return self
+
+    def __exit__(self, *exc) -> None:
+        self._result.stop()
