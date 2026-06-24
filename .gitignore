@@ -8,3 +8,6 @@ dist/
 build/
 .superpowers/
 chessmenthol/engines/
+frontend/node_modules/
+frontend/dist/
+chessmenthol/server/static/
