@@ -78,3 +78,30 @@ def test_ws_handle_exception_returns_error_and_keeps_socket_open():
         ok = ws.receive_json()
     assert err == {"type": "error", "message": "boom happened"}
     assert ok == {"type": "state", "fen": "ok"}
+
+
+@pytest.mark.engine
+def test_ws_streams_real_analysis_for_set_fen():
+    app = create_app()  # real Orchestrator + real Stockfish
+    client = TestClient(app)
+    fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
+    with client.websocket_connect("/ws") as ws:
+        ws.send_json({"type": "set_options", "depth": 10, "multipv": 2})
+        ws.send_json({"type": "set_fen", "fen": fen})
+        # Read frames until we see a streamed analysis FOR THIS fen with lines.
+        # Filtering on fen avoids a race where a leftover start-position frame
+        # (from the set_options analysis) could arrive first.
+        got = None
+        for _ in range(80):
+            frame = ws.receive_json()
+            if (frame.get("type") == "state"
+                    and frame.get("fen") == fen
+                    and frame.get("lines")):
+                got = frame
+                break
+        ws.send_json({"type": "stop"})
+    assert got is not None
+    assert got["sideToMove"] == "black"
+    assert len(got["lines"]) >= 1
+    assert "scoreText" in got["lines"][0]
+    assert "pv" in got["lines"][0]
