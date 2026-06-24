@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from chessmenthol.server.app import create_app
@@ -18,9 +19,17 @@ class FakeOrchestrator:
         self.commands.append(cmd)
         if cmd.get("type") == "ping":
             self._send({"type": "state", "fen": "ok"})
+        elif cmd.get("type") == "boom":
+            raise RuntimeError("boom happened")
 
     def close(self):
         self.closed = True
+
+
+@pytest.fixture(autouse=True)
+def _clear_fake_instances():
+    FakeOrchestrator.instances.clear()
+    yield
 
 
 def test_ws_round_trip_command_to_state():
@@ -47,3 +56,25 @@ def test_health_endpoint():
     app = create_app(orchestrator_factory=FakeOrchestrator)
     client = TestClient(app)
     assert client.get("/healthz").json() == {"status": "ok"}
+
+
+def test_ws_malformed_json_returns_error_frame():
+    app = create_app(orchestrator_factory=FakeOrchestrator)
+    client = TestClient(app)
+    with client.websocket_connect("/ws") as ws:
+        ws.send_text("this is not json")
+        frame = ws.receive_json()
+    assert frame["type"] == "error"
+    assert "JSON" in frame["message"]
+
+
+def test_ws_handle_exception_returns_error_and_keeps_socket_open():
+    app = create_app(orchestrator_factory=FakeOrchestrator)
+    client = TestClient(app)
+    with client.websocket_connect("/ws") as ws:
+        ws.send_json({"type": "boom"})
+        err = ws.receive_json()
+        ws.send_json({"type": "ping"})  # socket must still work after a handle error
+        ok = ws.receive_json()
+    assert err == {"type": "error", "message": "boom happened"}
+    assert ok == {"type": "state", "fen": "ok"}

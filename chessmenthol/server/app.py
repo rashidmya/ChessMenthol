@@ -31,6 +31,8 @@ def create_app(*, orchestrator_factory: Optional[OrchestratorFactory] = None) ->
 
         def send(frame: dict) -> None:
             # Called from any thread (the analysis worker). Hand off to the loop.
+            # After disconnect the pump task is cancelled, so any late frame queued
+            # here is simply never drained (dropped) — that is the intended invariant.
             asyncio.run_coroutine_threadsafe(queue.put(frame), loop)
 
         orch = factory(send)
@@ -43,12 +45,25 @@ def create_app(*, orchestrator_factory: Optional[OrchestratorFactory] = None) ->
         pump_task = asyncio.create_task(pump())
         try:
             while True:
-                cmd = await websocket.receive_json()
-                orch.handle(cmd)
+                try:
+                    cmd = await websocket.receive_json()
+                except WebSocketDisconnect:
+                    raise
+                except Exception:
+                    await websocket.send_json({"type": "error", "message": "invalid JSON"})
+                    continue
+                try:
+                    orch.handle(cmd)
+                except Exception as exc:  # unexpected engine/runtime failure
+                    await websocket.send_json({"type": "error", "message": str(exc)})
         except WebSocketDisconnect:
             pass
         finally:
             pump_task.cancel()
+            try:
+                await pump_task
+            except asyncio.CancelledError:
+                pass
             orch.close()
 
     # Serve the built frontend if present (Milestone 2b produces it).
