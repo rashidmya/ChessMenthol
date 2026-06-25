@@ -86,6 +86,7 @@ def test_classify_runs_through_cv2dnn(tmp_path):
         Tiny(), dummy, str(onnx_path),
         input_names=["input"], output_names=["logits"],
         dynamic_axes={"input": {0: "n"}, "logits": {0: "n"}}, opset_version=12,
+        dynamo=False,  # classic exporter (torch 2.12 dynamo default needs onnxscript)
     )
     clf = PieceClassifier(model_path=onnx_path)
     crops = [SquareImage(square="a1", image=np.zeros((30, 30, 3), np.uint8)) for _ in range(64)]
