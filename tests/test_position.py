@@ -98,3 +98,33 @@ def test_assemble_no_low_confidence_when_all_above_threshold():
     grid = board_to_grid(chess.Board(), "white_bottom", confidence=0.95)
     ap = assemble(grid, orientation="white_bottom", side_to_move=chess.WHITE)
     assert ap.low_confidence == []
+
+
+def test_assemble_grants_full_castling_for_start_position():
+    grid = board_to_grid(chess.Board(), "white_bottom")
+    ap = assemble(grid, orientation="white_bottom", side_to_move=chess.WHITE)
+    # FEN castling field is the 3rd token
+    assert ap.fen.split()[2] == "KQkq"
+
+
+def test_assemble_withholds_castling_when_rook_off_home():
+    board = chess.Board()
+    board.remove_piece_at(chess.A1)  # white queen-side rook missing from home
+    grid = board_to_grid(board, "white_bottom")
+    ap = assemble(grid, orientation="white_bottom", side_to_move=chess.WHITE)
+    castling = ap.fen.split()[2]
+    assert "Q" not in castling  # queen-side white right withheld
+    assert "K" in castling and "k" in castling and "q" in castling
+
+
+def test_assemble_no_castling_when_kings_off_home():
+    grid = [[SquareLabel(None, 1.0) for _ in range(8)] for _ in range(8)]
+    grid[7][4] = SquareLabel(chess.Piece(chess.KING, chess.WHITE), 1.0)   # e1
+    grid[7][0] = SquareLabel(chess.Piece(chess.ROOK, chess.WHITE), 1.0)   # a1
+    grid[7][7] = SquareLabel(chess.Piece(chess.ROOK, chess.WHITE), 1.0)   # h1
+    grid[3][3] = SquareLabel(chess.Piece(chess.KING, chess.BLACK), 1.0)   # d5 (off home)
+    ap = assemble(grid, orientation="white_bottom", side_to_move=chess.WHITE)
+    # white may castle (king+rooks home); black cannot (king off home)
+    castling = ap.fen.split()[2]
+    assert "K" in castling and "Q" in castling
+    assert "k" not in castling and "q" not in castling

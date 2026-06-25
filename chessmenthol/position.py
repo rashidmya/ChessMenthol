@@ -34,6 +34,25 @@ def _status_text(status: chess.Status) -> str:
     return ", ".join(flag.name.lower().replace("_", " ") for flag in status)
 
 
+def _infer_castling_rights(board: chess.Board) -> chess.Bitboard:
+    rights = chess.BB_EMPTY
+    wk = chess.Piece(chess.KING, chess.WHITE)
+    bk = chess.Piece(chess.KING, chess.BLACK)
+    wr = chess.Piece(chess.ROOK, chess.WHITE)
+    br = chess.Piece(chess.ROOK, chess.BLACK)
+    if board.piece_at(chess.E1) == wk:
+        if board.piece_at(chess.H1) == wr:
+            rights |= chess.BB_H1
+        if board.piece_at(chess.A1) == wr:
+            rights |= chess.BB_A1
+    if board.piece_at(chess.E8) == bk:
+        if board.piece_at(chess.H8) == br:
+            rights |= chess.BB_H8
+        if board.piece_at(chess.A8) == br:
+            rights |= chess.BB_A8
+    return rights
+
+
 def assemble(
     grid: list[list[SquareLabel]],
     *,
@@ -50,6 +69,7 @@ def assemble(
                 square = chess.parse_square(square_name(col, row, orientation))
                 board.set_piece_at(square, label.piece)
     board.turn = side_to_move
+    board.castling_rights = _infer_castling_rights(board)
 
     status = board.status()
     is_legal = status == chess.STATUS_VALID
