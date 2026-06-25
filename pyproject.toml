@@ -15,6 +15,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8", "httpx>=0.27"]
 desktop = ["pywebview>=5"]
+convert = ["torch", "safetensors", "huggingface_hub", "datasets", "onnx"]
 
 [project.scripts]
 chessmenthol-analyze = "chessmenthol.cli:main"
@@ -30,4 +31,7 @@ build-backend = "setuptools.build_meta"
 include = ["chessmenthol*"]
 
 [tool.pytest.ini_options]
-markers = ["engine: requires a real Stockfish binary"]
+markers = [
+    "engine: requires a real Stockfish binary",
+    "convert: requires the [convert] extra (torch/onnx/huggingface) and network access",
+]
