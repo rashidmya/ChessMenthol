@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from chessmenthol.vision.detect import detect, square_name
+from chessmenthol.vision.detect import crop_squares, detect, square_name
 from chessmenthol.vision.types import Frame
 from tests.vision.synthetic import render_board
 
@@ -80,3 +80,22 @@ def test_detect_no_highlights_on_clean_board():
     loc = detect(Frame(img))
     assert loc is not None
     assert loc.highlight_squares == []
+
+
+def test_crop_squares_count_and_order():
+    img, _ = render_board(square=40, margin=24)
+    loc = detect(Frame(img))
+    crops = crop_squares(Frame(img), loc)
+    assert len(crops) == 64
+    # canonical order: a1, b1, ..., h1, a2, ..., h8 (python-chess index order)
+    assert crops[0].square == "a1"
+    assert crops[7].square == "h1"
+    assert crops[63].square == "h8"
+
+
+def test_crop_squares_shapes_near_square_size():
+    img, _ = render_board(square=40, margin=24)
+    loc = detect(Frame(img))
+    for sq in crop_squares(Frame(img), loc):
+        h, w = sq.image.shape[:2]
+        assert 24 <= h <= 40 and 24 <= w <= 40  # square minus inset

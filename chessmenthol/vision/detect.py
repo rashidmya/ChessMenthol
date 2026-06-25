@@ -5,7 +5,7 @@ from typing import Optional, Union
 import cv2
 import numpy as np
 
-from .types import BoardLocation, Frame, Region
+from .types import BoardLocation, Frame, Region, SquareImage
 
 ImageLike = Union[Frame, np.ndarray]
 _MIN_SQUARE = 6
@@ -123,6 +123,28 @@ def _checker_confidence(means_gray: np.ndarray) -> float:
     sep = abs(float(light.mean()) - float(dark.mean()))
     spread = (float(light.std()) + float(dark.std())) / 2 + 1e-6
     return float(np.clip(sep / (sep + 4 * spread), 0.0, 1.0))
+
+
+def _square_sort_key(name: str) -> int:
+    file_idx = ord(name[0]) - ord("a")
+    rank_idx = int(name[1]) - 1
+    return rank_idx * 8 + file_idx  # python-chess square index (a1=0 .. h8=63)
+
+
+def crop_squares(frame: ImageLike, location: BoardLocation) -> list[SquareImage]:
+    image = _as_image(frame)
+    crops: list[SquareImage] = []
+    for row in range(8):
+        for col in range(8):
+            x0, x1 = location.grid_x[col], location.grid_x[col + 1]
+            y0, y1 = location.grid_y[row], location.grid_y[row + 1]
+            ix = max(1, (x1 - x0) // 12)
+            iy = max(1, (y1 - y0) // 12)
+            cell = image[y0 + iy : y1 - iy, x0 + ix : x1 - ix].copy()
+            name = square_name(col, row, location.orientation_hint)
+            crops.append(SquareImage(square=name, image=cell))
+    crops.sort(key=lambda s: _square_sort_key(s.square))
+    return crops
 
 
 def detect(frame: ImageLike, *, min_confidence: float = 0.5) -> Optional[BoardLocation]:
