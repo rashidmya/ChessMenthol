@@ -15,7 +15,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8", "httpx>=0.27"]
 desktop = ["pywebview>=5"]
-convert = ["torch", "safetensors", "huggingface_hub", "datasets", "onnx"]
+convert = ["torch", "safetensors", "huggingface_hub", "datasets", "onnx", "pillow"]
 
 [project.scripts]
 chessmenthol-analyze = "chessmenthol.cli:main"

@@ -95,3 +95,24 @@ def test_classify_runs_through_cv2dnn(tmp_path):
         assert label.piece is None or isinstance(label.piece, chess.Piece)
         assert 0.0 <= label.confidence <= 1.0
     assert clf.classify([]) == []  # empty short-circuit
+
+
+import pathlib
+
+import cv2
+
+_PIECE_FIXTURES = pathlib.Path(__file__).parent / "fixtures" / "pieces"
+
+
+def test_committed_model_classifies_real_crops():
+    if not pathlib.Path("chessmenthol/models/pieces.onnx").exists():
+        pytest.skip("committed pieces.onnx not present")
+    clf = PieceClassifier()
+    paths = sorted(_PIECE_FIXTURES.glob("*/*.png"))
+    assert paths, "no committed piece fixtures"
+    crops = [SquareImage(square="a1", image=cv2.imread(str(p))) for p in paths]
+    expected = [p.parent.name for p in paths]
+    labels = clf.classify(crops)
+    from chessmenthol.vision.pieces import CLASSES, piece_to_class
+    correct = sum(CLASSES[piece_to_class(lab.piece)] == exp for lab, exp in zip(labels, expected))
+    assert correct / len(paths) >= 0.90
