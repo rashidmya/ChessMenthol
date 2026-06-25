@@ -88,6 +88,33 @@ def _cell_means(image: np.ndarray, grid_x: list[int], grid_y: list[int]) -> np.n
     return means
 
 
+def _orientation_hint(means_gray: np.ndarray) -> Optional[str]:
+    yy, xx = np.mgrid[0:8, 0:8]
+    parity = (xx + yy) % 2
+    even_mean = float(means_gray[parity == 0].mean())
+    odd_mean = float(means_gray[parity == 1].mean())
+    if abs(even_mean - odd_mean) < 1e-3:
+        return None
+    # bottom-left cell is (row=7, col=0) -> parity (7+0)%2 = 1 (odd group)
+    bottom_left_is_dark = odd_mean < even_mean
+    return "white_bottom" if bottom_left_is_dark else "black_bottom"
+
+
+def _highlight_squares(means_bgr: np.ndarray, orientation: Optional[str]) -> list[str]:
+    yy, xx = np.mgrid[0:8, 0:8]
+    parity = (xx + yy) % 2
+    base = np.zeros_like(means_bgr)
+    base[parity == 0] = means_bgr[parity == 0].mean(axis=0)
+    base[parity == 1] = means_bgr[parity == 1].mean(axis=0)
+    dev = np.linalg.norm(means_bgr - base, axis=2)  # (8, 8)
+    thr = float(dev.mean()) + 3.0 * float(dev.std())
+    candidates = [
+        (dev[r, c], c, r) for r in range(8) for c in range(8) if dev[r, c] > thr
+    ]
+    candidates.sort(reverse=True)
+    return [square_name(c, r, orientation) for _, c, r in candidates[:2]]
+
+
 def _checker_confidence(means_gray: np.ndarray) -> float:
     yy, xx = np.mgrid[0:8, 0:8]
     parity = (xx + yy) % 2
@@ -120,12 +147,14 @@ def detect(frame: ImageLike, *, min_confidence: float = 0.5) -> Optional[BoardLo
         return None
 
     bbox = Region(grid_x[0], grid_y[0], grid_x[-1] - grid_x[0], grid_y[-1] - grid_y[0])
+    orientation = _orientation_hint(means.mean(axis=2))
+    highlights = _highlight_squares(means, orientation)
     return BoardLocation(
         bbox=bbox,
         grid_x=grid_x,
         grid_y=grid_y,
         square_size=float(period),
-        orientation_hint=None,
-        highlight_squares=[],
+        orientation_hint=orientation,
+        highlight_squares=highlights,
         confidence=confidence,
     )

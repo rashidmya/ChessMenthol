@@ -59,3 +59,24 @@ def test_square_name_black_bottom():
 def test_square_name_none_orientation_defaults_to_white_bottom():
     assert square_name(0, 0, None) == "a8"
     assert square_name(7, 7, None) == "h1"
+
+
+def test_detect_orientation_hint_white_bottom():
+    img, _ = render_board(square=40, margin=24)
+    loc = detect(Frame(img))
+    assert loc is not None
+    assert loc.orientation_hint == "white_bottom"
+
+
+def test_detect_finds_highlight_squares():
+    img, _ = render_board(square=40, margin=24, highlights=["e2", "e4"])
+    loc = detect(Frame(img))
+    assert loc is not None
+    assert set(loc.highlight_squares) == {"e2", "e4"}
+
+
+def test_detect_no_highlights_on_clean_board():
+    img, _ = render_board(square=40, margin=24)
+    loc = detect(Frame(img))
+    assert loc is not None
+    assert loc.highlight_squares == []
