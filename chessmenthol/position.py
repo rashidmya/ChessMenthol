@@ -56,12 +56,18 @@ def assemble(
     # en_passant="fen" so a set ep square always shows (python-chess's default
     # "legal" mode hides it when no ep capture is currently possible).
     fen = board.fen(en_passant="fen")
+    low_conf = [
+        square_name(col, row, orientation)
+        for row in range(8)
+        for col in range(8)
+        if grid[row][col].confidence < confidence_threshold
+    ]
     return AssembledPosition(
         fen=fen,
         board=board if is_legal else None,
         is_legal=is_legal,
         status=_status_text(status),
-        low_confidence=[],
+        low_confidence=low_conf,
         move=None,
         orientation=orientation,
         side_to_move=side_to_move,

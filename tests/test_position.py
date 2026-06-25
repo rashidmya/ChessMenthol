@@ -82,3 +82,19 @@ def test_assemble_illegal_two_white_kings():
     assert ap.board is None
     assert "king" in ap.status
     assert ap.fen  # best-guess FEN still produced
+
+
+def test_assemble_flags_low_confidence_squares():
+    board = chess.Board()
+    grid = board_to_grid(board, "white_bottom", confidence=0.9)
+    # knock two squares below the default 0.5 threshold: a piece (a8) and an empty (e4)
+    grid[0][0] = SquareLabel(grid[0][0].piece, 0.2)   # a8
+    grid[4][4] = SquareLabel(None, 0.1)               # e4, low-confidence empty
+    ap = assemble(grid, orientation="white_bottom", side_to_move=chess.WHITE)
+    assert set(ap.low_confidence) == {"a8", "e4"}
+
+
+def test_assemble_no_low_confidence_when_all_above_threshold():
+    grid = board_to_grid(chess.Board(), "white_bottom", confidence=0.95)
+    ap = assemble(grid, orientation="white_bottom", side_to_move=chess.WHITE)
+    assert ap.low_confidence == []
