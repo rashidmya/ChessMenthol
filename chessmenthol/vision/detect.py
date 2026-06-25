@@ -80,8 +80,10 @@ def _cell_means(image: np.ndarray, grid_x: list[int], grid_y: list[int]) -> np.n
         for col in range(8):
             x0, x1 = grid_x[col], grid_x[col + 1]
             y0, y1 = grid_y[row], grid_y[row + 1]
-            ix = max(1, (x1 - x0) // 6)
-            iy = max(1, (y1 - y0) // 6)
+            # Inset of 1/8 (vs 1/6) keeps border artefacts out without losing
+            # the checker colour signal near cell centres.
+            ix = max(1, (x1 - x0) // 8)
+            iy = max(1, (y1 - y0) // 8)
             cell = image[y0 + iy : y1 - iy, x0 + ix : x1 - ix]
             if cell.size:
                 means[row, col] = cell.reshape(-1, 3).mean(axis=0)
@@ -122,7 +124,9 @@ def _checker_confidence(means_gray: np.ndarray) -> float:
     dark = means_gray[parity == 1]
     sep = abs(float(light.mean()) - float(dark.mean()))
     spread = (float(light.std()) + float(dark.std())) / 2 + 1e-6
-    return float(np.clip(sep / (sep + 4 * spread), 0.0, 1.0))
+    # Weight of 2 (vs 4) keeps real boards above the 0.5 threshold even when
+    # piece occlusion raises within-group spread; noise still scores ~0.15.
+    return float(np.clip(sep / (sep + 2 * spread), 0.0, 1.0))
 
 
 def _square_sort_key(name: str) -> int:
