@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import replace
 from typing import Optional, Union
 
 import cv2
 import numpy as np
 
-from .types import BoardLocation, Frame, Region, SquareImage
+from .types import BoardLocation, Frame, Region
 
 ImageLike = Union[Frame, np.ndarray]
 _MIN_SQUARE = 6
@@ -37,13 +36,13 @@ def _dominant_period(profile: np.ndarray, max_sq: int) -> Optional[int]:
 
     To avoid locking onto harmonics (multiples of the true period), we prefer
     the *smallest* lag whose autocorrelation is within 90% of the maximum in
-    range [_MIN_SQUARE, max_sq].
+    the inclusive range [_MIN_SQUARE, max_sq].
     """
     p = profile.astype(np.float64)
     p = p - p.mean()
     n = len(p)
     ac = np.correlate(p, p, mode="full")[n - 1 :]  # autocorrelation, lags 0..n-1
-    lo, hi = _MIN_SQUARE, min(max_sq, n - 1)
+    lo, hi = _MIN_SQUARE, min(max_sq + 1, n - 1)  # +1 makes max_sq an included lag
     if hi <= lo:
         return None
     window = ac[lo:hi]
@@ -60,15 +59,19 @@ def _dominant_period(profile: np.ndarray, max_sq: int) -> Optional[int]:
 def _best_phase(profile: np.ndarray, period: int, teeth: int = 9) -> Optional[list[int]]:
     n = len(profile)
     span = period * (teeth - 1)
-    if span >= n:
+    if span > n:
         return None
     teeth_idx = period * np.arange(teeth)
     best_start, best_score = 0, -1.0
-    for start in range(0, n - span):
-        score = float(profile[start + teeth_idx].sum())
+    # Inclusive of start=0; when span == n (board flush to the frame edges) the
+    # only valid phase is start=0, whose last tooth sits on the frame border.
+    for start in range(0, n - span + 1):
+        # Clamp the final tooth to stay in bounds for a flush board (idx == n).
+        idx = np.minimum(start + teeth_idx, n - 1)
+        score = float(profile[idx].sum())
         if score > best_score:
             best_score, best_start = score, start
-    return [int(x) for x in (best_start + teeth_idx)]
+    return [int(min(x, n - 1)) for x in (best_start + teeth_idx)]
 
 
 def _cell_means(image: np.ndarray, grid_x: list[int], grid_y: list[int]) -> np.ndarray:

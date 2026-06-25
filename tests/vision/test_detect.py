@@ -28,6 +28,13 @@ def test_detect_clean_board_bbox_iou():
     assert loc.confidence > 0.6
 
 
+def test_detect_no_margin_board():
+    img, truth = render_board(square=40, margin=0)
+    loc = detect(Frame(img))
+    assert loc is not None
+    assert _iou(loc.bbox, truth.bbox) > 0.90
+
+
 def test_detect_accepts_plain_ndarray():
     img, _ = render_board(square=32, margin=16)
     assert detect(img) is not None
@@ -47,3 +54,8 @@ def test_square_name_white_bottom():
 def test_square_name_black_bottom():
     assert square_name(0, 0, "black_bottom") == "h1"
     assert square_name(7, 7, "black_bottom") == "a8"
+
+
+def test_square_name_none_orientation_defaults_to_white_bottom():
+    assert square_name(0, 0, None) == "a8"
+    assert square_name(7, 7, None) == "h1"
