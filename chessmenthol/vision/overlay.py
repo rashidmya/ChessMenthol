@@ -4,22 +4,15 @@ import cv2
 import numpy as np
 
 from .detect import square_name
-from .types import BoardLocation, Frame
-from typing import Union
-
-ImageLike = Union[Frame, np.ndarray]
+from .types import BoardLocation, ImageLike, as_image
 
 _GREEN = (0, 255, 0)
 _YELLOW = (0, 255, 255)
 _RED = (0, 0, 255)
 
 
-def _as_image(frame: ImageLike) -> np.ndarray:
-    return frame.image if isinstance(frame, Frame) else frame
-
-
 def render_overlay(frame: ImageLike, location: BoardLocation) -> np.ndarray:
-    out = _as_image(frame).copy()
+    out = as_image(frame).copy()
     b = location.bbox
     cv2.rectangle(out, (b.left, b.top), (b.left + b.width, b.top + b.height), _GREEN, 2)
     for x in location.grid_x:

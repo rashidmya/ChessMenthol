@@ -1,25 +1,20 @@
 from __future__ import annotations
 
-from typing import Optional, Union
+from typing import Optional
 
 import cv2
 import numpy as np
 
-from .types import BoardLocation, Frame, Region, SquareImage
+from .types import BoardLocation, ImageLike, Region, SquareImage, as_image
 
-ImageLike = Union[Frame, np.ndarray]
 _MIN_SQUARE = 6
 _CELL_INSET_DIVISOR = 8        # trim 1/8 of each cell side when sampling its mean color
 _CHECKER_SPREAD_WEIGHT = 2.0   # how strongly within-group color spread penalizes confidence
-# Detection gate. Piece occlusion depresses the checker confidence (a 32-piece
-# starting position scores ~0.36); random noise scores ~0.15 and is also rejected
-# structurally by the period finder. So the gate sits between them. TODO: recalibrate
-# against the real-screenshot fixtures added in the next milestone-3 task.
+# Detection gate. Piece occlusion depresses the checker confidence (real fixtures with
+# full piece sets score ~0.56-0.75; a denser synthetic 32-piece start ~0.36); random
+# noise scores ~0.15 and is rejected structurally by the period finder, so this gate is
+# a backstop sitting between the occluded-board and noise confidence floors.
 _DEFAULT_MIN_CONFIDENCE = 0.3
-
-
-def _as_image(frame: ImageLike) -> np.ndarray:
-    return frame.image if isinstance(frame, Frame) else frame
 
 
 def square_name(col: int, row: int, orientation: Optional[str]) -> str:
@@ -41,9 +36,11 @@ def _edge_profiles(gray: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 def _dominant_period(profile: np.ndarray, max_sq: int) -> Optional[int]:
     """Find the dominant period in the profile via autocorrelation.
 
-    To avoid locking onto harmonics (multiples of the true period), we prefer
-    the *smallest* lag whose autocorrelation is within 90% of the maximum in
-    the inclusive range [_MIN_SQUARE, max_sq].
+    Prefers the *smallest* lag whose autocorrelation is within 90% of the maximum
+    in the inclusive range [_MIN_SQUARE, max_sq], biasing toward the fundamental
+    over its harmonics. This assumes a dense edge profile (as `_edge_profiles`
+    produces on a real board) where the fundamental's autocorrelation dominates;
+    it is not a guarantee for sparse/synthetic impulse trains.
     """
     p = profile.astype(np.float64)
     p = p - p.mean()
@@ -56,7 +53,7 @@ def _dominant_period(profile: np.ndarray, max_sq: int) -> Optional[int]:
     peak = float(window.max())
     if peak <= 0:
         return None
-    # Prefer the smallest lag within 90% of the peak — avoids harmonic lockout
+    # Prefer the smallest lag within 90% of the peak — biases to the fundamental
     threshold = 0.90 * peak
     candidates = np.where(window >= threshold)[0]
     best_lag = int(candidates[0])  # smallest qualifying lag
@@ -143,7 +140,7 @@ def _square_sort_key(name: str) -> int:
 
 
 def crop_squares(frame: ImageLike, location: BoardLocation) -> list[SquareImage]:
-    image = _as_image(frame)
+    image = as_image(frame)
     crops: list[SquareImage] = []
     for row in range(8):
         for col in range(8):
@@ -161,7 +158,7 @@ def crop_squares(frame: ImageLike, location: BoardLocation) -> list[SquareImage]
 def detect(
     frame: ImageLike, *, min_confidence: float = _DEFAULT_MIN_CONFIDENCE
 ) -> Optional[BoardLocation]:
-    image = _as_image(frame)
+    image = as_image(frame)
     h, w = image.shape[:2]
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY).astype(np.float32)
     col_profile, row_profile = _edge_profiles(gray)
@@ -170,6 +167,8 @@ def detect(
     sy = _dominant_period(row_profile, max_sq)
     if sx is None or sy is None:
         return None
+    # Online boards have square cells, so the x and y pitches agree; averaging
+    # them denoises the estimate. (Non-square aspect ratios are out of scope.)
     period = int(round((sx + sy) / 2))
     grid_x = _best_phase(col_profile, period)
     grid_y = _best_phase(row_profile, period)

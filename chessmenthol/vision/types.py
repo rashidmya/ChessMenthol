@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal, Optional
+from typing import Literal, Optional, Union
 
 import numpy as np
 
@@ -55,3 +55,13 @@ class BoardLocation:
 class SquareImage:
     square: str  # provisional algebraic name, e.g. "e4"
     image: np.ndarray
+
+
+# A captured Frame or a raw BGR ndarray — accepted interchangeably by the
+# detection/overlay entry points.
+ImageLike = Union[Frame, np.ndarray]
+
+
+def as_image(frame: ImageLike) -> np.ndarray:
+    """Return the underlying BGR ndarray from a Frame or a raw ndarray."""
+    return frame.image if isinstance(frame, Frame) else frame
