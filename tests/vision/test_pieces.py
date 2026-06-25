@@ -116,4 +116,4 @@ def test_committed_model_classifies_real_crops():
     labels = clf.classify(crops)
     from chessmenthol.vision.pieces import CLASSES, piece_to_class
     correct = sum(CLASSES[piece_to_class(lab.piece)] == exp for lab, exp in zip(labels, expected))
-    assert correct / len(paths) >= 0.90
+    assert correct / len(paths) >= 0.95
