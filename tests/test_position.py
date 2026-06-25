@@ -178,3 +178,34 @@ def test_infer_move_returns_none_for_unreachable_placement():
     prev = chess.Board()
     unreachable = chess.Board("4k3/8/8/8/8/8/8/4K3 w - - 0 1")
     assert infer_move(prev, unreachable) is None
+
+
+def test_assemble_reports_inferred_move():
+    prev = chess.Board()
+    new = _after(prev, "e2e4")
+    grid = board_to_grid(new, "white_bottom")
+    ap = assemble(grid, orientation="white_bottom", side_to_move=chess.BLACK, prev_board=prev)
+    assert ap.move == chess.Move.from_uci("e2e4")
+
+
+def test_assemble_sets_ep_square_on_double_pawn_push():
+    prev = chess.Board()
+    new = _after(prev, "e2e4")
+    grid = board_to_grid(new, "white_bottom")
+    ap = assemble(grid, orientation="white_bottom", side_to_move=chess.BLACK, prev_board=prev)
+    assert ap.fen.split()[3] == "e3"  # ep target square behind the pushed pawn
+
+
+def test_assemble_no_ep_on_quiet_move():
+    prev = chess.Board()
+    new = _after(prev, "g1f3")
+    grid = board_to_grid(new, "white_bottom")
+    ap = assemble(grid, orientation="white_bottom", side_to_move=chess.BLACK, prev_board=prev)
+    assert ap.fen.split()[3] == "-"
+    assert ap.move == chess.Move.from_uci("g1f3")
+
+
+def test_assemble_move_none_without_prev_board():
+    grid = board_to_grid(chess.Board(), "white_bottom")
+    ap = assemble(grid, orientation="white_bottom", side_to_move=chess.WHITE)
+    assert ap.move is None

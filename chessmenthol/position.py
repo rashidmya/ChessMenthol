@@ -74,6 +74,18 @@ def infer_move(prev_board: chess.Board, new_board: chess.Board) -> Optional[ches
     return found
 
 
+def _maybe_set_ep_square(
+    board: chess.Board, prev_board: chess.Board, move: chess.Move
+) -> None:
+    if prev_board.piece_type_at(move.from_square) != chess.PAWN:
+        return
+    from_rank = chess.square_rank(move.from_square)
+    to_rank = chess.square_rank(move.to_square)
+    if abs(from_rank - to_rank) == 2:
+        file = chess.square_file(move.from_square)
+        board.ep_square = chess.square(file, (from_rank + to_rank) // 2)
+
+
 def assemble(
     grid: list[list[SquareLabel]],
     *,
@@ -94,6 +106,13 @@ def assemble(
 
     status = board.status()
     is_legal = status == chess.STATUS_VALID
+    move = (
+        infer_move(prev_board, board)
+        if prev_board is not None and is_legal
+        else None
+    )
+    if move is not None:
+        _maybe_set_ep_square(board, prev_board, move)
     # en_passant="fen" so a set ep square always shows (python-chess's default
     # "legal" mode hides it when no ep capture is currently possible).
     fen = board.fen(en_passant="fen")
@@ -109,7 +128,7 @@ def assemble(
         is_legal=is_legal,
         status=_status_text(status),
         low_confidence=low_conf,
-        move=None,
+        move=move,
         orientation=orientation,
         side_to_move=side_to_move,
     )
