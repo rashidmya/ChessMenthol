@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import chess
 
-from chessmenthol.position import AssembledPosition, SquareLabel, assemble, infer_move
+from chessmenthol.position import AssembledPosition, SquareLabel, assemble, infer_move, guess_orientation, guess_side_to_move
 from tests.position_grids import board_to_grid
 
 
@@ -209,3 +209,37 @@ def test_assemble_move_none_without_prev_board():
     grid = board_to_grid(chess.Board(), "white_bottom")
     ap = assemble(grid, orientation="white_bottom", side_to_move=chess.WHITE)
     assert ap.move is None
+
+
+def test_guess_orientation_white_bottom():
+    grid = board_to_grid(chess.Board(), "white_bottom")
+    assert guess_orientation(grid) == "white_bottom"
+
+
+def test_guess_orientation_black_bottom():
+    grid = board_to_grid(chess.Board(), "black_bottom")
+    assert guess_orientation(grid) == "black_bottom"
+
+
+def test_guess_orientation_ambiguous_returns_none():
+    grid = [[SquareLabel(None, 1.0) for _ in range(8)] for _ in range(8)]
+    grid[7][4] = SquareLabel(chess.Piece(chess.KING, chess.WHITE), 1.0)
+    grid[0][4] = SquareLabel(chess.Piece(chess.KING, chess.BLACK), 1.0)
+    assert guess_orientation(grid) is None  # too few pieces to tell
+
+
+def test_guess_side_to_move_from_inferred_move():
+    prev = chess.Board()  # white to move
+    move = chess.Move.from_uci("e2e4")
+    assert guess_side_to_move(chess.Board(), prev_board=prev, move=move) == chess.BLACK
+
+
+def test_guess_side_to_move_from_highlight():
+    # white pawn sits on the highlighted destination e4 -> white just moved -> black to move
+    board = chess.Board("4k3/8/8/8/4P3/8/8/4K3 b - - 0 1")
+    side = guess_side_to_move(board, highlight_squares=["e2", "e4"])
+    assert side == chess.BLACK
+
+
+def test_guess_side_to_move_defaults_white():
+    assert guess_side_to_move(chess.Board()) == chess.WHITE

@@ -86,6 +86,53 @@ def _maybe_set_ep_square(
         board.ep_square = chess.square(file, (from_rank + to_rank) // 2)
 
 
+def guess_orientation(grid: list[list[SquareLabel]]) -> Optional[str]:
+    """Best-effort orientation from piece layout. Returns None when ambiguous.
+
+    Compares the two outermost geometric rows on each edge: white pieces
+    concentrated at the bottom (and black at the top) implies white_bottom.
+    """
+
+    def balance(rows: list[int]) -> tuple[int, int]:
+        white = black = 0
+        for r in rows:
+            for label in grid[r]:
+                if label.piece is not None:
+                    if label.piece.color == chess.WHITE:
+                        white += 1
+                    else:
+                        black += 1
+        return white, black
+
+    bottom_white, bottom_black = balance([6, 7])
+    top_white, top_black = balance([0, 1])
+    if bottom_white + bottom_black + top_white + top_black < 6:
+        return None
+    if bottom_white > bottom_black and top_black > top_white:
+        return "white_bottom"
+    if top_white > top_black and bottom_black > bottom_white:
+        return "black_bottom"
+    return None
+
+
+def guess_side_to_move(
+    board: chess.Board,
+    *,
+    prev_board: Optional[chess.Board] = None,
+    move: Optional[chess.Move] = None,
+    highlight_squares: Optional[list[str]] = None,
+) -> chess.Color:
+    """Best-effort side to move. The caller (M4c) owns user override."""
+    if prev_board is not None and move is not None:
+        return not prev_board.turn
+    if highlight_squares:
+        for name in highlight_squares:
+            piece = board.piece_at(chess.parse_square(name))
+            if piece is not None:
+                return not piece.color
+    return chess.WHITE
+
+
 def assemble(
     grid: list[list[SquareLabel]],
     *,
