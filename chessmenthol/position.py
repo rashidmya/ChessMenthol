@@ -126,6 +126,9 @@ def guess_side_to_move(
     if prev_board is not None and move is not None:
         return not prev_board.turn
     if highlight_squares:
+        # For a genuine last move the origin square is empty post-move, so exactly
+        # one highlighted square is occupied — the destination — making this
+        # order-independent. The piece there is the mover; the other side is to move.
         for name in highlight_squares:
             piece = board.piece_at(chess.parse_square(name))
             if piece is not None:
