@@ -4,17 +4,8 @@ import pytest
 
 from chessmenthol.vision.detect import detect
 from chessmenthol.vision.types import Frame
+from tests.vision.helpers import iou as _iou
 from tests.vision.synthetic import render_board
-
-
-def _iou(a, b) -> float:
-    ix0, iy0 = max(a.left, b.left), max(a.top, b.top)
-    ix1 = min(a.left + a.width, b.left + b.width)
-    iy1 = min(a.top + a.height, b.top + b.height)
-    iw, ih = max(0, ix1 - ix0), max(0, iy1 - iy0)
-    inter = iw * ih
-    union = a.width * a.height + b.width * b.height - inter
-    return inter / union if union else 0.0
 
 
 # (square, margin)
@@ -51,3 +42,11 @@ def test_detect_survives_pieces():
     assert loc is not None
     assert _iou(loc.bbox, truth.bbox) > 0.95
     assert loc.confidence > 0.4
+
+
+def test_detect_survives_starting_position():
+    start = [f"{file}{rank}" for rank in (1, 2, 7, 8) for file in "abcdefgh"]
+    img, truth = render_board(square=40, margin=24, pieces=start)
+    loc = detect(Frame(img))
+    assert loc is not None
+    assert _iou(loc.bbox, truth.bbox) > 0.95

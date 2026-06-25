@@ -4,18 +4,8 @@ import numpy as np
 
 from chessmenthol.vision.detect import crop_squares, detect, square_name
 from chessmenthol.vision.types import Frame
+from tests.vision.helpers import iou as _iou
 from tests.vision.synthetic import render_board
-
-
-def _iou(a, b) -> float:
-    ax0, ay0, ax1, ay1 = a.left, a.top, a.left + a.width, a.top + a.height
-    bx0, by0, bx1, by1 = b.left, b.top, b.left + b.width, b.top + b.height
-    ix0, iy0 = max(ax0, bx0), max(ay0, by0)
-    ix1, iy1 = min(ax1, bx1), min(ay1, by1)
-    iw, ih = max(0, ix1 - ix0), max(0, iy1 - iy0)
-    inter = iw * ih
-    union = a.width * a.height + b.width * b.height - inter
-    return inter / union if union else 0.0
 
 
 def test_detect_clean_board_bbox_iou():

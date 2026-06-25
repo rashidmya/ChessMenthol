@@ -9,6 +9,13 @@ from .types import BoardLocation, Frame, Region, SquareImage
 
 ImageLike = Union[Frame, np.ndarray]
 _MIN_SQUARE = 6
+_CELL_INSET_DIVISOR = 8        # trim 1/8 of each cell side when sampling its mean color
+_CHECKER_SPREAD_WEIGHT = 2.0   # how strongly within-group color spread penalizes confidence
+# Detection gate. Piece occlusion depresses the checker confidence (a 32-piece
+# starting position scores ~0.36); random noise scores ~0.15 and is also rejected
+# structurally by the period finder. So the gate sits between them. TODO: recalibrate
+# against the real-screenshot fixtures added in the next milestone-3 task.
+_DEFAULT_MIN_CONFIDENCE = 0.3
 
 
 def _as_image(frame: ImageLike) -> np.ndarray:
@@ -80,10 +87,10 @@ def _cell_means(image: np.ndarray, grid_x: list[int], grid_y: list[int]) -> np.n
         for col in range(8):
             x0, x1 = grid_x[col], grid_x[col + 1]
             y0, y1 = grid_y[row], grid_y[row + 1]
-            # Inset of 1/8 (vs 1/6) keeps border artefacts out without losing
-            # the checker colour signal near cell centres.
-            ix = max(1, (x1 - x0) // 8)
-            iy = max(1, (y1 - y0) // 8)
+            # Inset of 1/8 (vs 1/6) samples a slightly larger cell area, diluting a centered
+            # piece's effect on the cell mean and reducing within-group spread.
+            ix = max(1, (x1 - x0) // _CELL_INSET_DIVISOR)
+            iy = max(1, (y1 - y0) // _CELL_INSET_DIVISOR)
             cell = image[y0 + iy : y1 - iy, x0 + ix : x1 - ix]
             if cell.size:
                 means[row, col] = cell.reshape(-1, 3).mean(axis=0)
@@ -124,9 +131,9 @@ def _checker_confidence(means_gray: np.ndarray) -> float:
     dark = means_gray[parity == 1]
     sep = abs(float(light.mean()) - float(dark.mean()))
     spread = (float(light.std()) + float(dark.std())) / 2 + 1e-6
-    # Weight of 2 (vs 4) keeps real boards above the 0.5 threshold even when
-    # piece occlusion raises within-group spread; noise still scores ~0.15.
-    return float(np.clip(sep / (sep + 2 * spread), 0.0, 1.0))
+    # Weight of 2 (vs 4) softens how strongly piece-induced within-group spread
+    # penalizes confidence; noise still scores ~0.15.
+    return float(np.clip(sep / (sep + _CHECKER_SPREAD_WEIGHT * spread), 0.0, 1.0))
 
 
 def _square_sort_key(name: str) -> int:
@@ -151,7 +158,9 @@ def crop_squares(frame: ImageLike, location: BoardLocation) -> list[SquareImage]
     return crops
 
 
-def detect(frame: ImageLike, *, min_confidence: float = 0.5) -> Optional[BoardLocation]:
+def detect(
+    frame: ImageLike, *, min_confidence: float = _DEFAULT_MIN_CONFIDENCE
+) -> Optional[BoardLocation]:
     image = _as_image(frame)
     h, w = image.shape[:2]
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY).astype(np.float32)
