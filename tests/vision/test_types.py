@@ -45,3 +45,13 @@ def test_square_image_holds_name_and_array():
     s = SquareImage(square="e4", image=np.zeros((8, 8, 3), dtype=np.uint8))
     assert s.square == "e4"
     assert s.image.shape == (8, 8, 3)
+
+
+from chessmenthol.vision.types import square_name
+
+
+def test_square_name_in_types():
+    assert square_name(0, 0, "white_bottom") == "a8"
+    assert square_name(7, 7, "white_bottom") == "h1"
+    assert square_name(0, 0, "black_bottom") == "h1"
+    assert square_name(0, 0, None) == "a8"

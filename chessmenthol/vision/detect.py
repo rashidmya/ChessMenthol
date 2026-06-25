@@ -5,7 +5,7 @@ from typing import Optional
 import cv2
 import numpy as np
 
-from .types import BoardLocation, ImageLike, Region, SquareImage, as_image
+from .types import BoardLocation, ImageLike, Region, SquareImage, as_image, square_name
 
 _MIN_SQUARE = 6
 _CELL_INSET_DIVISOR = 8        # trim 1/8 of each cell side when sampling its mean color
@@ -15,16 +15,6 @@ _CHECKER_SPREAD_WEIGHT = 2.0   # how strongly within-group color spread penalize
 # noise scores ~0.15 and is rejected structurally by the period finder, so this gate is
 # a backstop sitting between the occluded-board and noise confidence floors.
 _DEFAULT_MIN_CONFIDENCE = 0.3
-
-
-def square_name(col: int, row: int, orientation: Optional[str]) -> str:
-    """Map geometric (col, row) — (0,0) at board top-left — to algebraic.
-
-    Defaults to the white_bottom convention when orientation is None.
-    """
-    if orientation == "black_bottom":
-        return f"{chr(ord('h') - col)}{row + 1}"
-    return f"{chr(ord('a') + col)}{8 - row}"
 
 
 def _edge_profiles(gray: np.ndarray) -> tuple[np.ndarray, np.ndarray]:

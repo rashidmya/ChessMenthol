@@ -8,6 +8,16 @@ import numpy as np
 Orientation = Literal["white_bottom", "black_bottom"]
 
 
+def square_name(col: int, row: int, orientation: Optional[str]) -> str:
+    """Map geometric (col, row) — (0,0) at board top-left — to algebraic.
+
+    Defaults to the white_bottom convention when orientation is None.
+    """
+    if orientation == "black_bottom":
+        return f"{chr(ord('h') - col)}{row + 1}"
+    return f"{chr(ord('a') + col)}{8 - row}"
+
+
 @dataclass(frozen=True)
 class Region:
     left: int
