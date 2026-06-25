@@ -20,6 +20,7 @@ desktop = ["pywebview>=5"]
 chessmenthol-analyze = "chessmenthol.cli:main"
 chessmenthol-server = "chessmenthol.server.launcher:run_server"
 chessmenthol-app = "chessmenthol.server.launcher:run_app"
+chessmenthol-detect = "chessmenthol.vision.cli:main"
 
 [build-system]
 requires = ["setuptools>=68"]
