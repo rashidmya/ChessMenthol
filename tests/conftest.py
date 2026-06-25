@@ -1,3 +1,4 @@
+import importlib.util
 import os
 import shutil
 from pathlib import Path
@@ -16,10 +17,15 @@ def _stockfish_available() -> bool:
     return shutil.which("stockfish") is not None
 
 
+def _torch_available() -> bool:
+    return importlib.util.find_spec("torch") is not None
+
+
 def pytest_collection_modifyitems(config, items):
-    if _stockfish_available():
-        return
-    skip = pytest.mark.skip(reason="Stockfish not installed")
+    skip_engine = pytest.mark.skip(reason="Stockfish not installed")
+    skip_convert = pytest.mark.skip(reason="[convert] extra (torch/onnx) not installed")
     for item in items:
-        if "engine" in item.keywords:
-            item.add_marker(skip)
+        if "engine" in item.keywords and not _stockfish_available():
+            item.add_marker(skip_engine)
+        if "convert" in item.keywords and not _torch_available():
+            item.add_marker(skip_convert)

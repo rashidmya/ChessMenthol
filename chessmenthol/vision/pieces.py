@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Optional
 
 import chess
@@ -7,6 +8,7 @@ import cv2
 import numpy as np
 
 from chessmenthol.position import SquareLabel
+from chessmenthol.vision.types import SquareImage
 
 INPUT_SIZE = 32
 
@@ -60,3 +62,24 @@ def _postprocess(logits: np.ndarray) -> list[SquareLabel]:
         index = int(row.argmax())
         out.append(SquareLabel(piece=class_to_piece(index), confidence=float(row[index])))
     return out
+
+
+DEFAULT_MODEL_PATH = Path(__file__).resolve().parent.parent / "models" / "pieces.onnx"
+
+
+class PieceClassifier:
+    """Classifies square crops into SquareLabels using an ONNX model via cv2.dnn."""
+
+    def __init__(self, model_path: str | Path = DEFAULT_MODEL_PATH) -> None:
+        model_path = Path(model_path)
+        if not model_path.exists():
+            raise FileNotFoundError(f"piece model not found: {model_path}")
+        self._net = cv2.dnn.readNetFromONNX(str(model_path))
+
+    def classify(self, crops: list[SquareImage]) -> list[SquareLabel]:
+        if not crops:
+            return []
+        blob = preprocess([c.image for c in crops])
+        self._net.setInput(blob)
+        logits = self._net.forward()
+        return _postprocess(np.asarray(logits, dtype=np.float32))
