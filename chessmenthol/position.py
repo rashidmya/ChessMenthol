@@ -53,6 +53,27 @@ def _infer_castling_rights(board: chess.Board) -> chess.Bitboard:
     return rights
 
 
+def infer_move(prev_board: chess.Board, new_board: chess.Board) -> Optional[chess.Move]:
+    """Return the single legal move from prev_board whose resulting piece
+    placement matches new_board, or None if zero or multiple match.
+
+    Compares board_fen() (placement only) — ignores side-to-move/castling/ep,
+    which a screenshot cannot observe. Correct-by-construction for castling,
+    en-passant, and promotion (each yields a distinct placement).
+    """
+    target = new_board.board_fen()
+    found: Optional[chess.Move] = None
+    for move in prev_board.legal_moves:
+        prev_board.push(move)
+        matches = prev_board.board_fen() == target
+        prev_board.pop()
+        if matches:
+            if found is not None:
+                return None  # ambiguous (should not happen for distinct legal moves)
+            found = move
+    return found
+
+
 def assemble(
     grid: list[list[SquareLabel]],
     *,

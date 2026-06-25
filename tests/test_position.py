@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import chess
 
-from chessmenthol.position import AssembledPosition, SquareLabel, assemble
+from chessmenthol.position import AssembledPosition, SquareLabel, assemble, infer_move
 from tests.position_grids import board_to_grid
 
 
@@ -128,3 +128,53 @@ def test_assemble_no_castling_when_kings_off_home():
     castling = ap.fen.split()[2]
     assert "K" in castling and "Q" in castling
     assert "k" not in castling and "q" not in castling
+
+
+def _after(board: chess.Board, uci: str) -> chess.Board:
+    nxt = board.copy()
+    nxt.push(chess.Move.from_uci(uci))
+    return nxt
+
+
+def test_infer_move_quiet():
+    prev = chess.Board()
+    assert infer_move(prev, _after(prev, "e2e4")) == chess.Move.from_uci("e2e4")
+
+
+def test_infer_move_capture():
+    prev = chess.Board("4k3/8/8/3p4/4P3/8/8/4K3 w - - 0 1")
+    assert infer_move(prev, _after(prev, "e4d5")) == chess.Move.from_uci("e4d5")
+
+
+def test_infer_move_kingside_castle():
+    prev = chess.Board("4k3/8/8/8/8/8/8/4K2R w K - 0 1")
+    assert infer_move(prev, _after(prev, "e1g1")) == chess.Move.from_uci("e1g1")
+
+
+def test_infer_move_queenside_castle():
+    prev = chess.Board("4k3/8/8/8/8/8/8/R3K3 w Q - 0 1")
+    assert infer_move(prev, _after(prev, "e1c1")) == chess.Move.from_uci("e1c1")
+
+
+def test_infer_move_promotion_queen_vs_knight():
+    prev = chess.Board("4k3/P7/8/8/8/8/8/4K3 w - - 0 1")
+    assert infer_move(prev, _after(prev, "a7a8q")) == chess.Move.from_uci("a7a8q")
+    assert infer_move(prev, _after(prev, "a7a8n")) == chess.Move.from_uci("a7a8n")
+
+
+def test_infer_move_en_passant():
+    prev = chess.Board("4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 1")
+    assert infer_move(prev, _after(prev, "e5d6")) == chess.Move.from_uci("e5d6")
+
+
+def test_infer_move_returns_none_for_multi_move_jump():
+    prev = chess.Board()
+    two = _after(prev, "e2e4")
+    two.push(chess.Move.from_uci("e7e5"))
+    assert infer_move(prev, two) is None
+
+
+def test_infer_move_returns_none_for_unreachable_placement():
+    prev = chess.Board()
+    unreachable = chess.Board("4k3/8/8/8/8/8/8/4K3 w - - 0 1")
+    assert infer_move(prev, unreachable) is None
