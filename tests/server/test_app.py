@@ -80,6 +80,18 @@ def test_ws_handle_exception_returns_error_and_keeps_socket_open():
     assert ok == {"type": "state", "fen": "ok"}
 
 
+def test_vision_commands_reach_orchestrator():
+    FakeOrchestrator.instances.clear()
+    app = create_app(orchestrator_factory=FakeOrchestrator)
+    client = TestClient(app)
+    with client.websocket_connect("/ws") as ws:
+        ws.send_json({"type": "set_auto", "on": True})
+        ws.send_json({"type": "capture_now"})
+    orch = FakeOrchestrator.instances[-1]
+    assert {"type": "set_auto", "on": True} in orch.commands
+    assert {"type": "capture_now"} in orch.commands
+
+
 @pytest.mark.engine
 def test_ws_streams_real_analysis_for_set_fen():
     app = create_app()  # real Orchestrator + real Stockfish
