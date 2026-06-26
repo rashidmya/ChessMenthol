@@ -9,15 +9,22 @@
   import Controls from './components/Controls.svelte';
 
   let orientation: 'white' | 'black' = 'white';
+  let manualFlip = false;
 
   onMount(() => { connect(); });
 
-  function onCommand(cmd: Command) { send(cmd); }
-  function onFlip() { orientation = orientation === 'white' ? 'black' : 'white'; }
+  function onCommand(cmd: Command) {
+    if (cmd.type === 'set_auto' && cmd.on) manualFlip = false;
+    send(cmd);
+  }
+  function onFlip() { manualFlip = true; orientation = orientation === 'white' ? 'black' : 'white'; }
   function onMove(uci: string) { send({ type: 'make_move', uci }); }
 
   $: s = $state;
   $: fen = s?.fen ?? 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  $: if (s?.tracking && s?.detectedOrientation && !manualFlip) {
+    orientation = s.detectedOrientation as 'white' | 'black';
+  }
 </script>
 
 <main>
@@ -41,6 +48,9 @@
       <div class="box"><div class="label">Controls</div>
         <Controls sideToMove={s?.sideToMove ?? 'white'} engineId={s?.engineId ?? 'stockfish'}
           analyzing={s?.analyzing ?? false} fen={s?.fen ?? ''}
+          tracking={s?.tracking ?? false}
+          visionStatus={s?.visionStatus ?? 'off'}
+          lowConfidence={s?.lowConfidence ?? []}
           {onCommand} {onFlip} />
       </div>
       {#if $lastError}<div class="err">{$lastError}</div>{/if}
