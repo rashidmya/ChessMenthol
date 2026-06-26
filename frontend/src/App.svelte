@@ -74,10 +74,14 @@
   </header>
 
   <div class="app">
-    {#if showEvalBar}<EvalBar evalDto={s?.eval ?? null} />{/if}
-    <div class="board-wrap">
-      <Board bind:this={boardComp} {fen} {orientation} {onMove} revertSignal={$errorSeq}
-        lines={s?.lines ?? []} {showArrows} {editing} {selectedEditPiece} />
+    <div class="board-col">
+      <div class="board-row">
+        {#if showEvalBar}<EvalBar evalDto={s?.eval ?? null} />{/if}
+        <div class="board-wrap">
+          <Board bind:this={boardComp} {fen} {orientation} {onMove} revertSignal={$errorSeq}
+            lines={s?.lines ?? []} {showArrows} {editing} {selectedEditPiece} />
+        </div>
+      </div>
       {#if editing}
         <EditPalette selected={selectedEditPiece} onSelect={onSelectPiece} />
       {/if}
@@ -116,6 +120,8 @@
   .conn { font-size: 11px; opacity: 0.6; }
   .conn.on { color: #11a26b; opacity: 1; }
   .app { display: flex; gap: 14px; align-items: flex-start; }
+  .board-col { display: flex; flex-direction: column; gap: 8px; }
+  .board-row { display: flex; gap: 8px; align-items: stretch; }
   .board-wrap { width: min(60vh, 560px); flex: 0 0 auto; }
   .panel { width: 320px; flex: 0 0 320px; display: flex; flex-direction: column; gap: 10px; }
   .box { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);

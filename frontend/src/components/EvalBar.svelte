@@ -11,7 +11,7 @@
 </div>
 
 <style>
-  .evalbar { position: relative; width: 22px; height: 100%; min-height: 200px;
+  .evalbar { position: relative; width: 22px; align-self: stretch;
     background: #111; border-radius: 5px; overflow: hidden; }
   .fill-white { position: absolute; bottom: 0; left: 0; right: 0; background: #f5f5f5;
     transition: height 0.2s ease; }
