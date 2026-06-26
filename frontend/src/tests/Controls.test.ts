@@ -64,4 +64,40 @@ describe('Controls', () => {
     await fireEvent.click(screen.getByTestId('fen-set'));
     expect(onCommand).toHaveBeenCalledWith({ type: 'set_fen', fen });
   });
+
+  it('Edit button calls onToggleEdit', async () => {
+    const onToggleEdit = vi.fn();
+    render(Controls, { props: { sideToMove: 'white', engineId: 'stockfish', analyzing: true,
+      fen: 'startpos', onCommand: vi.fn(), onToggleEdit } as any });
+    await fireEvent.click(screen.getByTestId('edit-btn'));
+    expect(onToggleEdit).toHaveBeenCalled();
+  });
+
+  it('Threads input emits set_options', async () => {
+    const { onCommand } = setup();
+    await fireEvent.change(screen.getByTestId('threads-input'), { target: { value: '4' } });
+    expect(onCommand).toHaveBeenCalledWith({ type: 'set_options', threads: 4 });
+  });
+
+  it('Hash input emits set_options', async () => {
+    const { onCommand } = setup();
+    await fireEvent.change(screen.getByTestId('hash-input'), { target: { value: '512' } });
+    expect(onCommand).toHaveBeenCalledWith({ type: 'set_options', hash: 512 });
+  });
+
+  it('Arrows toggle calls onToggleArrows', async () => {
+    const onToggleArrows = vi.fn();
+    render(Controls, { props: { sideToMove: 'white', engineId: 'stockfish', analyzing: true,
+      fen: 'startpos', onCommand: vi.fn(), onToggleArrows } as any });
+    await fireEvent.click(screen.getByTestId('arrows-toggle'));
+    expect(onToggleArrows).toHaveBeenCalled();
+  });
+
+  it('Eval-bar toggle calls onToggleEvalBar', async () => {
+    const onToggleEvalBar = vi.fn();
+    render(Controls, { props: { sideToMove: 'white', engineId: 'stockfish', analyzing: true,
+      fen: 'startpos', onCommand: vi.fn(), onToggleEvalBar } as any });
+    await fireEvent.click(screen.getByTestId('eval-toggle'));
+    expect(onToggleEvalBar).toHaveBeenCalled();
+  });
 });

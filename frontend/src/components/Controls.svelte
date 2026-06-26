@@ -9,10 +9,26 @@
   export let tracking: boolean = false;
   export let visionStatus: string = 'off';
   export let lowConfidence: string[] = [];
+  export let editing: boolean = false;
+  export let showArrows: boolean = true;
+  export let showEvalBar: boolean = true;
+  export let onToggleEdit: () => void = () => {};
+  export let onToggleArrows: () => void = () => {};
+  export let onToggleEvalBar: () => void = () => {};
 
   let fenInput = fen;
   let lines = 3;
   let depth = 18;
+  let threads = 2;
+  let hashMb = 256;
+  function setThreads(e: Event) {
+    threads = Number((e.target as HTMLInputElement).value);
+    onCommand({ type: 'set_options', threads });
+  }
+  function setHash(e: Event) {
+    hashMb = Number((e.target as HTMLInputElement).value);
+    onCommand({ type: 'set_options', hash: hashMb });
+  }
 
   function setTurn(white: boolean) { onCommand({ type: 'set_turn', white }); }
   function setEngine(e: Event) {
@@ -62,6 +78,10 @@
       <button data-testid="stop-btn" on:click={() => onCommand({ type: 'stop' })}>
         {analyzing ? 'Stop' : 'Stopped'}
       </button>
+      <button data-testid="arrows-toggle" aria-pressed={showArrows} class:on={showArrows}
+        on:click={onToggleArrows}>Arrows</button>
+      <button data-testid="eval-toggle" aria-pressed={showEvalBar} class:on={showEvalBar}
+        on:click={onToggleEvalBar}>Eval bar</button>
     </div>
   </section>
 
@@ -76,6 +96,9 @@
       </span>
       <button data-testid="flip-btn" on:click={onFlip}>Flip</button>
       <button data-testid="undo-btn" on:click={() => onCommand({ type: 'undo' })}>Undo</button>
+      <button data-testid="edit-btn" class:on={editing} on:click={onToggleEdit}>
+        {editing ? 'Done' : 'Edit'}
+      </button>
     </div>
     <div class="btns">
       <input data-testid="fen-input" class="fen" placeholder="paste FEN" bind:value={fenInput} />
@@ -90,6 +113,14 @@
         <option value="stockfish">Stockfish</option>
         <option value="stockfish_lite">Stockfish Lite</option>
       </select>
+      <label>Threads
+        <input data-testid="threads-input" type="number" min="1" max="32"
+          value={threads} on:change={setThreads} />
+      </label>
+      <label>Hash
+        <input data-testid="hash-input" type="number" min="16" max="4096" step="16"
+          value={hashMb} on:change={setHash} />
+      </label>
     </div>
   </section>
 </div>
