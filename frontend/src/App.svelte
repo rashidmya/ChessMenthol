@@ -30,7 +30,7 @@
   }
   function onFlip() { manualFlip = true; orientation = orientation === 'white' ? 'black' : 'white'; }
   function onMove(uci: string) { send({ type: 'make_move', uci }); }
-  function onPlayBest(uci: string) { send({ type: 'undo' }); send({ type: 'make_move', uci }); }
+  function onPlayBest(uci: string) { send({ type: 'play_best', uci }); }
 
   function onToggleEdit() {
     if (!editing) {

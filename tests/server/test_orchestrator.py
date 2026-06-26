@@ -312,3 +312,36 @@ def test_engine_options_persist_across_engine_switch():
     orch.handle({"type": "set_engine", "id": "stockfish_lite"})
     assert engine.selected[-1] == "stockfish_lite"
     assert engine.configured[-1] == (4, 128)  # user options re-applied to the new engine
+
+
+def test_play_best_replays_best_using_retained_analysis(make_orchestrator):
+    orch, frames, holder = make_orchestrator()
+    # Deep analysis of the start position: engine's best move is d2d4.
+    holder["s"].queue = [_analysis(chess.STARTING_FEN, 30, [chess.Move.from_uci("d2d4")])]
+    orch.handle({"type": "set_fen", "fen": chess.STARTING_FEN})
+    # Player plays e2e4 instead; classifying it retains the deep start analysis.
+    after_e4 = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
+    holder["s"].queue = [_analysis(after_e4, 30, [chess.Move.from_uci("e7e5")], depth=12)]
+    orch.handle({"type": "make_move", "uci": "e2e4"})
+    # Click "play best" (d2d4): pop e4, replay d4, reuse the retained deep analysis.
+    after_d4 = "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1"
+    holder["s"].queue = [_analysis(after_d4, 25, [chess.Move.from_uci("g8f6")], depth=12)]
+    orch.handle({"type": "play_best", "uci": "d2d4"})
+    state = [f for f in frames if f["type"] == "state"][-1]
+    assert state["fen"].startswith("rnbqkbnr/pppppppp/8/8/3P4")   # d4 is on the board
+    assert state["lastMove"]["classification"]["isBest"] is True
+    assert state["lastMove"]["best"]["uci"] == "d2d4"
+    assert state["lastMove"]["played"]["san"] == "d4"
+
+
+def test_play_best_noop_without_retained_analysis(make_orchestrator):
+    orch, frames, holder = make_orchestrator()
+    holder["s"].queue = [_analysis(chess.STARTING_FEN, 20, [chess.Move.from_uci("e2e4")])]
+    orch.handle({"type": "set_fen", "fen": chess.STARTING_FEN})
+    # No move has been classified yet -> no retained analysis -> play_best is a safe no-op.
+    stopped_before = holder["s"].stopped
+    orch.handle({"type": "play_best", "uci": "e2e4"})
+    state = [f for f in frames if f["type"] == "state"][-1]
+    assert state["fen"] == chess.STARTING_FEN          # board unchanged
+    assert state["lastMove"] is None
+    assert holder["s"].stopped == stopped_before       # no-op must not stop the session

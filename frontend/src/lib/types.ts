@@ -29,4 +29,5 @@ export type Command =
   | { type: 'set_options'; depth?: number; multipv?: number; threads?: number; hash?: number }
   | { type: 'stop' }
   | { type: 'set_auto'; on: boolean }
-  | { type: 'capture_now' };
+  | { type: 'capture_now' }
+  | { type: 'play_best'; uci: string };
