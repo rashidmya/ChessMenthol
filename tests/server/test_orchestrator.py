@@ -278,3 +278,33 @@ def test_set_turn_does_not_pause_tracking(make_orchestrator):
     state = [f for f in frames if f["type"] == "state"][-1]
     assert state["sideToMove"] == "black"
     orch.handle({"type": "set_auto", "on": False})  # stop the daemon thread
+
+
+class RecordingEngine:
+    """Engine stub that records select()/configure() calls (no real binary)."""
+
+    def __init__(self):
+        self.selected = []
+        self.configured = []
+
+    def select(self, engine_id):
+        self.selected.append(engine_id)
+
+    def configure(self, *, threads=None, hash_mb=None, multipv=None):
+        self.configured.append((threads, hash_mb))
+
+
+def test_engine_options_persist_across_engine_switch():
+    holder = {}
+
+    def factory(engine, on_update):
+        s = FakeSession(engine, on_update)
+        holder["s"] = s
+        return s
+
+    engine = RecordingEngine()
+    orch = Orchestrator(send=lambda f: None, engine=engine, session_factory=factory)
+    orch.handle({"type": "set_options", "threads": 4, "hash": 128})
+    orch.handle({"type": "set_engine", "id": "stockfish_lite"})
+    assert engine.selected[-1] == "stockfish_lite"
+    assert engine.configured[-1] == (4, 128)  # user options re-applied to the new engine

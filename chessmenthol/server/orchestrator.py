@@ -35,6 +35,8 @@ class Orchestrator:
         self._engine_id = "stockfish"
         self._depth: Optional[int] = 18
         self._multipv = 3
+        self._threads: Optional[int] = None
+        self._hash: Optional[int] = None
         self._engine_started = False
         self._last_analysis: Optional[AnalysisInfo] = None
         self._pending: Optional[Tuple[chess.Board, chess.Move, Optional[AnalysisInfo]]] = None
@@ -168,8 +170,12 @@ class Orchestrator:
         self._session.stop()  # join the prior worker before mutating shared state
         self._depth = depth
         self._multipv = multipv
+        if threads is not None:
+            self._threads = int(threads)
+        if hash_mb is not None:
+            self._hash = int(hash_mb)
         if (threads is not None or hash_mb is not None) and self._engine_started:
-            self._engine.configure(threads=threads, hash_mb=hash_mb)
+            self._engine.configure(threads=self._threads, hash_mb=self._hash)
         self._restart()
 
     def stop_analysis(self) -> None:
@@ -237,6 +243,8 @@ class Orchestrator:
         if not self._engine_started and hasattr(self._engine, "select"):
             self._engine.select(self._engine_id)
             self._engine_started = True
+            if self._threads is not None or self._hash is not None:
+                self._engine.configure(threads=self._threads, hash_mb=self._hash)
         self._session.start(self._board, depth=self._depth, multipv=self._multipv)
         self._analyzing = True
         self._send(self._state_frame(self._last_analysis, self._board))
