@@ -46,6 +46,9 @@ class Tracker:
     def set_side_override(self, side: Optional[chess.Color]) -> None:
         self._side_override = side
 
+    def grab_if_changed(self, threshold: float):
+        return self._capturer.grab_if_changed(threshold)
+
     def reset(self) -> None:
         self._prev_board = None
 

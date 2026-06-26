@@ -195,6 +195,10 @@ class FakeTracker:
         self.result = result
         self.side_override = None
 
+    def grab_if_changed(self, threshold):
+        # Always return a non-None sentinel so _run proceeds to detect_position.
+        return object()
+
     def detect_position(self, frame=None):
         return self.result
 
@@ -243,3 +247,11 @@ def test_illegal_detection_does_not_change_board(make_orchestrator):
     orch.handle({"type": "capture_now"})
     assert orch._board.fen() == before
     assert frames[-1]["visionStatus"] == "searching"
+
+
+def test_set_turn_sets_tracker_side_override(make_orchestrator):
+    import chess
+    tracker = FakeTracker(None)
+    orch = make_orchestrator(tracker=tracker, send=lambda f: None)
+    orch.handle({"type": "set_turn", "white": False})
+    assert tracker.side_override == chess.BLACK

@@ -212,6 +212,9 @@ class Orchestrator:
             self._detected_orientation = _ORIENTATION_MAP.get(assembled.orientation)
             self._low_confidence = list(assembled.low_confidence)
             self._vision_status = "low_confidence" if assembled.low_confidence else "tracking"
+            # Compare piece PLACEMENT only (not full FEN): a screenshot can't reliably
+            # read side-to-move/castling/ep, so we re-analyze when the pieces move,
+            # not when only those fields differ (avoids oscillation).
             if assembled.fen.split()[0] != self._board.board_fen():
                 self._apply_fen(assembled.fen)
             else:

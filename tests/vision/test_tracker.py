@@ -56,3 +56,61 @@ def test_tracker_side_override_is_honored():
     tracker.set_side_override(chess.BLACK)
     ap = tracker.detect_position()
     assert ap is not None and ap.side_to_move == chess.BLACK
+
+
+def test_tracker_orientation_override_is_honored():
+    board = chess.Board()
+    occupied = [chess.square_name(sq) for sq in chess.SQUARES if board.piece_at(sq)]
+    img, _ = render_board(square=32, margin=24, pieces=occupied)
+    tracker = _tracker_for(board, img)
+    tracker.set_orientation_override("black_bottom")
+    ap = tracker.detect_position()
+    assert ap is not None
+    assert ap.orientation == "black_bottom"
+
+
+def test_tracker_infers_move_across_frames():
+    import chess as _c
+
+    class SeqClassifier:
+        def __init__(self, boards):
+            self.boards = boards
+            self.i = 0
+        def classify(self, crops):
+            b = self.boards[min(self.i, len(self.boards) - 1)]
+            self.i += 1
+            return [SquareLabel(b.piece_at(_c.parse_square(c.square)), 1.0) for c in crops]
+
+    start = chess.Board()
+    after = start.copy()
+    after.push(chess.Move.from_uci("e2e4"))
+    occ_start = [chess.square_name(sq) for sq in chess.SQUARES if start.piece_at(sq)]
+    occ_after = [chess.square_name(sq) for sq in chess.SQUARES if after.piece_at(sq)]
+    img_start, _ = render_board(square=32, margin=24, pieces=occ_start)
+    img_after, _ = render_board(square=32, margin=24, pieces=occ_after)
+    backend = FakeBackend([Monitor(0, 0, 0, img_start.shape[1], img_start.shape[0])], [img_start])
+    tracker = Tracker(capturer=Capturer(backend=backend), classifier=SeqClassifier([start, after]))
+    tracker.detect_position(img_start)
+    ap = tracker.detect_position(img_after)
+    assert ap is not None and ap.move == chess.Move.from_uci("e2e4")
+
+
+def test_tracker_propagates_low_confidence():
+    board = chess.Board()
+
+    class LowConfClassifier:
+        def __init__(self, board):
+            self.board = board
+        def classify(self, crops):
+            out = []
+            for c in crops:
+                conf = 0.2 if c.square == "e2" else 1.0
+                out.append(SquareLabel(self.board.piece_at(chess.parse_square(c.square)), conf))
+            return out
+
+    occupied = [chess.square_name(sq) for sq in chess.SQUARES if board.piece_at(sq)]
+    img, _ = render_board(square=32, margin=24, pieces=occupied)
+    backend = FakeBackend([Monitor(0, 0, 0, img.shape[1], img.shape[0])], [img])
+    tracker = Tracker(capturer=Capturer(backend=backend), classifier=LowConfClassifier(board))
+    ap = tracker.detect_position()
+    assert ap is not None and "e2" in ap.low_confidence

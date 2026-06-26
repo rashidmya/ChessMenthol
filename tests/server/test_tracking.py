@@ -11,6 +11,10 @@ class FakeTracker:
         self._results = list(results)
         self.calls = 0
 
+    def grab_if_changed(self, threshold):
+        # Always return a non-None sentinel so _run proceeds to detect_position.
+        return object()
+
     def detect_position(self, frame=None):
         self.calls += 1
         idx = min(self.calls - 1, len(self._results) - 1)

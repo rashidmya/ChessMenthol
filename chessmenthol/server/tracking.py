@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import logging
 import threading
-import time
 from typing import Callable, Optional
+
+logger = logging.getLogger(__name__)
 
 # on_result receives an AssembledPosition or None each tick.
 OnResult = Callable[[Optional[object]], None]
@@ -12,10 +14,18 @@ class TrackingLoop:
     """Daemon thread that polls a tracker while enabled. Per-tick work lives in
     `tick_once` so it can be driven directly (capture_now, tests) without a thread."""
 
-    def __init__(self, tracker, on_result: OnResult, *, interval: float = 0.3) -> None:
+    def __init__(
+        self,
+        tracker,
+        on_result: OnResult,
+        *,
+        interval: float = 0.3,
+        change_threshold: float = 2.0,
+    ) -> None:
         self._tracker = tracker
         self._on_result = on_result
         self._interval = interval
+        self._change_threshold = change_threshold
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
         self._lock = threading.Lock()
@@ -35,10 +45,11 @@ class TrackingLoop:
     def _run(self) -> None:
         while not self._stop.is_set():
             try:
-                self.tick_once()
-            except Exception:
-                # A bad frame/detection must not kill the loop; skip and continue.
-                pass
+                frame = self._tracker.grab_if_changed(self._change_threshold)
+                if frame is not None:
+                    self._on_result(self._tracker.detect_position(frame))
+            except Exception as exc:
+                logger.warning("tracking tick failed: %s", exc)
             self._stop.wait(self._interval)
 
     def stop(self) -> None:
