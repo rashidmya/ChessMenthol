@@ -31,7 +31,11 @@
     {:else}
       <div class="row label-{lastMove.classification.label}" data-testid="row-played">
         <span class="eval">{lastMove.played.evalText}</span>
-        <span class="ico bad">✗</span>
+        {#if lastMove.classification.label === 'brilliant'}
+          <span class="ico brilliant">!!</span>
+        {:else}
+          <span class="ico bad">✗</span>
+        {/if}
         <span class="name">{lastMove.played.san} is {phraseFor(lastMove.classification.label)}</span>
         {#if lastMove.played.pv}<span class="pv">{toFigurine(lastMove.played.pv)}</span>{/if}
       </div>
@@ -61,6 +65,7 @@
   .ico { font-weight: 700; }
   .ico.good { color: #81b64c; }
   .ico.bad { color: #e58f2a; }
+  .ico.brilliant { color: #1abc9c; }  /* a brilliant move can be non-best: teal !!, not ✗ */
   .name { font-size: 13px; }
   .pv { grid-column: 3; justify-self: start; font-size: 11px; opacity: 0.7;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
