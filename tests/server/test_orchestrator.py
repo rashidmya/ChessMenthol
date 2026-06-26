@@ -255,3 +255,26 @@ def test_set_turn_sets_tracker_side_override(make_orchestrator):
     orch = make_orchestrator(tracker=tracker, send=lambda f: None)
     orch.handle({"type": "set_turn", "white": False})
     assert tracker.side_override == chess.BLACK
+
+
+def test_user_move_pauses_tracking(make_orchestrator):
+    frames = []
+    orch = make_orchestrator(tracker=FakeTracker(None), send=frames.append)
+    orch.handle({"type": "set_auto", "on": True})
+    assert orch._tracking is True
+    orch.handle({"type": "make_move", "uci": "e2e4"})
+    assert orch._tracking is False
+    state = [f for f in frames if f["type"] == "state"][-1]
+    assert state["tracking"] is False
+    assert state["fen"].startswith("rnbqkbnr/pppppppp/8/8/4P3")
+
+
+def test_set_turn_does_not_pause_tracking(make_orchestrator):
+    frames = []
+    orch = make_orchestrator(tracker=FakeTracker(None), send=frames.append)
+    orch.handle({"type": "set_auto", "on": True})
+    orch.handle({"type": "set_turn", "white": False})
+    assert orch._tracking is True
+    state = [f for f in frames if f["type"] == "state"][-1]
+    assert state["sideToMove"] == "black"
+    orch.handle({"type": "set_auto", "on": False})  # stop the daemon thread

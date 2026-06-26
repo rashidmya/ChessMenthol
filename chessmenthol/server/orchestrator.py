@@ -15,6 +15,11 @@ from .tracking import TrackingLoop
 SendCallback = Callable[[dict], None]
 CLASSIFY_MIN_DEPTH = 8
 
+# Board-mutating user commands that must not be fought by the tracker. They pause
+# Auto BEFORE the lock is taken (the tracking loop's _on_tracked self-acquires the
+# lock, so stopping it from inside the lock would deadlock).
+_PAUSE_ON_TRACKING = {"set_fen", "make_move", "undo"}
+
 # AssembledPosition.orientation strings -> frontend "white"|"black".
 _ORIENTATION_MAP = {"white_bottom": "white", "black_bottom": "black"}
 
@@ -62,6 +67,8 @@ class Orchestrator:
         if ctype == "capture_now":
             self._capture_now()
             return
+        if ctype in _PAUSE_ON_TRACKING and self._tracking:
+            self._set_auto(False)
         with self._lock:
             try:
                 if ctype == "set_fen":
