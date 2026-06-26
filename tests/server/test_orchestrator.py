@@ -116,6 +116,26 @@ def test_make_move_classifies_using_prior_analysis(make_orchestrator):
     }
 
 
+def test_on_update_tolerates_best_line_without_a_move(make_orchestrator):
+    # Defense-in-depth: if the pre-move analysis has a best line whose PV is empty
+    # (best.move is None), classification must be SKIPPED, not crash the worker.
+    # This is the `analysis_before must contain at least one line with a move`
+    # crash from the log, reproduced at the orchestrator boundary.
+    orch, frames, holder = make_orchestrator()
+    board_before = chess.Board()
+    move = chess.Move.from_uci("e2e4")
+    broken_before = AnalysisInfo(chess.STARTING_FEN, 18, [Line(1, Eval(cp=30), 18, [])])
+    orch._pending = (board_before, move, broken_before)
+
+    after_fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
+    good_after = _analysis(after_fen, -30, [chess.Move.from_uci("e7e5")], depth=12)
+
+    orch._on_update(good_after, chess.Board(after_fen))  # must not raise
+
+    assert orch._last_move is None      # classification skipped, not bogus
+    assert orch._pending is None        # consumed, won't retry forever
+
+
 def test_set_turn_white_black(make_orchestrator):
     orch, frames, holder = make_orchestrator()
     orch.handle({"type": "set_turn", "white": False})

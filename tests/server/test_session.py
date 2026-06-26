@@ -71,6 +71,32 @@ def test_session_stop_cancels_stream():
     assert engine.last_stream.stopped is True
 
 
+def test_session_analyzes_stackless_position():
+    # python-chess transmits a position to the engine by replaying the move stack
+    # (`position ... moves ...`). If the board's stack does not cleanly replay from
+    # its root (e.g. after a turn flip), the engine searches a different position
+    # than python-chess parses against -> illegal-PV spam + a crashed worker.
+    # The session must hand the engine a STACKLESS board (just the current FEN).
+    captured = {}
+
+    class CapturingEngine:
+        def stream_analysis(self, board, *, multipv=None, depth=None, time=None):
+            captured["board"] = board
+            return FakeStream([])
+
+    board = chess.Board()
+    for uci in ("e2e4", "e7e5", "g1f3"):
+        board.push(chess.Move.from_uci(uci))
+
+    session = AnalysisSession(CapturingEngine(), lambda info, b: None, throttle=0.0)
+    session.start(board, depth=5, multipv=1)
+    session.join(timeout=2.0)
+
+    handed = captured["board"]
+    assert handed.fen() == board.fen()          # same position + side to move
+    assert list(handed.move_stack) == []        # but no replayable history
+
+
 def test_session_start_replaces_previous_run():
     engine = FakeEngine([_info(1), _info(2)])
     got = []
