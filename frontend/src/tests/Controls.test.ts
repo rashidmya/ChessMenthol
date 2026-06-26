@@ -34,9 +34,27 @@ describe('Controls', () => {
     expect(onCommand).toHaveBeenCalledWith({ type: 'stop' });
   });
 
-  it('disables the Source section controls', () => {
+  it('region-btn remains disabled', () => {
     setup();
-    expect((screen.getByTestId('capture-btn') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId('region-btn') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('Auto button is enabled and emits set_auto', async () => {
+    const onCommand = vi.fn();
+    const { getByTestId } = render(Controls, { props: { sideToMove: 'white', engineId: 'stockfish',
+      analyzing: true, fen: 'startpos', onCommand, tracking: false } as any });
+    const btn = getByTestId('auto-btn');
+    expect(btn).not.toBeDisabled();
+    await fireEvent.click(btn);
+    expect(onCommand).toHaveBeenCalledWith({ type: 'set_auto', on: true });
+  });
+
+  it('Capture button emits capture_now', async () => {
+    const onCommand = vi.fn();
+    const { getByTestId } = render(Controls, { props: { sideToMove: 'white', engineId: 'stockfish',
+      analyzing: true, fen: 'startpos', onCommand } as any });
+    await fireEvent.click(getByTestId('capture-btn'));
+    expect(onCommand).toHaveBeenCalledWith({ type: 'capture_now' });
   });
 
   it('emits set_fen with the typed FEN when Set is clicked', async () => {

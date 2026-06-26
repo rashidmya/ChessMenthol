@@ -6,6 +6,9 @@
   export let fen = '';
   export let onCommand: (cmd: Command) => void = () => {};
   export let onFlip: () => void = () => {};
+  export let tracking: boolean = false;
+  export let visionStatus: string = 'off';
+  export let lowConfidence: string[] = [];
 
   let fenInput = fen;
   let lines = 3;
@@ -30,11 +33,19 @@
   <section class="csec">
     <div class="clab">◉ Source</div>
     <div class="btns">
-      <button data-testid="auto-btn" disabled>Auto ●</button>
-      <button data-testid="capture-btn" disabled>Capture</button>
+      <button data-testid="auto-btn" aria-pressed={tracking}
+        class:on={tracking}
+        on:click={() => onCommand({ type: 'set_auto', on: !tracking })}>Auto ●</button>
+      <button data-testid="capture-btn"
+        on:click={() => onCommand({ type: 'capture_now' })}>Capture</button>
       <button data-testid="region-btn" disabled>Region</button>
-      <span class="soon">coming soon</span>
     </div>
+    <span class="vision-status" data-testid="vision-status">
+      {#if visionStatus === 'tracking'}tracking ●
+      {:else if visionStatus === 'low_confidence'}● {lowConfidence.length} uncertain
+      {:else if visionStatus === 'searching'}searching…
+      {:else}—{/if}
+    </span>
   </section>
 
   <section class="csec">
@@ -95,6 +106,7 @@
   button:disabled { opacity: 0.4; cursor: not-allowed; }
   .turn button.on { background: rgba(17,162,107,0.3); border-color: #11a26b; }
   .fen { flex: 1; min-width: 120px; font-size: 11px; padding: 4px; }
-  .soon { font-size: 9px; opacity: 0.5; }
+  .vision-status { font-size: 9px; opacity: 0.7; }
+  button.on { background: rgba(17,162,107,0.3); border-color: #11a26b; }
   input[type='number'] { width: 48px; }
 </style>
