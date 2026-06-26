@@ -9,6 +9,8 @@ export interface StateFrame {
   type: 'state'; fen: string; sideToMove: 'white' | 'black'; engineId: string;
   analyzing: boolean; eval: EvalDto | null; depth: number; lines: LineDto[];
   lastMove: LastMoveDto | null;
+  tracking: boolean; visionStatus: 'off' | 'searching' | 'tracking' | 'low_confidence';
+  detectedOrientation: 'white' | 'black' | null; lowConfidence: string[];
 }
 export interface ErrorFrame { type: 'error'; message: string; }
 export type ServerFrame = StateFrame | ErrorFrame;
@@ -20,4 +22,6 @@ export type Command =
   | { type: 'undo' }
   | { type: 'set_engine'; id: string }
   | { type: 'set_options'; depth?: number; multipv?: number; threads?: number; hash?: number }
-  | { type: 'stop' };
+  | { type: 'stop' }
+  | { type: 'set_auto'; on: boolean }
+  | { type: 'capture_now' };

@@ -32,4 +32,18 @@ describe('applyFrame', () => {
     applyFrame({ type: 'error', message: 'illegal move: e1e3' } as any);
     expect(get(errorSeq)).toBe(before + 2);
   });
+
+  it('surfaces vision fields from a state frame', () => {
+    applyFrame({
+      type: 'state', fen: 'startpos', sideToMove: 'white', engineId: 'stockfish',
+      analyzing: false, eval: null, depth: 0, lines: [], lastMove: null,
+      tracking: true, visionStatus: 'tracking', detectedOrientation: 'black',
+      lowConfidence: ['e4'],
+    } as any);
+    const s = get(state)!;
+    expect(s.tracking).toBe(true);
+    expect(s.visionStatus).toBe('tracking');
+    expect(s.detectedOrientation).toBe('black');
+    expect(s.lowConfidence).toEqual(['e4']);
+  });
 });
