@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { state, lastError, connected, errorSeq, connect, send } from './lib/ws';
-  import type { Command, StateFrame } from './lib/types';
+  import type { Command } from './lib/types';
   import { buildFen, kingCountOk } from './lib/edit';
   import Board from './components/Board.svelte';
   import EvalBar from './components/EvalBar.svelte';
@@ -19,7 +19,7 @@
   let editError: string | null = null;
   let committing = false;
   let lastSeq = 0;
-  let preCommitS: StateFrame | null = null;
+  let committedPlacement: string | null = null;
   let boardComp: Board;
 
   onMount(() => { connect(); });
@@ -45,10 +45,10 @@
     }
     editError = null;
     lastSeq = $errorSeq;
-    preCommitS = s;
+    committedPlacement = placement;
     committing = true;
     send({ type: 'set_fen', fen: buildFen(placement, s?.sideToMove ?? 'white') });
-    editing = false;
+    // Stay in edit mode until the server accepts (placement matches) or rejects.
   }
   function onSelectPiece(tok: string) { selectedEditPiece = tok; }
 
@@ -57,12 +57,14 @@
   $: if (s?.tracking && s?.detectedOrientation && !manualFlip) {
     orientation = s.detectedOrientation as 'white' | 'black';
   }
-  // If the server rejected the commit, drop back into edit mode so the fix isn't lost.
+  // Server rejected the commit -> stay in edit mode so the fix isn't lost.
   $: if (committing && $errorSeq !== lastSeq) {
-    committing = false; editing = true; editError = $lastError;
+    committing = false; editing = true; editError = $lastError; committedPlacement = null;
   }
-  // A *new* state frame after a commit means it was accepted.
-  $: if (committing && s !== preCommitS) { committing = false; preCommitS = null; }
+  // Server accepted -> a state frame whose placement matches our committed placement.
+  $: if (committing && s && s.fen.split(' ')[0] === committedPlacement) {
+    committing = false; editing = false; committedPlacement = null;
+  }
 </script>
 
 <main>

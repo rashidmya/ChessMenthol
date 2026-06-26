@@ -76,16 +76,19 @@
 
   onDestroy(() => cg?.destroy());
 
-  // Never let an incoming fen update clobber an in-progress local edit.
-  $: if (cg && !editing) cg.set({ fen, orientation });
+  // Orientation always syncs (Flip works even mid-edit, keeping right-click coordsToKey correct);
+  // fen only syncs when NOT editing, so an incoming position never clobbers a local edit.
+  $: if (cg) cg.set({ orientation });
+  $: if (cg && !editing) cg.set({ fen });
   $: forceSync(revertSignal);
   function forceSync(_signal: number): void {
-    if (cg && !editing) cg.set({ fen, orientation });
+    if (cg && !editing) cg.set({ fen });
   }
   // Arrows: recompute on lines / toggle / mode change. Suppressed while editing.
   $: if (cg) cg.setAutoShapes(linesToShapes(lines, showArrows && !editing) as any);
 </script>
 
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="board" data-testid="board" bind:this={el} on:contextmenu={onContextMenu}></div>
 
 <style>

@@ -96,7 +96,7 @@
       </span>
       <button data-testid="flip-btn" on:click={onFlip}>Flip</button>
       <button data-testid="undo-btn" on:click={() => onCommand({ type: 'undo' })}>Undo</button>
-      <button data-testid="edit-btn" class:on={editing} on:click={onToggleEdit}>
+      <button data-testid="edit-btn" aria-pressed={editing} class:on={editing} on:click={onToggleEdit}>
         {editing ? 'Done' : 'Edit'}
       </button>
     </div>
