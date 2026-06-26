@@ -65,7 +65,6 @@
   .pv { grid-column: 3; justify-self: start; font-size: 11px; opacity: 0.7;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     grid-row: 2; padding-left: 2px; }
-  /* played-row accent colors mirror the old Badge label palette */
   .label-inaccuracy .ico.bad { color: #f7c631; }
   .label-mistake .ico.bad, .label-miss .ico.bad { color: #e58f2a; }
   .label-blunder .ico.bad { color: #fa412d; }

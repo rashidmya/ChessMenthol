@@ -6,7 +6,7 @@
   import Board from './components/Board.svelte';
   import EvalBar from './components/EvalBar.svelte';
   import Lines from './components/Lines.svelte';
-  import Badge from './components/Badge.svelte';
+  import LastMove from './components/LastMove.svelte';
   import Controls from './components/Controls.svelte';
   import EditPalette from './components/EditPalette.svelte';
 
@@ -30,6 +30,7 @@
   }
   function onFlip() { manualFlip = true; orientation = orientation === 'white' ? 'black' : 'white'; }
   function onMove(uci: string) { send({ type: 'make_move', uci }); }
+  function onPlayBest(uci: string) { send({ type: 'undo' }); send({ type: 'make_move', uci }); }
 
   function onToggleEdit() {
     if (!editing) {
@@ -92,7 +93,7 @@
         <Lines lines={s?.lines ?? []} />
       </div>
       <div class="box"><div class="label">Last move</div>
-        <Badge lastMove={s?.lastMove ?? null} />
+        <LastMove lastMove={s?.lastMove ?? null} {onPlayBest} />
       </div>
       <div class="box"><div class="label">Controls</div>
         <Controls sideToMove={s?.sideToMove ?? 'white'} engineId={s?.engineId ?? 'stockfish'}
