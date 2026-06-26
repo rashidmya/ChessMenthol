@@ -289,9 +289,13 @@ class Orchestrator:
     def _on_update(self, analysis: AnalysisInfo, board: chess.Board) -> None:
         self._last_analysis = analysis
         if (self._pending is not None and analysis.best is not None
+                and analysis.best.move is not None
                 and analysis.depth >= CLASSIFY_MIN_DEPTH):
             board_before, move, before_a = self._pending
-            if before_a is not None and before_a.best is not None:
+            # Skip (don't crash) when the pre-move analysis has no usable best move
+            # -- e.g. every PV failed to parse, leaving an empty PV.
+            if (before_a is not None and before_a.best is not None
+                    and before_a.best.move is not None):
                 c = classify_move(board_before, move, before_a, analysis)
                 self._last_move = serialize.last_move_to_dict(
                     c, board_before, move, before_a, analysis)

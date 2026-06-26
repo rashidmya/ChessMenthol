@@ -34,7 +34,12 @@ class AnalysisSession:
 
     def start(self, board: chess.Board, *, depth=None, multipv=None, time_limit=None) -> None:
         self.stop()
-        board_copy = board.copy()
+        # stack=False: hand the engine just the current position. python-chess
+        # otherwise replays the whole move_stack (`position ... moves ...`); a stack
+        # that doesn't cleanly replay (e.g. after a turn flip) makes the engine
+        # search a different position than we parse PVs against -> illegal-PV spam
+        # and a crashed worker. Analysing by FEN alone is immune to that.
+        board_copy = board.copy(stack=False)
         # NB: the engine API names the per-move limit `time`, not `time_limit`.
         stream = self._engine.stream_analysis(
             board_copy, multipv=multipv, depth=depth, time=time_limit)

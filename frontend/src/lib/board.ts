@@ -6,6 +6,24 @@ export function moveToUci(orig: string, dest: string, promotion?: string): strin
   return promotion !== undefined ? `${orig}${dest}${promotion}` : `${orig}${dest}`;
 }
 
+/** The promotion piece for a move, or undefined when it is not a promotion.
+ *  Only a PAWN reaching the last rank promotes — a non-pawn landing on rank 1/8
+ *  (e.g. Bxf1) must NOT get a suffix, or the engine rejects it as illegal.
+ *  `fen` is the position BEFORE the move; auto-queens for now. Returns undefined
+ *  for an unparseable FEN rather than guessing. */
+export function promotionPiece(fen: string, orig: string, dest: string): 'q' | undefined {
+  const lastRank = dest[1] === '1' || dest[1] === '8';
+  if (!lastRank) return undefined;
+  let game: Chess;
+  try {
+    game = new Chess(fen);
+  } catch {
+    return undefined;
+  }
+  const piece = game.get(orig as any);
+  return piece && piece.type === 'p' ? 'q' : undefined;
+}
+
 /** Side to move from a FEN's turn field ('w'/'b'); defaults to white if absent. */
 export function turnColor(fen: string): 'white' | 'black' {
   return fen.split(' ')[1] === 'b' ? 'black' : 'white';
