@@ -2,14 +2,24 @@
   import { onMount } from 'svelte';
   import { state, lastError, connected, errorSeq, connect, send } from './lib/ws';
   import type { Command } from './lib/types';
+  import { buildFen, kingCountOk } from './lib/edit';
   import Board from './components/Board.svelte';
   import EvalBar from './components/EvalBar.svelte';
   import Lines from './components/Lines.svelte';
   import Badge from './components/Badge.svelte';
   import Controls from './components/Controls.svelte';
+  import EditPalette from './components/EditPalette.svelte';
 
   let orientation: 'white' | 'black' = 'white';
   let manualFlip = false;
+  let editing = false;
+  let selectedEditPiece: string | null = 'P';
+  let showArrows = true;
+  let showEvalBar = true;
+  let editError: string | null = null;
+  let committing = false;
+  let lastSeq = 0;
+  let boardComp: Board;
 
   onMount(() => { connect(); });
 
@@ -20,11 +30,37 @@
   function onFlip() { manualFlip = true; orientation = orientation === 'white' ? 'black' : 'white'; }
   function onMove(uci: string) { send({ type: 'make_move', uci }); }
 
+  function onToggleEdit() {
+    if (!editing) {
+      editError = null;
+      send({ type: 'set_auto', on: false }); // freeze the board while editing
+      editing = true;
+      return;
+    }
+    const placement = boardComp.getPlacement();
+    if (!kingCountOk(placement)) {
+      editError = 'Need exactly one white and one black king.';
+      return; // stay in edit mode
+    }
+    editError = null;
+    lastSeq = $errorSeq;
+    committing = true;
+    send({ type: 'set_fen', fen: buildFen(placement, s?.sideToMove ?? 'white') });
+    editing = false;
+  }
+  function onSelectPiece(tok: string) { selectedEditPiece = tok; }
+
   $: s = $state;
   $: fen = s?.fen ?? 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
   $: if (s?.tracking && s?.detectedOrientation && !manualFlip) {
     orientation = s.detectedOrientation as 'white' | 'black';
   }
+  // If the server rejected the commit, drop back into edit mode so the fix isn't lost.
+  $: if (committing && $errorSeq !== lastSeq) {
+    committing = false; editing = true; editError = $lastError;
+  }
+  // A state frame after a commit means it was accepted.
+  $: if (committing && s) { committing = false; }
 </script>
 
 <main>
@@ -34,9 +70,14 @@
   </header>
 
   <div class="app">
-    <EvalBar evalDto={s?.eval ?? null} />
+    {#if showEvalBar}<EvalBar evalDto={s?.eval ?? null} />{/if}
     <div class="board-wrap">
-      <Board {fen} {orientation} {onMove} revertSignal={$errorSeq} />
+      <Board bind:this={boardComp} {fen} {orientation} {onMove} revertSignal={$errorSeq}
+        lines={s?.lines ?? []} {showArrows} {editing} {selectedEditPiece} />
+      {#if editing}
+        <EditPalette selected={selectedEditPiece} onSelect={onSelectPiece} />
+      {/if}
+      {#if editError}<div class="err" data-testid="edit-error">{editError}</div>{/if}
     </div>
     <aside class="panel">
       <div class="box"><div class="label">Engine lines</div>
@@ -51,6 +92,10 @@
           tracking={s?.tracking ?? false}
           visionStatus={s?.visionStatus ?? 'off'}
           lowConfidence={s?.lowConfidence ?? []}
+          editing={editing} showArrows={showArrows} showEvalBar={showEvalBar}
+          onToggleEdit={onToggleEdit}
+          onToggleArrows={() => (showArrows = !showArrows)}
+          onToggleEvalBar={() => (showEvalBar = !showEvalBar)}
           {onCommand} {onFlip} />
       </div>
       {#if $lastError}<div class="err">{$lastError}</div>{/if}
