@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { Chessground } from '@lichess-org/chessground';
-  import { moveToUci, turnColor, legalDests } from '../lib/board';
+  import { moveToUci, turnColor, legalDests, promotionPiece } from '../lib/board';
   import { linesToShapes } from '../lib/arrows';
   import { coordsToKey, pieceFromToken } from '../lib/edit';
   import type { LineDto } from '../lib/types';
@@ -23,10 +23,6 @@
   type CgApi = ReturnType<typeof Chessground>;
   let el: HTMLDivElement;
   let cg: CgApi | undefined;
-
-  function isPromotion(dest: string): boolean {
-    return dest[1] === '1' || dest[1] === '8';
-  }
 
   /** Current placement field, for committing an edit. */
   export function getPlacement(): string {
@@ -67,7 +63,7 @@
           events: {
             after: (orig: string, dest: string) => {
               if (editing) return; // in edit mode a drag just rearranges locally
-              const promo = isPromotion(dest) ? 'q' : undefined;
+              const promo = promotionPiece(fen, orig, dest);
               onMove(moveToUci(orig, dest, promo));
             },
           },
