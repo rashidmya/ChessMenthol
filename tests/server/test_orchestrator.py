@@ -99,13 +99,17 @@ def test_make_move_advances_board(make_orchestrator):
 
 def test_make_move_classifies_using_prior_analysis(make_orchestrator):
     orch, frames, holder = make_orchestrator()
-    holder["s"].queue = [_analysis(chess.STARTING_FEN, 30, [chess.Move.from_uci("e2e4")])]
+    # Engine prefers d2d4; the player instead plays e2e4 -> played != best, so the
+    # two slots are distinguishable (guards against a played/best slot swap).
+    holder["s"].queue = [_analysis(chess.STARTING_FEN, 30, [chess.Move.from_uci("d2d4")])]
     orch.handle({"type": "set_fen", "fen": chess.STARTING_FEN})
     after = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
     holder["s"].queue = [_analysis(after, 30, [chess.Move.from_uci("e7e5")], depth=12)]
     orch.handle({"type": "make_move", "uci": "e2e4"})
     state = [f for f in frames if f["type"] == "state"][-1]
-    assert state["lastMove"]["uci"] == "e2e4"
+    assert state["lastMove"]["best"]["uci"] == "d2d4"
+    assert state["lastMove"]["best"]["san"] == "d4"
+    assert state["lastMove"]["played"]["san"] == "e4"
     assert state["lastMove"]["classification"]["label"] in {
         "best", "great", "excellent", "good", "brilliant", "book", "inaccuracy",
         "mistake", "blunder", "miss",

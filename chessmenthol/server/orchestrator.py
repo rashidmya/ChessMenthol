@@ -256,10 +256,8 @@ class Orchestrator:
             board_before, move, before_a = self._pending
             if before_a is not None and before_a.best is not None:
                 c = classify_move(board_before, move, before_a, analysis)
-                self._last_move = {
-                    "uci": move.uci(),
-                    "classification": serialize.classification_to_dict(c),
-                }
+                self._last_move = serialize.last_move_to_dict(
+                    c, board_before, move, before_a, analysis)
             self._pending = None
         self._send(self._state_frame(analysis, board))
 
