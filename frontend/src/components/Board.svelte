@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { Chessground } from '@lichess-org/chessground';
-  import { moveToUci } from '../lib/board';
+  import { moveToUci, turnColor, legalDests } from '../lib/board';
   import { linesToShapes } from '../lib/arrows';
   import { coordsToKey, pieceFromToken } from '../lib/edit';
   import type { LineDto } from '../lib/types';
@@ -33,6 +33,15 @@
     return cg ? cg.getFen() : fen.split(' ')[0];
   }
 
+  /** chessground movable config: legal-only for the side to move in normal play
+   *  (illegal drags snap back, nothing is sent), free placement while editing.
+   *  Typed `any` to bridge chessground's branded Key/Dests types. */
+  function movableConfig(fenStr: string, isEditing: boolean): any {
+    return isEditing
+      ? { free: true, color: 'both' }
+      : { free: false, color: turnColor(fenStr), dests: legalDests(fenStr) };
+  }
+
   function editPlace(key: string): void {
     if (!cg || !editing || !selectedEditPiece) return;
     const piece = selectedEditPiece === 'trash' ? undefined : pieceFromToken(selectedEditPiece);
@@ -53,8 +62,7 @@
         fen,
         orientation,
         movable: {
-          free: true,
-          color: 'both',
+          ...movableConfig(fen, editing),
           showDests: false,
           events: {
             after: (orig: string, dest: string) => {
@@ -86,6 +94,8 @@
   }
   // Arrows: recompute on lines / toggle / mode change. Suppressed while editing.
   $: if (cg) cg.setAutoShapes(linesToShapes(lines, showArrows && !editing) as any);
+  // Movable: legal-only for the side to move in normal play; free placement while editing.
+  $: if (cg) cg.set({ movable: movableConfig(fen, editing) });
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
