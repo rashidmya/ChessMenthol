@@ -2,6 +2,9 @@
   import { onMount, onDestroy } from 'svelte';
   import { Chessground } from '@lichess-org/chessground';
   import { moveToUci } from '../lib/board';
+  import { linesToShapes } from '../lib/arrows';
+  import { coordsToKey, pieceFromToken } from '../lib/edit';
+  import type { LineDto } from '../lib/types';
   import '@lichess-org/chessground/assets/chessground.base.css';
   import '@lichess-org/chessground/assets/chessground.brown.css';
   import '@lichess-org/chessground/assets/chessground.cburnett.css';
@@ -12,6 +15,10 @@
   export let onMove: (uci: string) => void = () => {};
   /** Bump this (e.g. on a rejected-move error) to force a re-sync to `fen`. */
   export let revertSignal = 0;
+  export let lines: LineDto[] = [];
+  export let showArrows = true;
+  export let editing = false;
+  export let selectedEditPiece: string | null = 'P';
 
   type CgApi = ReturnType<typeof Chessground>;
   let el: HTMLDivElement;
@@ -19,6 +26,25 @@
 
   function isPromotion(dest: string): boolean {
     return dest[1] === '1' || dest[1] === '8';
+  }
+
+  /** Current placement field, for committing an edit. */
+  export function getPlacement(): string {
+    return cg ? cg.getFen() : fen.split(' ')[0];
+  }
+
+  function editPlace(key: string): void {
+    if (!cg || !editing || !selectedEditPiece) return;
+    const piece = selectedEditPiece === 'trash' ? undefined : pieceFromToken(selectedEditPiece);
+    cg.setPieces(new Map([[key as any, piece as any]]));
+  }
+
+  function onContextMenu(ev: MouseEvent): void {
+    if (!cg || !editing) return;
+    ev.preventDefault();
+    const r = el.getBoundingClientRect();
+    const key = coordsToKey(ev.clientX - r.left, ev.clientY - r.top, r.width, r.height, orientation);
+    cg.setPieces(new Map([[key as any, undefined as any]]));
   }
 
   onMount(() => {
@@ -32,11 +58,14 @@
           showDests: false,
           events: {
             after: (orig: string, dest: string) => {
+              if (editing) return; // in edit mode a drag just rearranges locally
               const promo = isPromotion(dest) ? 'q' : undefined;
               onMove(moveToUci(orig, dest, promo));
             },
           },
         },
+        drawable: { enabled: true, visible: true, autoShapes: [] },
+        events: { select: (key: string) => editPlace(key) },
       });
     } catch (err) {
       // chessground reads DOM geometry that jsdom lacks; in the browser this
@@ -47,16 +76,17 @@
 
   onDestroy(() => cg?.destroy());
 
-  $: if (cg) cg.set({ fen, orientation });
-  // When the server rejects a move (revertSignal bumps), force the board back to
-  // the authoritative fen even though its value did not change.
+  // Never let an incoming fen update clobber an in-progress local edit.
+  $: if (cg && !editing) cg.set({ fen, orientation });
   $: forceSync(revertSignal);
   function forceSync(_signal: number): void {
-    if (cg) cg.set({ fen, orientation });
+    if (cg && !editing) cg.set({ fen, orientation });
   }
+  // Arrows: recompute on lines / toggle / mode change. Suppressed while editing.
+  $: if (cg) cg.setAutoShapes(linesToShapes(lines, showArrows && !editing) as any);
 </script>
 
-<div class="board" data-testid="board" bind:this={el}></div>
+<div class="board" data-testid="board" bind:this={el} on:contextmenu={onContextMenu}></div>
 
 <style>
   .board { width: 100%; aspect-ratio: 1 / 1; }
