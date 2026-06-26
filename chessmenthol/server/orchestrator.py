@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from typing import Callable, Optional, Tuple
 
 import chess
@@ -9,16 +10,20 @@ from ..engine.manager import EngineManager
 from ..engine.types import AnalysisInfo
 from . import serialize
 from .session import AnalysisSession
+from .tracking import TrackingLoop
 
 SendCallback = Callable[[dict], None]
 CLASSIFY_MIN_DEPTH = 8
+
+# AssembledPosition.orientation strings -> frontend "white"|"black".
+_ORIENTATION_MAP = {"white_bottom": "white", "black_bottom": "black"}
 
 
 class Orchestrator:
     """Owns the working board + settings + analysis session; turns commands into
     state frames pushed via `send`."""
 
-    def __init__(self, send: SendCallback, *, engine=None, session_factory=None):
+    def __init__(self, send: SendCallback, *, engine=None, session_factory=None, tracker=None):
         self._send = send
         self._engine = engine if engine is not None else EngineManager()
         self._board = chess.Board()
@@ -32,32 +37,59 @@ class Orchestrator:
         self._analyzing = False
         factory = session_factory or (lambda eng, cb: AnalysisSession(eng, cb))
         self._session = factory(self._engine, self._on_update)
+        # ---- vision / tracking ----
+        # `handle` holds `self._lock` for board-mutating commands; `_on_tracked`
+        # (called from the tracking thread / capture_now) acquires it itself.
+        # set_auto/capture_now therefore branch in `handle` BEFORE the lock.
+        self._lock = threading.Lock()
+        self._tracker = tracker
+        self._tracking = False
+        self._vision_status = "off"
+        self._detected_orientation: Optional[str] = None
+        self._low_confidence: list[str] = []
+        self._loop = (
+            TrackingLoop(self._tracker, self._on_tracked) if self._tracker is not None else None
+        )
 
     # ---- command dispatch ----
     def handle(self, cmd: dict) -> None:
         ctype = cmd.get("type")
-        try:
-            if ctype == "set_fen":
-                self.set_fen(cmd["fen"])
-            elif ctype == "set_turn":
-                self.set_turn(bool(cmd["white"]))
-            elif ctype == "make_move":
-                self.make_move(cmd["uci"])
-            elif ctype == "undo":
-                self.undo()
-            elif ctype == "set_engine":
-                self.set_engine(cmd["id"])
-            elif ctype == "set_options":
-                self.set_options(cmd)
-            elif ctype == "stop":
-                self.stop_analysis()
-            else:
-                self._error(f"unknown command: {ctype!r}")
-        except (KeyError, ValueError) as exc:
-            self._error(str(exc))
+        # Vision commands manage the tracking loop and must NOT hold `self._lock`:
+        # capture_now -> tick_once -> _on_tracked re-acquires it. Branch first.
+        if ctype == "set_auto":
+            self._set_auto(bool(cmd.get("on")))
+            return
+        if ctype == "capture_now":
+            self._capture_now()
+            return
+        with self._lock:
+            try:
+                if ctype == "set_fen":
+                    self.set_fen(cmd["fen"])
+                elif ctype == "set_turn":
+                    self.set_turn(bool(cmd["white"]))
+                elif ctype == "make_move":
+                    self.make_move(cmd["uci"])
+                elif ctype == "undo":
+                    self.undo()
+                elif ctype == "set_engine":
+                    self.set_engine(cmd["id"])
+                elif ctype == "set_options":
+                    self.set_options(cmd)
+                elif ctype == "stop":
+                    self.stop_analysis()
+                else:
+                    self._error(f"unknown command: {ctype!r}")
+            except (KeyError, ValueError) as exc:
+                self._error(str(exc))
 
     # ---- commands ----
     def set_fen(self, fen: str) -> None:
+        # Thin wrapper; the actual body is lock-free so `_on_tracked` (which
+        # already holds `self._lock`) can reuse it without re-acquiring.
+        self._apply_fen(fen)
+
+    def _apply_fen(self, fen: str) -> None:
         try:
             board = chess.Board(fen)
         except ValueError as exc:
@@ -81,6 +113,8 @@ class Orchestrator:
         self._board = board
         self._reset_move_state()
         self._restart()
+        if self._tracker is not None:
+            self._tracker.set_side_override(chess.WHITE if white else chess.BLACK)
 
     def make_move(self, uci: str) -> None:
         try:
@@ -137,9 +171,51 @@ class Orchestrator:
         self._send(self._state_frame(self._last_analysis, self._board))
 
     def close(self) -> None:
+        if self._loop is not None:
+            self._loop.stop()
         self._session.close()
         if hasattr(self._engine, "close"):
             self._engine.close()
+
+    # ---- vision / tracking ----
+    def _ensure_loop(self) -> None:
+        if self._loop is None:
+            from chessmenthol.vision.tracker import Tracker
+
+            self._tracker = Tracker()
+            self._loop = TrackingLoop(self._tracker, self._on_tracked)
+
+    def _set_auto(self, on: bool) -> None:
+        self._tracking = on
+        if on:
+            self._ensure_loop()
+            self._loop.start()
+            self._vision_status = "searching"
+        else:
+            if self._loop is not None:
+                self._loop.stop()
+            self._vision_status = "off"
+        self._send(self._state_frame(self._last_analysis, self._board))
+
+    def _capture_now(self) -> None:
+        self._ensure_loop()
+        self._loop.tick_once()
+
+    def _on_tracked(self, assembled) -> None:
+        # Runs on the tracking thread (or directly via capture_now); acquires the
+        # lock itself. Callers that already hold the lock must NOT route here.
+        with self._lock:
+            if assembled is None or not assembled.is_legal:
+                self._vision_status = "searching"
+                self._send(self._state_frame(self._last_analysis, self._board))
+                return
+            self._detected_orientation = _ORIENTATION_MAP.get(assembled.orientation)
+            self._low_confidence = list(assembled.low_confidence)
+            self._vision_status = "low_confidence" if assembled.low_confidence else "tracking"
+            if assembled.fen.split()[0] != self._board.board_fen():
+                self._apply_fen(assembled.fen)
+            else:
+                self._send(self._state_frame(self._last_analysis, self._board))
 
     # ---- internals ----
     def _reset_move_state(self) -> None:
@@ -183,6 +259,10 @@ class Orchestrator:
             "depth": adict["depth"],
             "lines": adict["lines"],
             "lastMove": self._last_move,
+            "tracking": self._tracking,
+            "visionStatus": self._vision_status,
+            "detectedOrientation": self._detected_orientation,
+            "lowConfidence": self._low_confidence,
         }
 
     def _error(self, message: str) -> None:
