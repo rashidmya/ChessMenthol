@@ -9,7 +9,10 @@ const ROLE: Record<string, CgPiece['role']> = {
   p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king',
 };
 
-/** Expand a FEN placement field into an 8x8 grid; row 0 = rank 8, col 0 = file a. */
+/** Expand a FEN placement field into an 8x8 grid; row 0 = rank 8, col 0 = file a.
+ *  Malformed input (wrong rank/file count) degrades gracefully because buildFen's
+ *  at() uses optional chaining; in practice input always comes from chessground's
+ *  getFen, which yields a well-formed placement. */
 function parsePlacement(placement: string): (string | null)[][] {
   return placement.split('/').map((row) => {
     const cells: (string | null)[] = [];
@@ -46,7 +49,9 @@ export function buildFen(placement: string, sideToMove: 'white' | 'black'): stri
 }
 
 export function pieceFromToken(tok: string): CgPiece {
-  return { role: ROLE[tok.toLowerCase()], color: tok === tok.toUpperCase() ? 'white' : 'black' };
+  const role = ROLE[tok.toLowerCase()];
+  if (role === undefined) throw new Error(`Unknown piece token: ${tok}`);
+  return { role, color: tok === tok.toUpperCase() ? 'white' : 'black' };
 }
 
 /** Map a pixel offset within a square board element to a square key, given orientation. */
