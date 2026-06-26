@@ -4,7 +4,12 @@ export interface LineDto {
   pv: string[]; san: string;
 }
 export interface ClassificationDto { label: string; cpl: number; isBest: boolean; }
-export interface LastMoveDto { uci: string; classification: ClassificationDto; }
+export interface LastMovePvDto { san: string; evalText: string; pv: string; }
+export interface LastMoveDto {
+  classification: ClassificationDto;
+  played: LastMovePvDto;
+  best: LastMovePvDto & { uci: string };
+}
 export interface StateFrame {
   type: 'state'; fen: string; sideToMove: 'white' | 'black'; engineId: string;
   analyzing: boolean; eval: EvalDto | null; depth: number; lines: LineDto[];
