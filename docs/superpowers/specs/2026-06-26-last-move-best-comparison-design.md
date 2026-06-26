@@ -18,7 +18,7 @@ Reference (user screenshot):
 
 ```
 +5.03  ✗  Nc3 is a mistake
-             16... ♟xc3
+             16... bxc3
 +2.27  ✓  Nec5 is best          ← clickable: undo + play best
              16... O-O-O 17. ♘d7 ♗g3
 ```
@@ -31,7 +31,7 @@ are untouched.
 
 | Topic | Decision |
 |---|---|
-| Notation | **Mixed.** The move *name* uses plain letters (`Nc3`, `Nec5`); the *continuation* uses figurine glyphs (`♟xc3`, `♘d7`, `♗g3`). Filled (black) unicode glyph set for all pieces regardless of color, matching the screenshot. |
+| Notation | **Mixed.** The move *name* uses plain letters (`Nc3`, `Nec5`); the *continuation* uses figurine glyphs for the pieces only (`bxc3`, `♘d7`, `♗g3`). Filled (black) unicode glyph set for K/Q/R/B/N regardless of color; **pawns get no glyph** (standard figurine convention — `bxc3`, `e4`). |
 | Best move was played (`isBest`) | **Single green row** — `"<san> is best"` with its eval + continuation. No clickable button (it is already best). |
 | Continuation length | **~3 plies, truncated** with a trailing `…` when the engine PV is longer. Keeps the 320px side panel compact. |
 | Eval point of view | **White POV** for both rows (`+5.03` / `+2.27`), consistent with `format_white()`, the eval bar, and the Engine-lines panel. |
@@ -138,11 +138,12 @@ Converts a (possibly numbered, multi-move) SAN/variation string to figurine nota
   verbatim (e.g. `16...`, `17.`).
 - In the remaining SAN, replace a leading piece letter `K Q R B N` with the filled glyph
   (`♚ ♛ ♜ ♝ ♞`). Promotion suffix letters (`=Q`) are converted too.
-- If the SAN is a pawn move (first char not in `KQRBNO`), prepend the pawn glyph `♟`.
+- **Pawn moves get no glyph** — a SAN whose first char is not in `KQRBNO` (e.g. `bxc3`, `e4`,
+  `exd5`, `a8=♛`) passes through unchanged except for any promotion-suffix conversion.
 - Castling (`O-O`, `O-O-O`) and the trailing `…` are passed through untouched.
 
-Pure, no dependencies, exhaustively unit-tested (piece moves, pawn captures, castling, promotion,
-check/mate suffixes, numbered black-to-move strings, the `…`).
+Pure, no dependencies, exhaustively unit-tested (piece moves, pawn moves/captures get **no** glyph,
+castling, promotion, check/mate suffixes, numbered black-to-move strings, the `…`).
 
 ### 5.3 `components/LastMove.svelte` — replaces `Badge.svelte`
 
