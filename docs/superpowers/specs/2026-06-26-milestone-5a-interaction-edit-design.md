@@ -64,9 +64,10 @@ invariant.
 
 ### 4.2 Persist engine settings
 `set_options` currently configures `Threads`/`Hash` on the live engine but does not remember them, so
-an engine switch or crash-restart reverts to the spec defaults. Store `_threads`/`_hash` on the
-orchestrator and re-apply them in `_restart` after the engine is (re)started. Depth and multipv are
-already stored; this brings Threads/Hash to parity.
+an **engine switch** reverts to the spec defaults. Store `_threads`/`_hash` on the orchestrator and
+re-apply them in `_restart` after the engine is (re)selected (i.e. on `set_engine`). Depth and
+multipv are already stored; this brings Threads/Hash to parity. (Re-applying the user's options after
+a deeper *EngineManager-internal crash-restart* is a later refinement — out of scope for M5a.)
 
 No state-frame additions are required: like the existing Lines/Depth inputs, the Threads/Hash inputs
 are write-only from the client.
