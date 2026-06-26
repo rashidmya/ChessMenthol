@@ -32,3 +32,49 @@ def analysis_to_dict(analysis: AnalysisInfo, board: chess.Board) -> dict:
 
 def classification_to_dict(c: Classification) -> dict:
     return {"label": c.label.value, "cpl": c.cpl, "isBest": c.is_best}
+
+
+PV_PLIES = 3  # plies of continuation to show after each move
+
+
+def _continuation_san(board_after: chess.Board, pv: list[chess.Move], plies: int = PV_PLIES) -> str:
+    """SAN of the first `plies` plies of `pv` from `board_after`, with a trailing
+    ' …' when the real variation is longer. Empty string for an empty pv."""
+    if not pv:
+        return ""
+    san = board_after.variation_san(pv[:plies])
+    if len(pv) > plies:
+        san += " …"
+    return san
+
+
+def last_move_to_dict(c: Classification, board_before: chess.Board, move: chess.Move,
+                      before_a: AnalysisInfo, after_a: AnalysisInfo,
+                      *, plies: int = PV_PLIES) -> dict:
+    """Enriched `lastMove` payload comparing the played move to the engine's best.
+
+    Preconditions (guaranteed by the caller): before_a.best, before_a.best.move,
+    and after_a.best are not None. Evals are white-POV strings (e.g. "+5.03");
+    continuations are
+    numbered SAN truncated to `plies`. The best continuation drops the best move
+    itself (it is already the row's name)."""
+    best_line = before_a.best
+    best_move = best_line.move
+    after_played = board_before.copy()
+    after_played.push(move)
+    after_best = board_before.copy()
+    after_best.push(best_move)
+    return {
+        "classification": classification_to_dict(c),
+        "played": {
+            "san": board_before.san(move),
+            "evalText": after_a.best.eval.format_white(),
+            "pv": _continuation_san(after_played, after_a.best.pv, plies),
+        },
+        "best": {
+            "san": board_before.san(best_move),
+            "uci": best_move.uci(),
+            "evalText": best_line.eval.format_white(),
+            "pv": _continuation_san(after_best, best_line.pv[1:], plies),
+        },
+    }

@@ -167,10 +167,9 @@ Props: `lastMove: LastMoveDto | null`, `onPlayBest: (uci: string) => void`.
 ### 5.4 `App.svelte`
 
 - Swap `import Badge` → `import LastMove`; in the "Last move" box render
-  `<LastMove lastMove={s?.lastMove ?? null} onPlayBest={playBest} />`.
-- Add `function playBest(uci: string) { send({ type: 'undo' }); send({ type: 'make_move', uci }); }`.
-  Commands are ordered over the socket and applied sequentially under the orchestrator lock, so this
-  lands on `board_before` and then plays the best move (which re-classifies as "best").
+  `<LastMove lastMove={s?.lastMove ?? null} {onPlayBest} />`.
+- Add `function onPlayBest(uci: string) { send({ type: 'play_best', uci }); }`.
+  See §8 — the original `undo`+`make_move` pair was replaced by an atomic `play_best` command.
 
 ### 5.5 Removed / added files
 
@@ -190,9 +189,28 @@ Props: `lastMove: LastMoveDto | null`, `onPlayBest: (uci: string) => void`.
 
 ## 7. Out of scope (YAGNI)
 
-- A dedicated atomic `play_best` server command (the `undo`+`make_move` pair is sufficient and
-  reuses tested handlers; the brief double-restart on a single click is acceptable).
 - Making the *played* move clickable, hover preview of variations, or a full move-list with
   per-move quality dots (the move list was already deferred in M5a).
 - Figurine notation in the Engine-lines panel (stays plain SAN, unchanged).
 - Mate-score eval text styling beyond the existing `format_white()` `#N` output.
+
+## 8. Addendum — atomic `play_best` command (final-review reversal)
+
+The original design (§5.4) clicked "best" by sending `undo` then `make_move(bestUci)` and listed a
+dedicated `play_best` command as out of scope. Final integration review found this leaves the
+**Last-move panel blank** after the click: `undo` discards the deep analysis and restarts a fresh
+(shallow) one, so the immediately-following `make_move` re-classifies against a shallow/None
+pre-move analysis and never produces the green "… is best" confirmation. The two-command flow was
+therefore replaced (per user decision) with an atomic, race-free command:
+
+- **Protocol:** `Command` gains `{ type: 'play_best'; uci: string }`; `App.onPlayBest` sends just that.
+- **Server (`orchestrator.py`):** `_on_update` retains the deep pre-move analysis as
+  `self._pre_move_analysis` whenever it classifies a move (cleared in `_reset_move_state`).
+  `play_best(uci)` runs under the orchestrator lock: it pops a *copy* to recover the pre-move
+  position, validates legality, then atomically restores that position, plays the engine's best
+  move, and sets `_pending = (board_before, move, self._pre_move_analysis)` — so classification
+  reuses the deep analysis and reliably reports `isBest`. `"play_best"` is added to
+  `_PAUSE_ON_TRACKING`. Missing retained analysis / empty stack → safe no-op (re-emit state).
+- **Tests:** `test_play_best_replays_best_using_retained_analysis` (board shows the best move,
+  `isBest` true) and `test_play_best_noop_without_retained_analysis` (no-op leaves board + session
+  untouched).

@@ -18,7 +18,7 @@ CLASSIFY_MIN_DEPTH = 8
 # Board-mutating user commands that must not be fought by the tracker. They pause
 # Auto BEFORE the lock is taken (the tracking loop's _on_tracked self-acquires the
 # lock, so stopping it from inside the lock would deadlock).
-_PAUSE_ON_TRACKING = {"set_fen", "make_move", "undo"}
+_PAUSE_ON_TRACKING = {"set_fen", "make_move", "undo", "play_best"}
 
 # AssembledPosition.orientation strings -> frontend "white"|"black".
 _ORIENTATION_MAP = {"white_bottom": "white", "black_bottom": "black"}
@@ -41,6 +41,7 @@ class Orchestrator:
         self._last_analysis: Optional[AnalysisInfo] = None
         self._pending: Optional[Tuple[chess.Board, chess.Move, Optional[AnalysisInfo]]] = None
         self._last_move: Optional[dict] = None
+        self._pre_move_analysis: Optional[AnalysisInfo] = None
         self._analyzing = False
         factory = session_factory or (lambda eng, cb: AnalysisSession(eng, cb))
         self._session = factory(self._engine, self._on_update)
@@ -81,6 +82,8 @@ class Orchestrator:
                     self.make_move(cmd["uci"])
                 elif ctype == "undo":
                     self.undo()
+                elif ctype == "play_best":
+                    self.play_best(cmd["uci"])
                 elif ctype == "set_engine":
                     self.set_engine(cmd["id"])
                 elif ctype == "set_options":
@@ -150,6 +153,39 @@ class Orchestrator:
         if self._board.move_stack:
             self._board.pop()
         self._reset_move_state()
+        self._restart()
+
+    def play_best(self, uci: str) -> None:
+        # Atomically pop the played move and replay the engine's best move, reusing
+        # the deep analysis already computed for the played move so the replayed
+        # move classifies correctly (no fresh shallow re-analysis race).
+        # Safe to read _pre_move_analysis before stop(): _on_update only writes it
+        # while _pending is set, and by the time the UI offers "play best" the
+        # played move is already classified (_pending is None), so no write races.
+        before = self._pre_move_analysis
+        # Defensive no-op (re-emit current state) when there is nothing to replay:
+        # no retained analysis yet, an analysis with no lines, or an empty stack.
+        if before is None or before.best is None or not self._board.move_stack:
+            self._send(self._state_frame(self._last_analysis, self._board))
+            return
+        try:
+            move = chess.Move.from_uci(uci)
+        except ValueError:
+            self._error(f"invalid move: {uci!r}")
+            self._send(self._state_frame(self._last_analysis, self._board))
+            return
+        board_before = self._board.copy()
+        board_before.pop()  # the pre-move position the retained analysis describes
+        if move not in board_before.legal_moves:
+            self._error(f"illegal best move: {uci}")
+            self._send(self._state_frame(self._last_analysis, self._board))
+            return
+        self._session.stop()  # join the prior worker before mutating shared state
+        self._board = board_before.copy()  # copy so push() doesn't mutate the _pending board
+        self._board.push(move)
+        self._last_analysis = None
+        self._last_move = None
+        self._pending = (board_before, move, before)
         self._restart()
 
     def set_engine(self, engine_id: str) -> None:
@@ -238,6 +274,7 @@ class Orchestrator:
         self._last_analysis = None
         self._pending = None
         self._last_move = None
+        self._pre_move_analysis = None
 
     def _restart(self) -> None:
         if not self._engine_started and hasattr(self._engine, "select"):
@@ -256,10 +293,11 @@ class Orchestrator:
             board_before, move, before_a = self._pending
             if before_a is not None and before_a.best is not None:
                 c = classify_move(board_before, move, before_a, analysis)
-                self._last_move = {
-                    "uci": move.uci(),
-                    "classification": serialize.classification_to_dict(c),
-                }
+                self._last_move = serialize.last_move_to_dict(
+                    c, board_before, move, before_a, analysis)
+                # Retain the deep pre-move analysis so a later play_best can reuse
+                # it instead of re-deriving best from a fresh, shallow re-analysis.
+                self._pre_move_analysis = before_a
             self._pending = None
         self._send(self._state_frame(analysis, board))
 
