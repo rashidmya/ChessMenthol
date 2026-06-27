@@ -126,7 +126,7 @@ def test_on_update_tolerates_best_line_without_a_move(make_orchestrator):
     board_before = chess.Board()
     move = chess.Move.from_uci("e2e4")
     broken_before = AnalysisInfo(chess.STARTING_FEN, 18, [Line(1, Eval(cp=30), 18, [])])
-    orch._pending = (board_before, move, broken_before)
+    orch._pending = (board_before, move, broken_before, 0)
 
     after_fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
     good_after = _analysis(after_fen, -30, [chess.Move.from_uci("e7e5")], depth=12)
@@ -405,3 +405,94 @@ def test_play_best_noop_without_retained_analysis(make_orchestrator):
     assert state["fen"] == chess.STARTING_FEN          # board unchanged
     assert state["lastMove"] is None
     assert holder["s"].stopped == stopped_before       # no-op must not stop the session
+
+
+# ---- explicit move history ----
+
+
+def test_make_move_appends_to_move_list(make_orchestrator):
+    orch, frames, holder = make_orchestrator()
+    orch.handle({"type": "make_move", "uci": "e2e4"})
+    state = [f for f in frames if f["type"] == "state"][-1]
+    assert state["currentPly"] == 1
+    assert len(state["moveList"]) == 1
+    entry = state["moveList"][0]
+    assert entry["ply"] == 1
+    assert entry["san"] == "e4"
+    assert entry["uci"] == "e2e4"
+    assert entry["classification"] is None  # not yet classified (no deep analysis)
+
+
+def test_navigate_from_past_truncates_forward_line(make_orchestrator):
+    # e4, e5, navigate back to ply 1, then c5 -> replaces e5 with c5.
+    orch, frames, holder = make_orchestrator()
+    orch.handle({"type": "make_move", "uci": "e2e4"})
+    orch.handle({"type": "make_move", "uci": "e7e5"})
+    orch.handle({"type": "navigate", "index": 1})  # step back to after e4
+    orch.handle({"type": "make_move", "uci": "c7c5"})  # Sicilian; replaces e5
+    state = [f for f in frames if f["type"] == "state"][-1]
+    assert state["currentPly"] == 2
+    sans = [e["san"] for e in state["moveList"]]
+    assert sans == ["e4", "c5"]
+
+
+def test_navigate_clamps_to_zero(make_orchestrator):
+    orch, frames, holder = make_orchestrator()
+    orch.handle({"type": "make_move", "uci": "e2e4"})
+    orch.handle({"type": "navigate", "index": 0})
+    state = [f for f in frames if f["type"] == "state"][-1]
+    assert state["currentPly"] == 0
+    # FEN should be the starting position (base_fen, no moves applied).
+    assert state["fen"] == chess.STARTING_FEN
+
+
+def test_navigate_clamps_to_tip(make_orchestrator):
+    orch, frames, holder = make_orchestrator()
+    orch.handle({"type": "make_move", "uci": "e2e4"})
+    orch.handle({"type": "navigate", "index": 99})  # beyond tip (length==1)
+    state = [f for f in frames if f["type"] == "state"][-1]
+    assert state["currentPly"] == 1  # clamped to tip
+
+
+def test_reset_clears_history(make_orchestrator):
+    orch, frames, holder = make_orchestrator()
+    orch.handle({"type": "make_move", "uci": "e2e4"})
+    orch.handle({"type": "reset"})
+    state = [f for f in frames if f["type"] == "state"][-1]
+    assert state["moveList"] == []
+    assert state["currentPly"] == 0
+    assert state["fen"] == chess.STARTING_FEN
+
+
+def test_set_fen_starts_fresh_line(make_orchestrator):
+    orch, frames, holder = make_orchestrator()
+    orch.handle({"type": "make_move", "uci": "e2e4"})
+    orch.handle({"type": "make_move", "uci": "e7e5"})
+    fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
+    orch.handle({"type": "set_fen", "fen": fen})
+    state = [f for f in frames if f["type"] == "state"][-1]
+    assert state["moveList"] == []
+    assert state["currentPly"] == 0
+
+
+def test_classification_lands_in_move_list(make_orchestrator):
+    # Mirrors test_make_move_classifies_using_prior_analysis but also checks
+    # that the classification is stored in moveList[0].classification.
+    orch, frames, holder = make_orchestrator()
+    # Provide deep analysis of starting position so classification is triggered.
+    holder["s"].queue = [_analysis(chess.STARTING_FEN, 30, [chess.Move.from_uci("d2d4")])]
+    orch.handle({"type": "set_fen", "fen": chess.STARTING_FEN})
+    after_e4 = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
+    holder["s"].queue = [_analysis(after_e4, 30, [chess.Move.from_uci("e7e5")], depth=12)]
+    orch.handle({"type": "make_move", "uci": "e2e4"})
+    state = [f for f in frames if f["type"] == "state"][-1]
+    # lastMove should be populated (overall classification pipeline works).
+    assert state["lastMove"] is not None
+    # The classification should also be stored inside moveList.
+    assert len(state["moveList"]) == 1
+    entry = state["moveList"][0]
+    assert entry["classification"] is not None
+    assert entry["classification"]["label"] in {
+        "best", "great", "excellent", "good", "brilliant", "book",
+        "inaccuracy", "mistake", "blunder", "miss",
+    }

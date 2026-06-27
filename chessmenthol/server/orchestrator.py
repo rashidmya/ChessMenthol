@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Optional, Tuple
 
 import chess
 
-from ..analysis.classify import classify_move
+from ..analysis.classify import Classification, classify_move
 from ..engine.manager import EngineManager
 from ..engine.types import AnalysisInfo
 from . import serialize
@@ -18,6 +19,14 @@ CLASSIFY_MIN_DEPTH = 8
 
 # AssembledPosition.orientation strings -> frontend "white"|"black".
 _ORIENTATION_MAP = {"white_bottom": "white", "black_bottom": "black"}
+
+
+@dataclass
+class HistoryEntry:
+    move: chess.Move
+    san: str
+    classification: Optional[Classification] = None
+    last_move: Optional[dict] = None
 
 
 class Orchestrator:
@@ -35,10 +44,16 @@ class Orchestrator:
         self._hash: Optional[int] = None
         self._engine_started = False
         self._last_analysis: Optional[AnalysisInfo] = None
-        self._pending: Optional[Tuple[chess.Board, chess.Move, Optional[AnalysisInfo]]] = None
+        self._pending: Optional[Tuple[chess.Board, chess.Move, Optional[AnalysisInfo], int]] = None
         self._last_move: Optional[dict] = None
         self._pre_move_analysis: Optional[AnalysisInfo] = None
         self._analyzing = False
+        # ---- explicit move history ----
+        self._base_fen = chess.STARTING_FEN
+        self._history: list[HistoryEntry] = []
+        self._cursor = 0
+        self._analysis_enabled = True
+        self._movetime: Optional[float] = 10.0  # seconds; None == infinite
         factory = session_factory or (lambda eng, cb: AnalysisSession(eng, cb))
         self._session = factory(self._engine, self._on_update)
         # ---- vision (on-demand capture) ----
@@ -73,6 +88,12 @@ class Orchestrator:
                 self.make_move(cmd["uci"])
             elif ctype == "undo":
                 self.undo()
+            elif ctype == "navigate":
+                self.navigate(int(cmd["index"]))
+            elif ctype == "reset":
+                self.reset()
+            elif ctype == "set_analysis_enabled":
+                self.set_analysis_enabled(bool(cmd["enabled"]))
             elif ctype == "play_best":
                 self.play_best(cmd["uci"])
             elif ctype == "set_engine":
@@ -101,18 +122,24 @@ class Orchestrator:
         if not board.is_valid():
             self._error("invalid position")
             return
-        self._session.stop()  # join the prior worker before mutating shared state
+        self._session.stop()
+        self._base_fen = board.fen()
+        self._history = []
+        self._cursor = 0
         self._board = board
         self._reset_move_state()
         self._restart()
 
     def set_turn(self, white: bool) -> None:
-        board = self._board.copy()
+        board = self._board.copy(stack=False)
         board.turn = chess.WHITE if white else chess.BLACK
         if not board.is_valid():
             self._error("turn change produces an invalid position")
             return
-        self._session.stop()  # join the prior worker before mutating shared state
+        self._session.stop()
+        self._base_fen = board.fen()
+        self._history = []
+        self._cursor = 0
         self._board = board
         self._reset_move_state()
         self._restart()
@@ -130,21 +157,42 @@ class Orchestrator:
             self._error(f"illegal move: {uci}")
             self._send(self._state_frame(self._last_analysis, self._board))
             return
-        self._session.stop()  # join the prior worker before reading/mutating state
+        self._session.stop()
         before = self._last_analysis
         board_before = self._board.copy()
-        self._board.push(move)
-        self._last_analysis = None
-        self._last_move = None
-        self._pending = (board_before, move, before)
-        self._restart()
+        self._play_move(move, board_before, before)
 
     def undo(self) -> None:
-        self._session.stop()  # join the prior worker before mutating shared state
-        if self._board.move_stack:
-            self._board.pop()
+        self.navigate(max(0, self._cursor - 1))
+
+    def navigate(self, index: int) -> None:
+        self._session.stop()
+        index = max(0, min(len(self._history), index))
+        self._cursor = index
+        self._rebuild_board()
+        self._last_analysis = None
+        self._pending = None
+        self._pre_move_analysis = None
+        self._last_move = self._history[index - 1].last_move if index > 0 else None
+        self._restart()
+
+    def reset(self) -> None:
+        self._session.stop()
+        self._base_fen = chess.STARTING_FEN
+        self._history = []
+        self._cursor = 0
+        self._board = chess.Board()
         self._reset_move_state()
         self._restart()
+
+    def set_analysis_enabled(self, enabled: bool) -> None:
+        self._analysis_enabled = enabled
+        if enabled:
+            self._restart()
+        else:
+            self._session.stop()
+            self._analyzing = False
+            self._send(self._state_frame(self._last_analysis, self._board))
 
     def play_best(self, uci: str) -> None:
         # Atomically pop the played move and replay the engine's best move, reusing
@@ -171,13 +219,10 @@ class Orchestrator:
             self._error(f"illegal best move: {uci}")
             self._send(self._state_frame(self._last_analysis, self._board))
             return
-        self._session.stop()  # join the prior worker before mutating shared state
-        self._board = board_before.copy()  # copy so push() doesn't mutate the _pending board
-        self._board.push(move)
-        self._last_analysis = None
-        self._last_move = None
-        self._pending = (board_before, move, before)
-        self._restart()
+        self._session.stop()
+        # Step cursor back so _play_move replaces the last entry (not appends).
+        self._cursor -= 1
+        self._play_move(move, board_before, before)
 
     def set_engine(self, engine_id: str) -> None:
         self._session.stop()  # join the prior worker before mutating shared state
@@ -279,6 +324,25 @@ class Orchestrator:
             self._send(self._state_frame(self._last_analysis, self._board))
 
     # ---- internals ----
+    def _rebuild_board(self) -> None:
+        board = chess.Board(self._base_fen)
+        for entry in self._history[: self._cursor]:
+            board.push(entry.move)
+        self._board = board
+
+    def _play_move(self, move: chess.Move, board_before: chess.Board,
+                   before_a: Optional[AnalysisInfo]) -> None:
+        san = board_before.san(move)
+        del self._history[self._cursor :]
+        self._board = board_before.copy()
+        self._board.push(move)
+        self._history.append(HistoryEntry(move=move, san=san))
+        self._cursor = len(self._history)
+        self._last_analysis = None
+        self._last_move = None
+        self._pending = (board_before, move, before_a, self._cursor - 1)
+        self._restart()
+
     def _reset_move_state(self) -> None:
         self._last_analysis = None
         self._pending = None
@@ -300,17 +364,20 @@ class Orchestrator:
         if (self._pending is not None and analysis.best is not None
                 and analysis.best.move is not None
                 and analysis.depth >= CLASSIFY_MIN_DEPTH):
-            board_before, move, before_a = self._pending
+            board_before, move, before_a, ply = self._pending
             # Skip (don't crash) when the pre-move analysis has no usable best move
             # -- e.g. every PV failed to parse, leaving an empty PV.
             if (before_a is not None and before_a.best is not None
                     and before_a.best.move is not None):
                 c = classify_move(board_before, move, before_a, analysis)
-                self._last_move = serialize.last_move_to_dict(
-                    c, board_before, move, before_a, analysis)
+                lm = serialize.last_move_to_dict(c, board_before, move, before_a, analysis)
+                self._last_move = lm
                 # Retain the deep pre-move analysis so a later play_best can reuse
                 # it instead of re-deriving best from a fresh, shallow re-analysis.
                 self._pre_move_analysis = before_a
+                if 0 <= ply < len(self._history):
+                    self._history[ply].classification = c
+                    self._history[ply].last_move = lm
             self._pending = None
         self._send(self._state_frame(analysis, board))
 
@@ -336,6 +403,19 @@ class Orchestrator:
                  "width": self._region.width, "height": self._region.height}
                 if self._region is not None else None
             ),
+            "moveList": [
+                {
+                    "ply": i + 1,
+                    "san": e.san,
+                    "uci": e.move.uci(),
+                    "classification": (serialize.classification_to_dict(e.classification)
+                                       if e.classification is not None else None),
+                }
+                for i, e in enumerate(self._history)
+            ],
+            "currentPly": self._cursor,
+            "analysisEnabled": self._analysis_enabled,
+            "movetime": None if self._movetime is None else int(self._movetime * 1000),
         }
 
     def _error(self, message: str) -> None:
