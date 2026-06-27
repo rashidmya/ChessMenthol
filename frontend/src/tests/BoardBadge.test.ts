@@ -29,4 +29,14 @@ describe('BoardBadge', () => {
     expect(anchor.style.left).toBe('37.5%');
     expect(anchor.style.top).toBe('25%');
   });
+
+  it('renders nothing when the last move has no played uci', () => {
+    const noUci = {
+      classification: { label: 'blunder', cpl: 0, isBest: false },
+      played: { san: 'Nf3', evalText: '+0.2', pv: '' },
+      best: { san: 'Nf3', uci: 'g1f3', evalText: '+0.2', pv: '' },
+    };
+    const { queryByTestId } = render(BoardBadge, { lastMove: noUci, orientation: 'white' });
+    expect(queryByTestId('board-badge')).toBeNull();
+  });
 });
