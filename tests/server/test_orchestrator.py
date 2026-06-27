@@ -515,3 +515,46 @@ def test_set_options_movetime_none_passes_time_limit_none_to_session(make_orches
     orch, frames, holder = make_orchestrator()
     orch.handle({"type": "set_options", "movetime": None})
     assert holder["s"].last_start_kwargs["time_limit"] is None
+
+
+def test_set_options_movetime_zero_passes_time_limit_none_to_session(make_orchestrator):
+    """set_options with movetime=0 (infinite) must start the session with time_limit=None."""
+    orch, frames, holder = make_orchestrator()
+    orch.handle({"type": "set_options", "movetime": 0})
+    assert holder["s"].last_start_kwargs["time_limit"] is None
+
+
+# ---- analysis on/off gate ----
+
+
+def test_disable_analysis_state_frame_reflects_disabled(make_orchestrator):
+    """After set_analysis_enabled=False the latest state frame has analysisEnabled=False
+    and analyzing=False."""
+    orch, frames, holder = make_orchestrator()
+    orch.handle({"type": "set_analysis_enabled", "enabled": False})
+    state = [f for f in frames if f["type"] == "state"][-1]
+    assert state["analysisEnabled"] is False
+    assert state["analyzing"] is False
+
+
+def test_make_move_while_disabled_does_not_start_analysis(make_orchestrator):
+    """While analysis is disabled, make_move must NOT call session.start(), but
+    the move must still be recorded (history is independent of analysis)."""
+    orch, frames, holder = make_orchestrator()
+    orch.handle({"type": "set_analysis_enabled", "enabled": False})
+    # Reset the counter so we only measure starts triggered by the move.
+    holder["s"].started = 0
+    orch.handle({"type": "make_move", "uci": "e2e4"})
+    assert holder["s"].started == 0, "session.start() must not be called while analysis is disabled"
+    state = [f for f in frames if f["type"] == "state"][-1]
+    assert len(state["moveList"]) == 1
+    assert state["currentPly"] == 1
+
+
+def test_re_enable_analysis_restarts_session_exactly_once(make_orchestrator):
+    """Re-enabling analysis must call session.start() exactly once."""
+    orch, frames, holder = make_orchestrator()
+    orch.handle({"type": "set_analysis_enabled", "enabled": False})
+    holder["s"].started = 0
+    orch.handle({"type": "set_analysis_enabled", "enabled": True})
+    assert holder["s"].started == 1

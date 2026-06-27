@@ -353,6 +353,10 @@ class Orchestrator:
         self._pre_move_analysis = None
 
     def _restart(self) -> None:
+        if not self._analysis_enabled:
+            self._analyzing = False
+            self._send(self._state_frame(self._last_analysis, self._board))
+            return
         if not self._engine_started and hasattr(self._engine, "select"):
             self._engine.select(self._engine_id)
             self._engine_started = True
