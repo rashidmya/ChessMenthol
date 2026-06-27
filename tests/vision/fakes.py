@@ -2,22 +2,21 @@ from __future__ import annotations
 
 import numpy as np
 
-from chessmenthol.vision.types import Monitor, Region
+from chessmenthol.vision.types import Monitor
 
 
 class FakeBackend:
-    """Scripted CaptureBackend for headless tests."""
+    """Scripted CaptureBackend for headless tests (new grab_full Protocol)."""
 
     def __init__(self, monitors: list[Monitor], frames: list[np.ndarray]):
         self._monitors = monitors
         self._frames = list(frames)
-        self.grab_calls: list[Region] = []
+        self.grab_calls = 0
 
     def list_monitors(self) -> list[Monitor]:
         return list(self._monitors)
 
-    def grab(self, region: Region) -> np.ndarray:
-        self.grab_calls.append(region)
-        # cycle through scripted frames
-        frame = self._frames[min(len(self.grab_calls) - 1, len(self._frames) - 1)]
+    def grab_full(self) -> np.ndarray:
+        frame = self._frames[min(self.grab_calls, len(self._frames) - 1)]
+        self.grab_calls += 1
         return frame
