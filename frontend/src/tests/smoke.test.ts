@@ -25,9 +25,10 @@ describe('App shell', () => {
     expect(screen.getByTestId('board')).toBeTruthy();
   });
 
-  it('renders the card placeholder panel', () => {
+  it('renders the analysis card with EngineHeader', () => {
     render(App);
-    expect(screen.getByTestId('card-placeholder')).toBeTruthy();
+    // EngineHeader renders <span class="txt">Analysis</span> unconditionally
+    expect(screen.getByText('Analysis')).toBeTruthy();
   });
 
   it('renders the ChessMenthol brand from Header', () => {

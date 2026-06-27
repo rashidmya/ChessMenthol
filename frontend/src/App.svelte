@@ -2,6 +2,8 @@
   import { onMount } from 'svelte';
   import { state, lastError, errorSeq, regionShot, connect, send } from './lib/ws';
   import { buildFen, kingCountOk } from './lib/edit';
+  import { loadViewPrefs, saveViewPrefs } from './lib/viewprefs';
+  import type { ViewPrefs } from './lib/viewprefs';
   import Board from './components/Board.svelte';
   import BoardBadge from './components/BoardBadge.svelte';
   import EvalBar from './components/EvalBar.svelte';
@@ -9,14 +11,20 @@
   import RegionOverlay from './components/RegionOverlay.svelte';
   import Header from './components/Header.svelte';
   import BoardControls from './components/BoardControls.svelte';
+  import EngineHeader from './components/EngineHeader.svelte';
+  import Lines from './components/Lines.svelte';
+  import MoveFeedback from './components/MoveFeedback.svelte';
+  import MoveHistory from './components/MoveHistory.svelte';
+  import SourceControls from './components/SourceControls.svelte';
+  import PositionControls from './components/PositionControls.svelte';
+  import ActionBar from './components/ActionBar.svelte';
   import type { Region } from './lib/region';
 
   let orientation: 'white' | 'black' = 'white';
   let manualFlip = false;
   let editing = false;
   let selectedEditPiece: string | null = 'P';
-  let showArrows = true;
-  let showEvalBar = true;
+  let viewPrefs: ViewPrefs = loadViewPrefs();
   let editError: string | null = null;
   let committing = false;
   let lastSeq = 0;
@@ -26,6 +34,11 @@
   function onPickRegion() { regionShot.set(null); pickingRegion = true; send({ type: 'request_region_shot' }); }
   function onConfirmRegion(r: Region) { pickingRegion = false; send({ type: 'set_region', ...r }); }
   function onCancelRegion() { pickingRegion = false; }
+
+  function onToggleView(key: 'evalBar' | 'lines' | 'arrows' | 'feedback') {
+    viewPrefs = { ...viewPrefs, [key]: !viewPrefs[key] };
+    saveViewPrefs(viewPrefs);
+  }
 
   onMount(() => { connect(); });
 
@@ -71,10 +84,10 @@
   <Header />
   <main>
     <div class="board-col">
-      {#if showEvalBar}<EvalBar evalDto={s?.eval ?? null} />{/if}
+      {#if viewPrefs.evalBar}<EvalBar evalDto={s?.eval ?? null} />{/if}
       <div class="board-wrap">
         <Board bind:this={boardComp} {fen} {orientation} {onMove} revertSignal={$errorSeq}
-          lines={s?.lines ?? []} {showArrows} {editing} {selectedEditPiece} />
+          lines={s?.lines ?? []} showArrows={viewPrefs.arrows} {editing} {selectedEditPiece} />
         {#if !editing}<BoardBadge lastMove={s?.lastMove ?? null} {orientation} />{/if}
         <BoardControls sideToMove={s?.sideToMove ?? 'white'}
           onSetTurn={(white) => send({ type: 'set_turn', white })} onFlip={onFlip} />
@@ -84,8 +97,63 @@
     </div>
     <div class="panel">
       <section class="card">
-        <!-- F10 fills these: engine header, lines, move feedback, move history, source, position, action bar -->
-        <div class="sec" data-testid="card-placeholder"></div>
+        <!-- 1. Engine header + engine lines (one section) -->
+        <!-- NOTE: EngineSettings search-time slider defaults to index 2 (10s), which already
+             matches the backend default movetime (10s). Initializing the slider from s.movetime
+             is deliberately deferred — defaults align and no prop plumbing is needed yet. -->
+        <div class="sec">
+          <EngineHeader
+            analysisEnabled={s?.analysisEnabled ?? true}
+            analyzing={s?.analyzing ?? false}
+            depth={s?.depth ?? 0}
+            engineId={s?.engineId ?? 'stockfish'}
+            onCommand={send}
+            onSetEngine={(id) => send({ type: 'set_engine', id })}
+            prefs={viewPrefs}
+            onToggle={onToggleView} />
+          {#if viewPrefs.lines}
+            <div class="bd">
+              {#key s?.fen}
+                <Lines lines={s?.lines ?? []} />
+              {/key}
+            </div>
+          {/if}
+        </div>
+
+        <!-- 2. Move feedback -->
+        {#if viewPrefs.feedback}
+          <div class="sec">
+            <div class="bd">
+              <MoveFeedback lastMove={s?.lastMove ?? null}
+                onPlayBest={(uci) => send({ type: 'play_best', uci })} />
+            </div>
+          </div>
+        {/if}
+
+        <!-- 3. Move history (renders its own .movehist-sec; wrap in a .sec) -->
+        <div class="sec">
+          <MoveHistory moveList={s?.moveList ?? []} currentPly={s?.currentPly ?? 0}
+            onNavigate={(i) => send({ type: 'navigate', index: i })} />
+        </div>
+
+        <!-- 4. Source controls -->
+        <div class="sec">
+          <SourceControls region={s?.region ?? null}
+            visionStatus={s?.visionStatus ?? 'idle'}
+            lowConfidence={s?.lowConfidence ?? []}
+            onCommand={send} onPickRegion={onPickRegion} />
+        </div>
+
+        <!-- 5. Position controls -->
+        <div class="sec">
+          <PositionControls editing={editing} onCommand={send} onToggleEdit={onToggleEdit} />
+        </div>
+
+        <!-- 6. Action bar -->
+        <div class="sec">
+          <ActionBar currentPly={s?.currentPly ?? 0} total={s?.moveList?.length ?? 0}
+            onNavigate={(i) => send({ type: 'navigate', index: i })} />
+        </div>
       </section>
     </div>
   </main>
@@ -145,6 +213,10 @@
     flex: 1;
     min-height: 0;
   }
+
+  /* ===== card section dividers ===== */
+  .bd { padding: 7px 10px; }
+  .sec + .sec { border-top: 1px solid var(--keyline); }
 
   .err {
     color: var(--blun);
