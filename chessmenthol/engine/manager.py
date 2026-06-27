@@ -81,8 +81,6 @@ class EngineManager:
                         time: Optional[float] = None,
                         multipv: Optional[int] = None) -> AnalysisStream:
         mpv = multipv if multipv is not None else self._multipv
-        if depth is None and time is None:
-            depth = 18
         limit = chess.engine.Limit(depth=depth, time=time)
         result = self._require().analysis(board, limit, multipv=mpv)
         return AnalysisStream(result, board.fen())

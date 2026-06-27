@@ -1,7 +1,8 @@
 import chess
+import chess.engine
 import pytest
 
-from chessmenthol.engine.manager import EngineManager
+from chessmenthol.engine.manager import AnalysisStream, EngineManager
 from chessmenthol.engine.types import AnalysisInfo
 
 
@@ -30,3 +31,27 @@ def test_stream_analysis_context_manager_stops_on_exit():
         with em.stream_analysis(chess.Board(), depth=10, multipv=1) as stream:
             first = next(iter(stream))
     assert first.best is not None
+
+
+def test_stream_analysis_infinite_when_no_depth_or_time():
+    """stream_analysis() with no depth/time must produce an unbounded Limit (no fallback)."""
+    recorded: dict = {}
+
+    class FakeResult:
+        def __iter__(self):
+            return iter([])
+
+        def stop(self):
+            pass
+
+    class FakeEngine:
+        def analysis(self, board, limit, *, multipv=None):
+            recorded["limit"] = limit
+            return FakeResult()
+
+    mgr = EngineManager()
+    mgr._engine = FakeEngine()
+    mgr.stream_analysis(chess.Board())
+    lim = recorded["limit"]
+    assert lim.depth is None, f"expected depth=None, got {lim.depth}"
+    assert lim.time is None, f"expected time=None, got {lim.time}"

@@ -19,9 +19,11 @@ class FakeSession:
         self.queue = []          # list of AnalysisInfo to emit on next start()
         self.started = 0
         self.stopped = 0
+        self.last_start_kwargs: dict = {}  # records kwargs from the most recent start()
 
     def start(self, board, *, depth=None, multipv=None, time_limit=None):
         self.started += 1
+        self.last_start_kwargs = {"depth": depth, "multipv": multipv, "time_limit": time_limit}
         for info in self.queue:
             self._on_update(info, board.copy())
         self.queue = []
@@ -496,3 +498,20 @@ def test_classification_lands_in_move_list(make_orchestrator):
         "best", "great", "excellent", "good", "brilliant", "book",
         "inaccuracy", "mistake", "blunder", "miss",
     }
+
+
+# ---- movetime / set_options ----
+
+
+def test_set_options_movetime_5000_passes_time_limit_to_session(make_orchestrator):
+    """set_options with movetime=5000 ms must start the session with time_limit=5.0."""
+    orch, frames, holder = make_orchestrator()
+    orch.handle({"type": "set_options", "movetime": 5000})
+    assert holder["s"].last_start_kwargs["time_limit"] == 5.0
+
+
+def test_set_options_movetime_none_passes_time_limit_none_to_session(make_orchestrator):
+    """set_options with movetime=None (infinite) must start the session with time_limit=None."""
+    orch, frames, holder = make_orchestrator()
+    orch.handle({"type": "set_options", "movetime": None})
+    assert holder["s"].last_start_kwargs["time_limit"] is None
