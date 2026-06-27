@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { state, lastError, connected, errorSeq, regionShot, connect, send } from './lib/ws';
-  import type { Command } from './lib/types';
+  import { state, lastError, errorSeq, regionShot, connect, send } from './lib/ws';
   import { buildFen, kingCountOk } from './lib/edit';
   import Board from './components/Board.svelte';
   import BoardBadge from './components/BoardBadge.svelte';
@@ -30,12 +29,8 @@
 
   onMount(() => { connect(); });
 
-  function onCommand(cmd: Command) {
-    send(cmd);
-  }
   function onFlip() { manualFlip = true; orientation = orientation === 'white' ? 'black' : 'white'; }
   function onMove(uci: string) { send({ type: 'make_move', uci }); }
-  function onPlayBest(uci: string) { send({ type: 'play_best', uci }); }
 
   function onToggleEdit() {
     if (!editing) {
@@ -85,7 +80,7 @@
           onSetTurn={(white) => send({ type: 'set_turn', white })} onFlip={onFlip} />
       </div>
       {#if editing}<EditPalette selected={selectedEditPiece} onSelect={onSelectPiece} />{/if}
-      {#if editError}<div class="err" data-testid="edit-error">{editError}</div>{/if}
+      {#if editError}<div class="err" role="alert" data-testid="edit-error">{editError}</div>{/if}
     </div>
     <div class="panel">
       <section class="card">
