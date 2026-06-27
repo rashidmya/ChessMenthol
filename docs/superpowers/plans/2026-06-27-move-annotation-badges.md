@@ -19,9 +19,15 @@
 **Frontend — new files**
 - `frontend/src/lib/glyphs.ts` — label → `{ kind, symbol, color }` (single source of truth).
 - `frontend/src/components/MoveBadge.svelte` — filled-disc badge, reused everywhere.
-- `frontend/src/lib/boardBadge.ts` — pure `squareCorner(square, orientation)`.
+- `frontend/src/lib/squareCorner.ts` — pure `squareCorner(square, orientation)`.
 - `frontend/src/components/BoardBadge.svelte` — absolute overlay placing one badge on the board.
-- Tests: `frontend/src/tests/glyphs.test.ts`, `MoveBadge.test.ts`, `boardBadge.test.ts`, `BoardBadge.test.ts`.
+- Tests: `frontend/src/tests/glyphs.test.ts`, `MoveBadge.test.ts`, `squareCorner.test.ts`, `BoardBadge.test.ts`.
+
+> **Note (post-implementation):** Task 5 below was authored as `boardBadge.ts` / `boardBadge.test.ts`,
+> but those were renamed to `squareCorner.ts` / `squareCorner.test.ts` during execution — `boardBadge.test.ts`
+> and `BoardBadge.test.ts` differ only by case and collide on case-insensitive filesystems (macOS/Windows),
+> which would break the cross-platform build. The exported function (`squareCorner`) is unchanged; read
+> Task 5's `boardBadge` paths as `squareCorner`.
 
 **Frontend — modified files**
 - `frontend/src/components/LastMove.svelte` — use `MoveBadge`, drop the ad-hoc `✓`/`✗`/`!!` spans + their CSS.

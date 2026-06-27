@@ -94,7 +94,7 @@ new protocol commands, no new runtime layers.
    - `viewBox="0 0 34 34"`, scaled to `size`. `role="img"`, `aria-label={title}`.
    - What it does: draws one badge for a label at a size. Depends on `glyphs.ts` only.
 
-3. **`lib/boardBadge.ts`** (pure mapping — mirrors the existing `region.ts` pattern)
+3. **`lib/squareCorner.ts`** (pure mapping — mirrors the existing `region.ts` pattern)
    - `squareCorner(square: string, orientation: 'white' | 'black'): { leftPct: number; topPct: number }`
      — returns the **top-right corner** of `square` (e.g. `"e5"`) as percentages of board width/height,
      accounting for orientation (file/rank flip when black is at the bottom).
@@ -105,12 +105,12 @@ new protocol commands, no new runtime layers.
    - Parses the destination square from `lastMove.played.uci` via `uci.slice(2, 4)` (promotion and
      castling fall out naturally — `e7e8q → e8`, `e1g1 → g1`).
    - Renders a `<MoveBadge label={lastMove.classification.label} size={…} />` positioned absolutely
-     at `squareCorner(dest, orientation)`, translated outward (≈ −32% of the badge) so it overflows
-     the corner. Badge size = 46% of one square = `46% × (boardWidth / 8)`; computed from the
-     overlay's own measured width so it tracks board resize.
+     at `squareCorner(dest, orientation)` and centered on that corner via `translate(-50%, -50%)`, so
+     it overflows the edge. Badge size = 46% of one square = `46% × (boardWidth / 8)`; computed from
+     the overlay's own measured width so it tracks board resize.
    - Renders nothing when `lastMove` is null. `pointer-events: none` so it never blocks the board.
    - What it does: positions one badge over the board for the current last move. Depends on
-     `MoveBadge` + `boardBadge.ts`.
+     `MoveBadge` + `squareCorner.ts`.
 
 ### Wiring
 
@@ -160,7 +160,7 @@ Vitest (frontend) + pytest (server), matching existing suites.
 - **`glyphs.test.ts`** — every value of the backend `MoveClass` enum has a `GLYPHS` entry (parity
   guard); spec shape (kind/symbol/color) is stable for representative labels; `glyphFor` returns the
   fallback for an unknown label.
-- **`boardBadge.test.ts`** — `squareCorner` for sample squares (`a8`, `h1`, `e4`, `d5`) under both
+- **`squareCorner.test.ts`** — `squareCorner` for sample squares (`a8`, `h1`, `e4`, `d5`) under both
   orientations returns the expected corner percentages (mirrors `region.test.ts`).
 - **`MoveBadge.test.ts`** — renders an `<svg>`; correct fill color and symbol/path for a given
   label; exposes an accessible `aria-label`.
