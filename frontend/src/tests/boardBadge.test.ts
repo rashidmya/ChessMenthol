@@ -11,6 +11,9 @@ describe('squareCorner (white at bottom)', () => {
   it('e5 → (62.5, 37.5)', () => {
     expect(squareCorner('e5', 'white')).toEqual({ leftPct: 62.5, topPct: 37.5 });
   });
+  it('h8 (top-right square) → top-right corner (100, 0)', () => {
+    expect(squareCorner('h8', 'white')).toEqual({ leftPct: 100, topPct: 0 });
+  });
 });
 
 describe('squareCorner (black at bottom)', () => {
