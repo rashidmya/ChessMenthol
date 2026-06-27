@@ -56,6 +56,7 @@
     try {
       cg = Chessground(el, {
         fen,
+        turnColor: turnColor(fen),
         orientation,
         movable: {
           ...movableConfig(fen, editing),
@@ -82,11 +83,16 @@
 
   // Orientation always syncs (Flip works even mid-edit, keeping right-click coordsToKey correct);
   // fen only syncs when NOT editing, so an incoming position never clobbers a local edit.
+  // turnColor must ride along with the fen: chessground's fen reader loads only the
+  // PLACEMENT, and otherwise flips turnColor solely when the *user* drags. Without this,
+  // an in-app move toggles turnColor and a later capture/revert (which changes the fen
+  // but not via a drag) leaves turnColor stuck on the wrong side -> the board freezes,
+  // because chessground gates dragging on `turnColor === piece.color`.
   $: if (cg) cg.set({ orientation });
-  $: if (cg && !editing) cg.set({ fen });
+  $: if (cg && !editing) cg.set({ fen, turnColor: turnColor(fen) });
   $: forceSync(revertSignal);
   function forceSync(_signal: number): void {
-    if (cg && !editing) cg.set({ fen });
+    if (cg && !editing) cg.set({ fen, turnColor: turnColor(fen) });
   }
   // Arrows: recompute on lines / toggle / mode change. Suppressed while editing.
   $: if (cg) cg.setAutoShapes(linesToShapes(lines, showArrows && !editing) as any);
