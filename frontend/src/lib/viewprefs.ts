@@ -1,6 +1,6 @@
 export interface ViewPrefs { evalBar: boolean; lines: boolean; arrows: boolean; feedback: boolean; }
 export const DEFAULT_VIEW_PREFS: ViewPrefs = { evalBar: true, lines: true, arrows: true, feedback: true };
-const KEY = 'chessmenthol.viewPrefs';
+export const KEY = 'chessmenthol.viewPrefs';
 export function loadViewPrefs(): ViewPrefs {
   try {
     return { ...DEFAULT_VIEW_PREFS, ...JSON.parse(localStorage.getItem(KEY) || '{}') };

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { loadViewPrefs, saveViewPrefs, DEFAULT_VIEW_PREFS } from '../lib/viewprefs';
+import { loadViewPrefs, saveViewPrefs, DEFAULT_VIEW_PREFS, KEY } from '../lib/viewprefs';
 describe('viewprefs', () => {
   beforeEach(() => localStorage.clear());
   it('returns defaults when nothing stored', () => {
@@ -11,13 +11,13 @@ describe('viewprefs', () => {
     expect(loadViewPrefs().lines).toBe(true); // others keep defaults
   });
   it('merges partial/legacy stored prefs over defaults', () => {
-    localStorage.setItem('chessmenthol.viewPrefs', JSON.stringify({ lines: false }));
+    localStorage.setItem(KEY, JSON.stringify({ lines: false }));
     const p = loadViewPrefs();
     expect(p.lines).toBe(false);
     expect(p.evalBar).toBe(true);   // missing key falls back to default
   });
   it('falls back to defaults on corrupt JSON', () => {
-    localStorage.setItem('chessmenthol.viewPrefs', '{not json');
+    localStorage.setItem(KEY, '{not json');
     expect(loadViewPrefs()).toEqual(DEFAULT_VIEW_PREFS);
   });
 });
