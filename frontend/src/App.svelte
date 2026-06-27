@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { state, lastError, connected, errorSeq, connect, send } from './lib/ws';
+  import { state, lastError, connected, errorSeq, regionShot, connect, send } from './lib/ws';
   import type { Command } from './lib/types';
   import { buildFen, kingCountOk } from './lib/edit';
   import Board from './components/Board.svelte';
@@ -9,6 +9,8 @@
   import LastMove from './components/LastMove.svelte';
   import Controls from './components/Controls.svelte';
   import EditPalette from './components/EditPalette.svelte';
+  import RegionOverlay from './components/RegionOverlay.svelte';
+  import type { Region } from './lib/region';
 
   let orientation: 'white' | 'black' = 'white';
   let manualFlip = false;
@@ -21,11 +23,14 @@
   let lastSeq = 0;
   let committedPlacement: string | null = null;
   let boardComp: Board;
+  let pickingRegion = false;
+  function onPickRegion() { regionShot.set(null); pickingRegion = true; send({ type: 'request_region_shot' }); }
+  function onConfirmRegion(r: Region) { pickingRegion = false; send({ type: 'set_region', ...r }); }
+  function onCancelRegion() { pickingRegion = false; }
 
   onMount(() => { connect(); });
 
   function onCommand(cmd: Command) {
-    if (cmd.type === 'set_auto' && cmd.on) manualFlip = false;
     send(cmd);
   }
   function onFlip() { manualFlip = true; orientation = orientation === 'white' ? 'black' : 'white'; }
@@ -35,7 +40,6 @@
   function onToggleEdit() {
     if (!editing) {
       editError = null;
-      send({ type: 'set_auto', on: false }); // freeze the board while editing
       editing = true;
       return;
     }
@@ -55,7 +59,7 @@
 
   $: s = $state;
   $: fen = s?.fen ?? 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-  $: if (s?.tracking && s?.detectedOrientation && !manualFlip) {
+  $: if (s?.detectedOrientation && !manualFlip) {
     orientation = s.detectedOrientation as 'white' | 'black';
   }
   // Server rejected the commit -> stay in edit mode so the fix isn't lost.
@@ -98,7 +102,8 @@
       <div class="box"><div class="label">Controls</div>
         <Controls sideToMove={s?.sideToMove ?? 'white'} engineId={s?.engineId ?? 'stockfish'}
           analyzing={s?.analyzing ?? false} fen={s?.fen ?? ''}
-          tracking={s?.tracking ?? false}
+          region={s?.region ?? null}
+          onPickRegion={onPickRegion}
           visionStatus={s?.visionStatus ?? 'off'}
           lowConfidence={s?.lowConfidence ?? []}
           editing={editing} showArrows={showArrows} showEvalBar={showEvalBar}
@@ -110,6 +115,9 @@
       {#if $lastError}<div class="err">{$lastError}</div>{/if}
     </aside>
   </div>
+  {#if pickingRegion}
+    <RegionOverlay shot={$regionShot} onConfirm={onConfirmRegion} onCancel={onCancelRegion} />
+  {/if}
 </main>
 
 <style>
