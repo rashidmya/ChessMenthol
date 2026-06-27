@@ -53,11 +53,12 @@ describe('LastMove', () => {
     expect(screen.queryByTestId('lastmove')).toBeNull();
   });
 
-  it('shows a brilliant icon (not ✗) for a brilliant move that is not the engine top move', () => {
+  it('shows a brilliant badge (not ✗) for a brilliant move that is not the engine top move', () => {
     render(LastMove, { lastMove: brilliant, onPlayBest: () => {} });
     const played = screen.getByTestId('row-played');
     expect(played.textContent).toContain('Bxh7+ is brilliant');
-    expect(played.textContent).toContain('!!');
+    expect(screen.getByRole('img', { name: 'Brilliant' })).toBeTruthy();
+    expect(screen.getByRole('img', { name: 'Best' })).toBeTruthy();
     expect(played.textContent).not.toContain('✗');
   });
 });
