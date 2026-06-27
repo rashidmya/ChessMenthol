@@ -4,7 +4,7 @@ export interface LineDto {
   pv: string[]; san: string;
 }
 export interface ClassificationDto { label: string; cpl: number; isBest: boolean; }
-export interface LastMovePvDto { san: string; evalText: string; pv: string; }
+export interface LastMovePvDto { san: string; uci?: string; evalText: string; pv: string; }
 export interface LastMoveDto {
   classification: ClassificationDto;
   played: LastMovePvDto;
