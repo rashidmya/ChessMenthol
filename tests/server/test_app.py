@@ -85,10 +85,10 @@ def test_vision_commands_reach_orchestrator():
     app = create_app(orchestrator_factory=FakeOrchestrator)
     client = TestClient(app)
     with client.websocket_connect("/ws") as ws:
-        ws.send_json({"type": "set_auto", "on": True})
+        ws.send_json({"type": "request_region_shot"})
         ws.send_json({"type": "capture_now"})
     orch = FakeOrchestrator.instances[-1]
-    assert {"type": "set_auto", "on": True} in orch.commands
+    assert {"type": "request_region_shot"} in orch.commands
     assert {"type": "capture_now"} in orch.commands
 
 

@@ -104,7 +104,7 @@
           analyzing={s?.analyzing ?? false} fen={s?.fen ?? ''}
           region={s?.region ?? null}
           onPickRegion={onPickRegion}
-          visionStatus={s?.visionStatus ?? 'off'}
+          visionStatus={s?.visionStatus ?? 'idle'}
           lowConfidence={s?.lowConfidence ?? []}
           editing={editing} showArrows={showArrows} showEvalBar={showEvalBar}
           onToggleEdit={onToggleEdit}
