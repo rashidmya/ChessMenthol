@@ -85,8 +85,8 @@ class Orchestrator:
 
     # ---- commands ----
     def set_fen(self, fen: str) -> None:
-        # Thin wrapper; the actual body is lock-free so `_on_tracked` (which
-        # already holds `self._lock`) can reuse it without re-acquiring.
+        # Public command entry point; the body lives in `_apply_fen` so detection
+        # (`_apply_detection`) can reuse it.
         self._apply_fen(fen)
 
     def _apply_fen(self, fen: str) -> None:
