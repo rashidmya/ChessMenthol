@@ -25,4 +25,10 @@ describe('MoveBadge', () => {
     const { container } = render(MoveBadge, { label: 'blunder' });
     expect(container.textContent).toContain('??');
   });
+
+  it('draws a path (not text) for a drawn-kind label', () => {
+    const { container } = render(MoveBadge, { label: 'best' }); // kind: 'star'
+    expect(container.querySelector('path')).not.toBeNull();
+    expect(container.querySelector('text')).toBeNull();
+  });
 });

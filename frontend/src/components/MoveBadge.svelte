@@ -8,15 +8,16 @@
 
   export let label: string;
   export let size = 20;
-  export let title: string = label.charAt(0).toUpperCase() + label.slice(1);
+  export let title: string | undefined = undefined;
 
   $: spec = glyphFor(label);
   $: isDouble = spec.symbol.length > 1;
+  $: resolvedTitle = title ?? (label.charAt(0).toUpperCase() + label.slice(1));
   const gid = `mb-sheen-${++_uid}`;
 </script>
 
 <svg class="move-badge" width={size} height={size} viewBox="0 0 34 34"
-     role="img" aria-label={title}>
+     role="img" aria-label={resolvedTitle}>
   <defs>
     <radialGradient id={gid} cx="0.5" cy="0.32" r="0.75">
       <stop offset="0" stop-color="#fff" stop-opacity="0.28" />
