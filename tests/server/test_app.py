@@ -98,6 +98,8 @@ def test_ws_streams_real_analysis_for_set_fen():
     client = TestClient(app)
     fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
     with client.websocket_connect("/ws") as ws:
+        # Analysis is OFF by default now; turn it on so the engine streams.
+        ws.send_json({"type": "set_analysis_enabled", "enabled": True})
         ws.send_json({"type": "set_options", "depth": 10, "multipv": 2})
         ws.send_json({"type": "set_fen", "fen": fen})
         # Read frames until we see a streamed analysis FOR THIS fen with lines.

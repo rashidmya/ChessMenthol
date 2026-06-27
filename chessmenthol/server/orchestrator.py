@@ -34,7 +34,8 @@ class Orchestrator:
     """Owns the working board + settings + analysis session; turns commands into
     state frames pushed via `send`."""
 
-    def __init__(self, send: SendCallback, *, engine=None, session_factory=None, tracker=None):
+    def __init__(self, send: SendCallback, *, engine=None, session_factory=None, tracker=None,
+                 analysis_enabled: bool = False):
         self._send = send
         self._engine = engine if engine is not None else EngineManager()
         self._board = chess.Board()
@@ -53,7 +54,9 @@ class Orchestrator:
         self._base_fen = chess.STARTING_FEN
         self._history: list[HistoryEntry] = []
         self._cursor = 0
-        self._analysis_enabled = True
+        # Analysis is OFF by default — the engine doesn't auto-start on connect;
+        # the user turns it on with the Analysis switch.
+        self._analysis_enabled = analysis_enabled
         self._game_over: Optional[dict] = None
         self._movetime: Optional[float] = 10.0  # seconds; None == infinite
         factory = session_factory or (lambda eng, cb: AnalysisSession(eng, cb))

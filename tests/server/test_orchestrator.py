@@ -44,7 +44,10 @@ def make_orchestrator():
     caller owns its own frame sink). ``tracker=`` injects a vision tracker.
     """
 
-    def build(*, tracker=None, send=None):
+    def build(*, tracker=None, send=None, analysis_enabled=True):
+        # Production defaults analysis OFF, but most tests here exercise analysis
+        # behaviour, so the fixture opts in by default. Pass analysis_enabled=False
+        # to test the off-by-default / disabled paths.
         own_frames = send is None
         frames = [] if own_frames else None
         session_holder = {}
@@ -60,6 +63,7 @@ def make_orchestrator():
             engine=object(),
             session_factory=factory,
             tracker=tracker,
+            analysis_enabled=analysis_enabled,
         )
         if own_frames:
             return orch, frames, session_holder
@@ -179,7 +183,8 @@ def test_make_move_stops_session_before_mutating_board():
         holder["s"] = s
         return s
 
-    orch = Orchestrator(send=frames.append, engine=object(), session_factory=factory)
+    orch = Orchestrator(send=frames.append, engine=object(), session_factory=factory,
+                        analysis_enabled=True)
     holder["orch"] = orch
     orch.handle({"type": "make_move", "uci": "e2e4"})
 
@@ -369,7 +374,8 @@ def test_engine_options_persist_across_engine_switch():
         return s
 
     engine = RecordingEngine()
-    orch = Orchestrator(send=lambda f: None, engine=engine, session_factory=factory)
+    orch = Orchestrator(send=lambda f: None, engine=engine, session_factory=factory,
+                        analysis_enabled=True)
     orch.handle({"type": "set_options", "threads": 4, "hash": 128})
     orch.handle({"type": "set_engine", "id": "stockfish_lite"})
     assert engine.selected[-1] == "stockfish_lite"
@@ -533,6 +539,17 @@ def test_set_options_movetime_zero_passes_time_limit_none_to_session(make_orches
 
 
 # ---- analysis on/off gate ----
+
+
+def test_analysis_is_off_by_default(make_orchestrator):
+    """Production default: analysis is OFF on startup — no engine auto-start on the
+    first command, and the state frame reports analysisEnabled/analyzing False."""
+    orch, frames, holder = make_orchestrator(analysis_enabled=False)
+    orch.handle({"type": "set_fen", "fen": chess.STARTING_FEN})
+    state = [f for f in frames if f["type"] == "state"][-1]
+    assert state["analysisEnabled"] is False
+    assert state["analyzing"] is False
+    assert holder["s"].started == 0, "engine must not auto-start while analysis is off"
 
 
 def test_disable_analysis_state_frame_reflects_disabled(make_orchestrator):

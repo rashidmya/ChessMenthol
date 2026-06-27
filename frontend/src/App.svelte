@@ -70,7 +70,7 @@
   // When analysis is off, the analysis-derived surfaces (eval bar, engine lines,
   // suggestion arrows, move feedback) and the View-options menu are hidden entirely,
   // regardless of the view-toggle prefs; they return (per the prefs) when re-enabled.
-  $: analysisEnabled = s?.analysisEnabled ?? true;
+  $: analysisEnabled = s?.analysisEnabled ?? false;  // off until the first frame (analysis is off by default)
   $: fen = s?.fen ?? 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
   $: if (s?.detectedOrientation && !manualFlip) {
     orientation = s.detectedOrientation as 'white' | 'black';
