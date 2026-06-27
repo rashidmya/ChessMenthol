@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import threading
 from typing import Callable, Optional, Tuple
 
 import chess
@@ -10,15 +9,9 @@ from ..engine.manager import EngineManager
 from ..engine.types import AnalysisInfo
 from . import serialize
 from .session import AnalysisSession
-from .tracking import TrackingLoop
 
 SendCallback = Callable[[dict], None]
 CLASSIFY_MIN_DEPTH = 8
-
-# Board-mutating user commands that must not be fought by the tracker. They pause
-# Auto BEFORE the lock is taken (the tracking loop's _on_tracked self-acquires the
-# lock, so stopping it from inside the lock would deadlock).
-_PAUSE_ON_TRACKING = {"set_fen", "make_move", "undo", "play_best"}
 
 # AssembledPosition.orientation strings -> frontend "white"|"black".
 _ORIENTATION_MAP = {"white_bottom": "white", "black_bottom": "black"}
@@ -45,55 +38,50 @@ class Orchestrator:
         self._analyzing = False
         factory = session_factory or (lambda eng, cb: AnalysisSession(eng, cb))
         self._session = factory(self._engine, self._on_update)
-        # ---- vision / tracking ----
-        # `handle` holds `self._lock` for board-mutating commands; `_on_tracked`
-        # (called from the tracking thread / capture_now) acquires it itself.
-        # set_auto/capture_now therefore branch in `handle` BEFORE the lock.
-        self._lock = threading.Lock()
+        # ---- vision (on-demand capture) ----
         self._tracker = tracker
-        self._tracking = False
-        self._vision_status = "off"
+        self._vision_status = "idle"
         self._detected_orientation: Optional[str] = None
         self._low_confidence: list[str] = []
-        self._loop = (
-            TrackingLoop(self._tracker, self._on_tracked) if self._tracker is not None else None
-        )
+        self._region: Optional[object] = None  # vision.types.Region | None
 
     # ---- command dispatch ----
     def handle(self, cmd: dict) -> None:
         ctype = cmd.get("type")
-        # Vision commands manage the tracking loop and must NOT hold `self._lock`:
-        # capture_now -> tick_once -> _on_tracked re-acquires it. Branch first.
-        if ctype == "set_auto":
-            self._set_auto(bool(cmd.get("on")))
-            return
+        # Vision commands are on-demand and synchronous; no lock, no thread.
         if ctype == "capture_now":
             self._capture_now()
             return
-        if ctype in _PAUSE_ON_TRACKING and self._tracking:
-            self._set_auto(False)
-        with self._lock:
-            try:
-                if ctype == "set_fen":
-                    self.set_fen(cmd["fen"])
-                elif ctype == "set_turn":
-                    self.set_turn(bool(cmd["white"]))
-                elif ctype == "make_move":
-                    self.make_move(cmd["uci"])
-                elif ctype == "undo":
-                    self.undo()
-                elif ctype == "play_best":
-                    self.play_best(cmd["uci"])
-                elif ctype == "set_engine":
-                    self.set_engine(cmd["id"])
-                elif ctype == "set_options":
-                    self.set_options(cmd)
-                elif ctype == "stop":
-                    self.stop_analysis()
-                else:
-                    self._error(f"unknown command: {ctype!r}")
-            except (KeyError, ValueError) as exc:
-                self._error(str(exc))
+        if ctype == "request_region_shot":
+            self._request_region_shot()
+            return
+        if ctype == "set_region":
+            self._set_region(cmd)
+            return
+        if ctype == "clear_region":
+            self._clear_region()
+            return
+        try:
+            if ctype == "set_fen":
+                self.set_fen(cmd["fen"])
+            elif ctype == "set_turn":
+                self.set_turn(bool(cmd["white"]))
+            elif ctype == "make_move":
+                self.make_move(cmd["uci"])
+            elif ctype == "undo":
+                self.undo()
+            elif ctype == "play_best":
+                self.play_best(cmd["uci"])
+            elif ctype == "set_engine":
+                self.set_engine(cmd["id"])
+            elif ctype == "set_options":
+                self.set_options(cmd)
+            elif ctype == "stop":
+                self.stop_analysis()
+            else:
+                self._error(f"unknown command: {ctype!r}")
+        except (KeyError, ValueError) as exc:
+            self._error(str(exc))
 
     # ---- commands ----
     def set_fen(self, fen: str) -> None:
@@ -220,54 +208,72 @@ class Orchestrator:
         self._send(self._state_frame(self._last_analysis, self._board))
 
     def close(self) -> None:
-        if self._loop is not None:
-            self._loop.stop()
         self._session.close()
         if hasattr(self._engine, "close"):
             self._engine.close()
 
-    # ---- vision / tracking ----
-    def _ensure_loop(self) -> None:
-        if self._loop is None:
+    # ---- vision (on-demand) ----
+    def _ensure_tracker(self) -> None:
+        if self._tracker is None:
             from chessmenthol.vision.tracker import Tracker
 
             self._tracker = Tracker()
-            self._loop = TrackingLoop(self._tracker, self._on_tracked)
-
-    def _set_auto(self, on: bool) -> None:
-        self._tracking = on
-        if on:
-            self._ensure_loop()
-            self._loop.start()
-            self._vision_status = "searching"
-        else:
-            if self._loop is not None:
-                self._loop.stop()
-            self._vision_status = "off"
-        self._send(self._state_frame(self._last_analysis, self._board))
 
     def _capture_now(self) -> None:
-        self._ensure_loop()
-        self._loop.tick_once()
+        self._ensure_tracker()
+        try:
+            assembled = self._tracker.detect_position()
+        except Exception as exc:  # noqa: BLE001 - capture/detect can fail at runtime
+            self._vision_status = "no_board"
+            self._error(f"capture failed: {exc}")
+            return
+        self._apply_detection(assembled)
 
-    def _on_tracked(self, assembled) -> None:
-        # Runs on the tracking thread (or directly via capture_now); acquires the
-        # lock itself. Callers that already hold the lock must NOT route here.
-        with self._lock:
-            if assembled is None or not assembled.is_legal:
-                self._vision_status = "searching"
-                self._send(self._state_frame(self._last_analysis, self._board))
-                return
-            self._detected_orientation = _ORIENTATION_MAP.get(assembled.orientation)
-            self._low_confidence = list(assembled.low_confidence)
-            self._vision_status = "low_confidence" if assembled.low_confidence else "tracking"
-            # Compare piece PLACEMENT only (not full FEN): a screenshot can't reliably
-            # read side-to-move/castling/ep, so we re-analyze when the pieces move,
-            # not when only those fields differ (avoids oscillation).
-            if assembled.fen.split()[0] != self._board.board_fen():
-                self._apply_fen(assembled.fen)
-            else:
-                self._send(self._state_frame(self._last_analysis, self._board))
+    def _request_region_shot(self) -> None:
+        self._ensure_tracker()
+        try:
+            image = self._tracker.grab_full_desktop()
+        except Exception as exc:  # noqa: BLE001
+            self._error(f"screen capture unavailable: {exc}")
+            return
+        self._send(serialize.region_shot_to_dict(image))
+
+    def _set_region(self, cmd: dict) -> None:
+        from chessmenthol.vision.types import Region
+
+        try:
+            region = Region(int(cmd["left"]), int(cmd["top"]),
+                            int(cmd["width"]), int(cmd["height"]))
+        except (KeyError, ValueError, TypeError) as exc:
+            self._error(f"invalid region: {exc}")
+            return
+        if region.width <= 0 or region.height <= 0 or region.left < 0 or region.top < 0:
+            self._error("invalid region: must be positive and on-screen")
+            return
+        self._ensure_tracker()
+        self._tracker.set_region(region)
+        self._region = region
+        self._capture_now()
+
+    def _clear_region(self) -> None:
+        self._region = None
+        if self._tracker is not None:
+            self._tracker.set_region(None)
+        self._send(self._state_frame(self._last_analysis, self._board))
+
+    def _apply_detection(self, assembled) -> None:
+        if assembled is None or not assembled.is_legal:
+            self._vision_status = "no_board"
+            self._send(self._state_frame(self._last_analysis, self._board))
+            return
+        self._detected_orientation = _ORIENTATION_MAP.get(assembled.orientation)
+        self._low_confidence = list(assembled.low_confidence)
+        self._vision_status = "low_confidence" if assembled.low_confidence else "found"
+        # Compare PLACEMENT only (a screenshot can't read turn/castling/ep reliably).
+        if assembled.fen.split()[0] != self._board.board_fen():
+            self._apply_fen(assembled.fen)
+        else:
+            self._send(self._state_frame(self._last_analysis, self._board))
 
     # ---- internals ----
     def _reset_move_state(self) -> None:
@@ -319,10 +325,14 @@ class Orchestrator:
             "depth": adict["depth"],
             "lines": adict["lines"],
             "lastMove": self._last_move,
-            "tracking": self._tracking,
             "visionStatus": self._vision_status,
             "detectedOrientation": self._detected_orientation,
             "lowConfidence": self._low_confidence,
+            "region": (
+                {"left": self._region.left, "top": self._region.top,
+                 "width": self._region.width, "height": self._region.height}
+                if self._region is not None else None
+            ),
         }
 
     def _error(self, message: str) -> None:

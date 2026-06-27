@@ -1,4 +1,5 @@
 import chess
+import numpy as np
 import pytest
 
 from chessmenthol.engine.types import AnalysisInfo, Eval, Line
@@ -218,13 +219,17 @@ class FakeTracker:
     def __init__(self, result):
         self.result = result
         self.side_override = None
-
-    def grab_if_changed(self, threshold):
-        # Always return a non-None sentinel so _run proceeds to detect_position.
-        return object()
+        self.region = "unset"
+        self.full = np.zeros((6, 8, 3), np.uint8)
 
     def detect_position(self, frame=None):
         return self.result
+
+    def grab_full_desktop(self):
+        return self.full
+
+    def set_region(self, region):
+        self.region = region
 
     def set_side_override(self, side):
         self.side_override = side
@@ -252,56 +257,61 @@ def test_capture_now_legal_detection_drives_set_fen(make_orchestrator):
     orch = make_orchestrator(tracker=FakeTracker(_legal_assembled(target)), send=frames.append)
     orch.handle({"type": "capture_now"})
     assert orch._board.board_fen() == chess.Board(target).board_fen()
-    assert frames and frames[-1]["visionStatus"] in ("tracking", "low_confidence")
+    assert frames and frames[-1]["visionStatus"] in ("found", "low_confidence")
 
 
-def test_set_auto_toggles_tracking_state(make_orchestrator):
-    frames = []
-    orch = make_orchestrator(tracker=FakeTracker(None), send=frames.append)
-    orch.handle({"type": "set_auto", "on": True})
-    assert frames[-1]["tracking"] is True
-    orch.handle({"type": "set_auto", "on": False})
-    assert frames[-1]["tracking"] is False
-
-
-def test_illegal_detection_does_not_change_board(make_orchestrator):
+def test_illegal_detection_reports_no_board(make_orchestrator):
     frames = []
     orch = make_orchestrator(tracker=FakeTracker(None), send=frames.append)
     before = orch._board.fen()
     orch.handle({"type": "capture_now"})
     assert orch._board.fen() == before
-    assert frames[-1]["visionStatus"] == "searching"
+    assert frames[-1]["visionStatus"] == "no_board"
 
 
 def test_set_turn_sets_tracker_side_override(make_orchestrator):
-    import chess
     tracker = FakeTracker(None)
     orch = make_orchestrator(tracker=tracker, send=lambda f: None)
     orch.handle({"type": "set_turn", "white": False})
     assert tracker.side_override == chess.BLACK
 
 
-def test_user_move_pauses_tracking(make_orchestrator):
+def test_request_region_shot_emits_region_shot_frame(make_orchestrator):
     frames = []
     orch = make_orchestrator(tracker=FakeTracker(None), send=frames.append)
-    orch.handle({"type": "set_auto", "on": True})
-    assert orch._tracking is True
-    orch.handle({"type": "make_move", "uci": "e2e4"})
-    assert orch._tracking is False
+    orch.handle({"type": "request_region_shot"})
+    shot = [f for f in frames if f["type"] == "region_shot"][-1]
+    assert shot["width"] == 8 and shot["height"] == 6
+    assert isinstance(shot["jpegBase64"], str) and shot["jpegBase64"]
+
+
+def test_set_region_stores_and_captures(make_orchestrator):
+    target = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
+    frames = []
+    tracker = FakeTracker(_legal_assembled(target))
+    orch = make_orchestrator(tracker=tracker, send=frames.append)
+    orch.handle({"type": "set_region", "left": 5, "top": 6, "width": 100, "height": 120})
+    assert tracker.region.left == 5 and tracker.region.width == 100
     state = [f for f in frames if f["type"] == "state"][-1]
-    assert state["tracking"] is False
-    assert state["fen"].startswith("rnbqkbnr/pppppppp/8/8/4P3")
+    assert state["region"] == {"left": 5, "top": 6, "width": 100, "height": 120}
+    assert orch._board.board_fen() == chess.Board(target).board_fen()  # captured
 
 
-def test_set_turn_does_not_pause_tracking(make_orchestrator):
+def test_set_region_rejects_bad_rectangle(make_orchestrator):
     frames = []
     orch = make_orchestrator(tracker=FakeTracker(None), send=frames.append)
-    orch.handle({"type": "set_auto", "on": True})
-    orch.handle({"type": "set_turn", "white": False})
-    assert orch._tracking is True
-    state = [f for f in frames if f["type"] == "state"][-1]
-    assert state["sideToMove"] == "black"
-    orch.handle({"type": "set_auto", "on": False})  # stop the daemon thread
+    orch.handle({"type": "set_region", "left": 0, "top": 0, "width": 0, "height": 10})
+    assert frames[-1]["type"] == "error"
+
+
+def test_clear_region_resets(make_orchestrator):
+    frames = []
+    tracker = FakeTracker(None)
+    orch = make_orchestrator(tracker=tracker, send=frames.append)
+    orch.handle({"type": "set_region", "left": 1, "top": 1, "width": 10, "height": 10})
+    orch.handle({"type": "clear_region"})
+    assert tracker.region is None
+    assert frames[-1]["region"] is None
 
 
 class RecordingEngine:
