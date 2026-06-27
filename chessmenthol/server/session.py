@@ -28,6 +28,8 @@ class AnalysisSession:
         self._on_update = on_update
         self._throttle = throttle
         self._monotonic = monotonic
+        # May also be assigned post-construction by the caller, but must be set
+        # before start() so the worker thread observes it on natural completion.
         self.on_done = on_done
         self._lock = threading.Lock()
         self._stream = None
@@ -65,6 +67,8 @@ class AnalysisSession:
                     last_emit = now
             if pending is not None:
                 self._on_update(pending, board)
+            # getattr: stream is duck-typed; fakes / future adapters may omit `stopped`.
+            # Default False treats an unknown stream as naturally completed (fire on_done).
             if self.on_done is not None and not getattr(stream, "stopped", False):
                 self.on_done()
         except Exception:

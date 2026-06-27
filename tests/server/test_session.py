@@ -69,8 +69,7 @@ def test_session_stop_cancels_stream():
     session = AnalysisSession(engine, lambda info, board: got.append(info), throttle=0.0)
     session.start(chess.Board())
     assert _wait_for(lambda: engine.last_stream is not None)
-    session.stop()  # request cancel, then unblock so the thread can observe it
-    block.set()
+    session.stop()  # FakeStream.stop() sets stopped and releases the block
     assert engine.last_stream.stopped is True
 
 

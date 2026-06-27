@@ -55,3 +55,25 @@ def test_stream_analysis_infinite_when_no_depth_or_time():
     lim = recorded["limit"]
     assert lim.depth is None, f"expected depth=None, got {lim.depth}"
     assert lim.time is None, f"expected time=None, got {lim.time}"
+
+
+def test_analysis_stream_stopped_reflects_stop():
+    """AnalysisStream.stopped is False until stop() is called, then True (idempotent)."""
+
+    class FakeResult:
+        def __init__(self):
+            self.stop_calls = 0
+
+        def __iter__(self):
+            return iter([])
+
+        def stop(self):
+            self.stop_calls += 1
+
+    result = FakeResult()
+    stream = AnalysisStream(result, chess.STARTING_FEN)
+    assert stream.stopped is False
+    stream.stop()
+    assert stream.stopped is True
+    stream.stop()  # idempotent: underlying result.stop() not called twice
+    assert result.stop_calls == 1
