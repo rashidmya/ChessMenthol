@@ -114,3 +114,14 @@ def test_tracker_propagates_low_confidence():
     tracker = Tracker(capturer=Capturer(backend=backend), classifier=LowConfClassifier(board))
     ap = tracker.detect_position()
     assert ap is not None and "e2" in ap.low_confidence
+
+
+def test_tracker_grab_full_desktop_and_set_region_delegate():
+    import numpy as np
+    from chessmenthol.vision.types import Region
+
+    img = np.full((20, 30, 3), 5, np.uint8)
+    backend = FakeBackend([Monitor(0, 0, 0, 30, 20)], [img])
+    tracker = Tracker(capturer=Capturer(backend=backend), classifier=FakeClassifier(chess.Board()))
+    assert tracker.grab_full_desktop().shape == (20, 30, 3)
+    tracker.set_region(Region(1, 2, 4, 5))  # must not raise; stored on the capturer

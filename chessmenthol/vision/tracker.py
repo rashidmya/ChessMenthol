@@ -35,7 +35,6 @@ class Tracker:
     ) -> None:
         self._capturer = capturer if capturer is not None else Capturer()
         self._classifier = classifier if classifier is not None else PieceClassifier()
-        self._capturer.select_monitor(0)  # default: full primary monitor
         self._prev_board: Optional[chess.Board] = None
         self._orientation_override: Optional[str] = None
         self._side_override: Optional[chess.Color] = None
@@ -46,8 +45,11 @@ class Tracker:
     def set_side_override(self, side: Optional[chess.Color]) -> None:
         self._side_override = side
 
-    def grab_if_changed(self, threshold: float):
-        return self._capturer.grab_if_changed(threshold)
+    def set_region(self, region) -> None:
+        self._capturer.set_region(region)
+
+    def grab_full_desktop(self):
+        return self._capturer.grab_full_desktop()
 
     def reset(self) -> None:
         self._prev_board = None
