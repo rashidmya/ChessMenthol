@@ -50,6 +50,27 @@ describe('EvalBar', () => {
     expect(score.classList.contains('light')).toBe(true);
   });
 
+  it('white ahead, not flipped: score sits at the bottom (white end)', () => {
+    render(EvalBar, { evalDto: { cp: 300, mate: null, text: '+3.00' }, orientation: 'white' });
+    const score = screen.getByTestId('eval-score') as HTMLElement;
+    expect(score.style.bottom).not.toBe('');
+    expect(score.style.top).toBe('');
+  });
+
+  it('black ahead, not flipped: score sits at the top (black end)', () => {
+    render(EvalBar, { evalDto: { cp: -300, mate: null, text: '-3.00' }, orientation: 'white' });
+    const score = screen.getByTestId('eval-score') as HTMLElement;
+    expect(score.style.top).not.toBe('');
+    expect(score.style.bottom).toBe('');
+  });
+
+  it('white ahead, flipped: score sits at the top (white end is now top)', () => {
+    render(EvalBar, { evalDto: { cp: 300, mate: null, text: '+3.00' }, orientation: 'black' });
+    const score = screen.getByTestId('eval-score') as HTMLElement;
+    expect(score.style.top).not.toBe('');
+    expect(score.style.bottom).toBe('');
+  });
+
   it('game over 1-0: score text is "1-0" and fill height is 100%', () => {
     render(EvalBar, { gameOver: { result: '1-0', reason: 'checkmate' } });
     expect(screen.getByTestId('eval-score').textContent).toBe('1-0');

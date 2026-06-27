@@ -80,7 +80,7 @@ describe('MoveFeedback', () => {
       played: { san: 'Bh5#', uci: 'f1h5', evalText: '+M1', pv: '' },
       best: { san: 'Bh5#', uci: 'f1h5', evalText: '+M1', pv: '' },
     };
-    const { getByTestId, queryByTestId, getByText } = render(MoveFeedback, {
+    const { getByTestId, queryByTestId } = render(MoveFeedback, {
       lastMove: bestLastMove,
       gameOver: { result: '1-0', reason: 'checkmate' },
     });
@@ -92,5 +92,32 @@ describe('MoveFeedback', () => {
     expect(badge?.classList.contains('wadv')).toBe(true);
     // No play-best button
     expect(queryByTestId('play-best')).toBeNull();
+  });
+
+  it('game-over with a non-best last move: single row, no button, shows san + result', () => {
+    // The losing side blundered into mate: last move isBest:false → exercises the
+    // label/'mist' branch (not the 'best' branch) of the game-over row.
+    const mistakeLastMove = {
+      classification: { label: 'mistake', cpl: 999, isBest: false },
+      played: { san: 'Kg8', uci: 'h8g8', evalText: '-M1', pv: '' },
+      best: { san: 'Qf8', uci: 'd8f8', evalText: '-M3', pv: '' },
+    };
+    const { getByTestId, queryByTestId } = render(MoveFeedback, {
+      lastMove: mistakeLastMove,
+      gameOver: { result: '0-1', reason: 'checkmate' },
+    });
+    const row = getByTestId('row-gameover');
+    // Single non-button row, no play-best
+    expect(queryByTestId('play-best')).toBeNull();
+    // Shows the played san (not the best move)
+    expect(row.textContent).toContain('Kg8');
+    expect(row.textContent).not.toContain('Qf8');
+    // Non-best branch: 'is a mistake' phrasing on the .mist row
+    expect(row.textContent).toContain('is a mistake');
+    expect(row.querySelector('.mname.mist')).not.toBeNull();
+    // Result pill: 0-1 → badv
+    const badge = row.querySelector('.badge');
+    expect(badge?.textContent).toBe('0-1');
+    expect(badge?.classList.contains('badv')).toBe(true);
   });
 });
