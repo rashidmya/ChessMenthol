@@ -39,4 +39,25 @@ describe('RegionOverlay', () => {
     // 50..150 displayed *2 -> 100..300 true; 25..75 *2 -> 50..150 true.
     expect(onConfirm).toHaveBeenCalledWith({ left: 100, top: 50, width: 200, height: 100 });
   });
+
+  it('Esc key calls onCancel', async () => {
+    const onCancel = vi.fn();
+    render(RegionOverlay, { props: { shot, onConfirm: vi.fn(), onCancel } as any });
+    await fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onCancel).toHaveBeenCalled();
+  });
+
+  it('a click without dragging cancels instead of emitting a zero region', async () => {
+    const onConfirm = vi.fn();
+    const onCancel = vi.fn();
+    render(RegionOverlay, { props: { shot, onConfirm, onCancel } as any });
+    const img = screen.getByTestId('overlay-img') as HTMLImageElement;
+    img.getBoundingClientRect = () => ({ left: 0, top: 0, width: 500, height: 250,
+      right: 500, bottom: 250, x: 0, y: 0, toJSON: () => {} }) as DOMRect;
+    await fireEvent.mouseDown(img, { clientX: 50, clientY: 25 });
+    await fireEvent.mouseUp(window, { clientX: 50, clientY: 25 });
+    await fireEvent.click(screen.getByTestId('overlay-use'));
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(onCancel).toHaveBeenCalled();
+  });
 });

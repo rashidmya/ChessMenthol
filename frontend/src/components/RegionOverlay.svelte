@@ -27,10 +27,12 @@
     const p = localXY(e); box = { x: sx, y: sy, w: p.x - sx, h: p.y - sy };
   }
   function onUp() { dragging = false; }
-  function use() {
-    if (!shot || !hasBox) { onCancel(); return; }
+  function confirmRegion() {
+    if (!shot || !hasBox || (selW === 0 && selH === 0)) { onCancel(); return; }
     const region = toDesktopRegion(
       box,
+      // no explicit width/height on the <img>, only max-*, so the element box
+      // self-sizes to the rendered image — clientWidth/Height = visible image size.
       { width: img.clientWidth, height: img.clientHeight },
       { width: shot.width, height: shot.height },
     );
@@ -50,12 +52,12 @@
 <div class="overlay" data-testid="region-overlay">
   <div class="bar">
     <span>◉ Drag a box over the chess board</span>
-    <button data-testid="overlay-use" on:click={use}>Use region</button>
+    <button data-testid="overlay-use" on:click={confirmRegion}>Use region</button>
     <button data-testid="overlay-cancel" class="ghost" on:click={onCancel}>Cancel</button>
   </div>
   {#if shot}
     <div class="stage">
-      <img data-testid="overlay-img" bind:this={img} alt="screen"
+      <img role="presentation" data-testid="overlay-img" bind:this={img} alt="screen"
         src={`data:image/jpeg;base64,${shot.jpegBase64}`} on:mousedown|preventDefault={onDown} />
       {#if hasBox}
         <div class="sel" style={`left:${selL}px;top:${selT}px;width:${selW}px;height:${selH}px`}></div>
