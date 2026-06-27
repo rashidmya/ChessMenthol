@@ -2,6 +2,10 @@
   import type { LineDto } from '../lib/types';
   import { toFigurine } from '../lib/figurine';
   export let lines: LineDto[] = [];
+  // Per-multipv expand state. Resetting expansion across positions is the
+  // parent's job, not ours: F10 keys <Lines> by FEN so a new position remounts
+  // this component (and clears `open`). We deliberately do NOT reset per tick —
+  // that would flicker open rows shut on every analysis update.
   let open = new Set<number>();
   function toggle(mpv: number) { open.has(mpv) ? open.delete(mpv) : open.add(mpv); open = open; }
   // White-better => positive pill; mate>0 also White-better.
@@ -30,7 +34,6 @@
 </div>
 
 <style>
-  .lines { font-family: monospace; font-size: 12.5px; }
   .line { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 9px;
     padding: 6px 8px; font-family: monospace; font-size: 12.5px; cursor: default; }
   .line.open { align-items: start; }
