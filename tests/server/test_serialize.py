@@ -112,3 +112,14 @@ def test_last_move_to_dict_empty_continuation():
 
     assert d["best"]["pv"] == ""    # before.best.pv[1:] is empty
     assert d["played"]["pv"] == ""  # after.best.pv is empty
+
+
+def test_region_shot_to_dict_carries_true_dims_and_jpeg():
+    import numpy as np
+    from chessmenthol.server.serialize import region_shot_to_dict
+
+    img = np.zeros((40, 80, 3), np.uint8)
+    frame = region_shot_to_dict(img, max_width=40)  # force a downscale
+    assert frame["type"] == "region_shot"
+    assert frame["width"] == 80 and frame["height"] == 40  # TRUE dims, not downscaled
+    assert isinstance(frame["jpegBase64"], str) and len(frame["jpegBase64"]) > 0

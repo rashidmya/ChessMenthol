@@ -78,3 +78,29 @@ def last_move_to_dict(c: Classification, board_before: chess.Board, move: chess.
             "pv": _continuation_san(after_best, best_line.pv[1:], plies),
         },
     }
+
+
+def region_shot_to_dict(image, max_width: int = 2560) -> dict:
+    """A `region_shot` frame: a downscaled JPEG (base64) of the full desktop plus
+    its TRUE pixel dimensions (so the client maps drag coords back to real pixels)."""
+    import base64
+
+    import cv2
+
+    h, w = image.shape[:2]
+    scale = min(1.0, max_width / w)
+    disp = (
+        image
+        if scale >= 1.0
+        else cv2.resize(image, (max(1, round(w * scale)), max(1, round(h * scale))),
+                        interpolation=cv2.INTER_AREA)
+    )
+    ok, buf = cv2.imencode(".jpg", disp, [cv2.IMWRITE_JPEG_QUALITY, 80])
+    if not ok:
+        raise RuntimeError("failed to encode region shot")
+    return {
+        "type": "region_shot",
+        "jpegBase64": base64.b64encode(buf.tobytes()).decode(),
+        "width": int(w),
+        "height": int(h),
+    }
