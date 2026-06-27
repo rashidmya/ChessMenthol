@@ -116,7 +116,7 @@
             onSetEngine={(id) => send({ type: 'set_engine', id })}
             prefs={viewPrefs}
             onToggle={onToggleView} />
-          {#if viewPrefs.lines && analysisEnabled}
+          {#if viewPrefs.lines && analysisEnabled && (s?.lines?.length ?? 0) > 0}
             <div class="bd">
               {#key s?.fen}
                 <Lines lines={s?.lines ?? []} />
@@ -125,9 +125,9 @@
           {/if}
         </div>
 
-        <!-- 2. Move feedback -->
-        {#if viewPrefs.feedback && analysisEnabled}
-          <div class="sec">
+        <!-- 2. Move feedback — hidden until there's a move to describe, so no empty divider -->
+        {#if viewPrefs.feedback && analysisEnabled && s?.lastMove}
+          <div class="sec" data-testid="feedback-section">
             <div class="bd">
               <MoveFeedback lastMove={s?.lastMove ?? null}
                 onPlayBest={(uci) => send({ type: 'play_best', uci })} />

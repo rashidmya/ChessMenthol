@@ -62,14 +62,26 @@ describe('App shell', () => {
 describe('analysis-disabled gating', () => {
   beforeEach(() => { localStorage.clear(); state.set(null); });
 
-  it('shows eval bar, engine lines, and move feedback when analysis is enabled', async () => {
+  it('shows eval bar, engine lines, and move feedback when analysis is enabled and populated', async () => {
     render(App);
     state.set(stateFrame({ analysisEnabled: true }) as never);
     await tick();
     expect(screen.getByTestId('evalbar')).toBeTruthy();
     expect(screen.getByTestId('lines')).toBeTruthy();
+    expect(screen.getByTestId('feedback-section')).toBeTruthy();
     expect(screen.getByTestId('movefeedback')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'View options' })).toBeTruthy();
+  });
+
+  it('hides the empty engine-lines and move-feedback sections (no empty dividers)', async () => {
+    render(App);
+    // analysis on, but no lines computed yet and no move played yet
+    state.set(stateFrame({ analysisEnabled: true, lines: [], lastMove: null }) as never);
+    await tick();
+    expect(screen.queryByTestId('lines')).toBeNull();
+    expect(screen.queryByTestId('feedback-section')).toBeNull();
+    // the eval bar and the move-history section still render
+    expect(screen.getByTestId('evalbar')).toBeTruthy();
   });
 
   it('hides eval bar, engine lines, move feedback, and View options when analysis is disabled', async () => {
