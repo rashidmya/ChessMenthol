@@ -394,6 +394,14 @@ def test_play_best_replays_best_using_retained_analysis(make_orchestrator):
     assert state["lastMove"]["classification"]["isBest"] is True
     assert state["lastMove"]["best"]["uci"] == "d2d4"
     assert state["lastMove"]["played"]["san"] == "d4"
+    # --- history/cursor regression-lock ---
+    # play_best must REPLACE the played move (e4), not append after it.
+    # If _cursor -= 1 is missing or doubled, these fire.
+    assert state["currentPly"] == len(state["moveList"])   # cursor at the tip
+    sans = [e["san"] for e in state["moveList"]]
+    assert sans[-1] == "d4"        # best move is the last (and only) entry
+    assert "e4" not in sans        # the sub-optimal played move is gone
+    assert len(state["moveList"]) == 1  # count did not grow by two
 
 
 def test_play_best_noop_without_retained_analysis(make_orchestrator):

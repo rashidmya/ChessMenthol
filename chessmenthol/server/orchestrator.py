@@ -338,6 +338,7 @@ class Orchestrator:
                    before_a: Optional[AnalysisInfo]) -> None:
         san = board_before.san(move)
         del self._history[self._cursor :]
+        # Separate copy: board_before is retained in _pending and must stay pre-move.
         self._board = board_before.copy()
         self._board.push(move)
         self._history.append(HistoryEntry(move=move, san=san))
