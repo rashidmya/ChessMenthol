@@ -12,6 +12,8 @@
 
   type Row = { rowIdx: number; white: MoveEntryDto | null; black: MoveEntryDto | null };
 
+  // Assumes `list` is ply-ascending (the backend guarantees moveList is ordered
+  // by ply); we group by rowIdx without re-sorting.
   function buildRows(list: MoveEntryDto[]): Row[] {
     const map = new Map<number, Row>();
     for (const entry of list) {
@@ -46,8 +48,10 @@
         <span class="mh-no">{row.rowIdx + 1}</span>
         {#if row.white}
           <button
+            type="button"
             class="mh-mv {moveClass(row.white.classification)}"
             class:current={row.white.ply === currentPly}
+            aria-current={row.white.ply === currentPly ? 'true' : undefined}
             data-testid="mh-mv"
             on:click={() => onNavigate(row.white!.ply)}
           >{toFigurine(row.white.san)}</button>
@@ -56,8 +60,10 @@
         {/if}
         {#if row.black}
           <button
+            type="button"
             class="mh-mv {moveClass(row.black.classification)}"
             class:current={row.black.ply === currentPly}
+            aria-current={row.black.ply === currentPly ? 'true' : undefined}
             data-testid="mh-mv"
             on:click={() => onNavigate(row.black!.ply)}
           >{toFigurine(row.black.san)}</button>

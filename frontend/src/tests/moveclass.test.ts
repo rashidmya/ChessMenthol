@@ -10,4 +10,13 @@ describe('moveClass', () => {
     expect(moveClass({ label: 'book', cpl: 0, isBest: false })).toBe('');
     expect(moveClass(null)).toBe('');
   });
+
+  it('covers the remaining label aliases and unknowns', () => {
+    expect(moveClass({ label: 'excellent', cpl: 0, isBest: false })).toBe('good');
+    expect(moveClass({ label: 'great', cpl: 0, isBest: false })).toBe('best');
+    expect(moveClass({ label: 'miss', cpl: 0, isBest: false })).toBe('mist');
+    expect(moveClass({ label: 'inaccuracy', cpl: 0, isBest: false })).toBe('inacc');
+    expect(moveClass({ label: 'brilliant', cpl: 0, isBest: false })).toBe('brill');
+    expect(moveClass({ label: 'nonsense', cpl: 0, isBest: false })).toBe('');
+  });
 });
