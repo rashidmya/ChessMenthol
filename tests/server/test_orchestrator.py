@@ -639,3 +639,95 @@ def test_play_best_noop_at_cursor_zero_after_navigation(make_orchestrator):
     assert state["fen"] == board_fen_before          # board unchanged
     assert len(orch._history) == history_len_before  # history unchanged (e4 still there)
     assert state["currentPly"] == 0                  # cursor still at 0
+
+
+# ---- game-over / terminal position handling ----
+
+# Fool's Mate position: White is checkmated (Black won).
+_FOOLS_MATE_FEN = "rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3"
+# Position one ply before Fool's Mate: it is Black's move (Qh4#).
+# Note: the queen must be on d8 (rnbqkbnr), not absent (rnb1kbnr).
+_PRE_MATE_FEN = "rnbqkbnr/pppp1ppp/8/4p3/6P1/5P2/PPPPP2P/RNBQKBNR b KQkq g3 0 2"
+# Stalemate: Black to move — king on h8, White queen on f7, White king on g6.
+_STALEMATE_FEN = "7k/5Q2/6K1/8/8/8/8/8 b - - 0 1"
+
+
+def test_set_fen_to_checkmate_reports_game_over(make_orchestrator):
+    """set_fen to a checkmated position emits gameOver, no analysis, analyzing=False."""
+    orch, frames, holder = make_orchestrator()
+    orch.handle({"type": "set_fen", "fen": _FOOLS_MATE_FEN})
+    state = [f for f in frames if f["type"] == "state"][-1]
+    assert state["gameOver"] == {"result": "0-1", "reason": "checkmate"}
+    assert state["eval"] is None
+    assert state["lines"] == []
+    assert state["analyzing"] is False
+
+
+def test_set_fen_to_stalemate_reports_game_over(make_orchestrator):
+    """set_fen to a stalemate position emits gameOver with stalemate reason."""
+    orch, frames, holder = make_orchestrator()
+    orch.handle({"type": "set_fen", "fen": _STALEMATE_FEN})
+    state = [f for f in frames if f["type"] == "state"][-1]
+    assert state["gameOver"] == {"result": "1/2-1/2", "reason": "stalemate"}
+    assert state["analyzing"] is False
+
+
+def test_make_checkmating_move_classifies_and_reports_game_over(make_orchestrator):
+    """make_move delivering checkmate: frame has gameOver, no engine call, lastMove classified."""
+    orch, frames, holder = make_orchestrator()
+    # Queue deep pre-move analysis for the position before Qh4#.
+    # The engine's best move here is Qh4# (d8h4) — same as what the player plays, so
+    # the classification should be BEST.  We use depth=12 so it clears CLASSIFY_MIN_DEPTH.
+    holder["s"].queue = [_analysis(_PRE_MATE_FEN, -500,
+                                   [chess.Move.from_uci("d8h4")], depth=12)]
+    orch.handle({"type": "set_fen", "fen": _PRE_MATE_FEN})
+    # Record session start count AFTER set_fen (that legitimately starts the engine).
+    starts_before_move = holder["s"].started
+
+    # Play Qh4# — this checkmmates White.
+    orch.handle({"type": "make_move", "uci": "d8h4"})
+    state = [f for f in frames if f["type"] == "state"][-1]
+
+    # Game-over must be reported.
+    assert state["gameOver"] == {"result": "0-1", "reason": "checkmate"}
+    assert state["analyzing"] is False
+    assert state["eval"] is None
+    assert state["lines"] == []
+
+    # The engine must NOT have been restarted for the terminal position.
+    assert holder["s"].started == starts_before_move, (
+        "session.start() must not be called for a terminal position"
+    )
+
+    # The mating move must have been classified synchronously.
+    assert state["lastMove"] is not None, "mating move should be classified"
+    assert state["lastMove"]["played"]["san"] == "Qh4#"
+
+
+def test_navigate_to_terminal_ply_restores_game_over_and_last_move(make_orchestrator):
+    """Navigating back to the mated ply restores gameOver and lastMove."""
+    orch, frames, holder = make_orchestrator()
+    holder["s"].queue = [_analysis(_PRE_MATE_FEN, -500,
+                                   [chess.Move.from_uci("d8h4")], depth=12)]
+    orch.handle({"type": "set_fen", "fen": _PRE_MATE_FEN})
+    orch.handle({"type": "make_move", "uci": "d8h4"})
+
+    # Navigate back to move 0 (pre-mate position) — game over clears.
+    orch.handle({"type": "navigate", "index": 0})
+    state0 = [f for f in frames if f["type"] == "state"][-1]
+    assert state0["gameOver"] is None, "pre-mate position must not be game-over"
+
+    # Navigate back to the tip (mated position) — game over is restored.
+    orch.handle({"type": "navigate", "index": 1})
+    state1 = [f for f in frames if f["type"] == "state"][-1]
+    assert state1["gameOver"] == {"result": "0-1", "reason": "checkmate"}
+    assert state1["lastMove"] is not None, "classified move must survive navigation"
+
+
+def test_non_terminal_position_has_game_over_none(make_orchestrator):
+    """Spot-check: a normal position always has gameOver == None in the state frame."""
+    orch, frames, holder = make_orchestrator()
+    holder["s"].queue = [_analysis(chess.STARTING_FEN, 30, [chess.Move.from_uci("d2d4")])]
+    orch.handle({"type": "set_fen", "fen": chess.STARTING_FEN})
+    state = [f for f in frames if f["type"] == "state"][-1]
+    assert state["gameOver"] is None

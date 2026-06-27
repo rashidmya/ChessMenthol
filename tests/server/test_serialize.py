@@ -13,7 +13,7 @@ from chessmenthol.server.serialize import (
 
 def test_eval_to_dict_cp_and_mate():
     assert eval_to_dict(Eval(cp=140)) == {"cp": 140, "mate": None, "text": "+1.40"}
-    assert eval_to_dict(Eval(mate=3)) == {"cp": None, "mate": 3, "text": "#3"}
+    assert eval_to_dict(Eval(mate=3)) == {"cp": None, "mate": 3, "text": "+M3"}
 
 
 def test_line_to_dict_includes_uci_and_san():

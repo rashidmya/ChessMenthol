@@ -43,8 +43,9 @@ def test_pov_flips_for_black_to_move():
 def test_format_white():
     assert Eval(cp=140).format_white() == "+1.40"
     assert Eval(cp=-30).format_white() == "-0.30"
-    assert Eval(mate=4).format_white() == "#4"
-    assert Eval(mate=-1).format_white() == "#-1"
+    assert Eval(mate=4).format_white() == "+M4"
+    assert Eval(mate=-1).format_white() == "-M1"
+    assert Eval(mate=0).format_white() == "#"   # mate 0 sentinel for game-over
 
 
 def _info(multipv, score, pv, depth=20):

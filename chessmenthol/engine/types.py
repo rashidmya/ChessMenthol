@@ -36,7 +36,11 @@ class Eval:
 
     def format_white(self) -> str:
         if self.mate is not None:
-            return f"#{self.mate}"
+            if self.mate > 0:
+                return f"+M{self.mate}"
+            if self.mate < 0:
+                return f"-M{-self.mate}"
+            return "#"  # mate 0 == already mated; game-over handling supplies the real display
         return f"{(self.cp if self.cp is not None else 0) / 100:+.2f}"
 
 

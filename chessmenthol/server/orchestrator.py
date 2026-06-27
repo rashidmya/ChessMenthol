@@ -7,7 +7,7 @@ import chess
 
 from ..analysis.classify import Classification, classify_move
 from ..engine.manager import EngineManager
-from ..engine.types import AnalysisInfo
+from ..engine.types import AnalysisInfo, Eval, Line
 from . import serialize
 from .session import AnalysisSession
 
@@ -54,6 +54,7 @@ class Orchestrator:
         self._history: list[HistoryEntry] = []
         self._cursor = 0
         self._analysis_enabled = True
+        self._game_over: Optional[dict] = None
         self._movetime: Optional[float] = 10.0  # seconds; None == infinite
         factory = session_factory or (lambda eng, cb: AnalysisSession(eng, cb))
         self._session = factory(self._engine, self._on_update)
@@ -346,8 +347,34 @@ class Orchestrator:
         self._cursor = len(self._history)
         self._last_analysis = None
         self._last_move = None
-        self._pending = (board_before, move, before_a, self._cursor - 1)
+        if self._board.is_game_over(claim_draw=False):
+            self._pending = None
+            self._classify_terminal(board_before, move, before_a, self._cursor - 1)
+        else:
+            self._pending = (board_before, move, before_a, self._cursor - 1)
         self._restart()
+
+    def _classify_terminal(self, board_before: chess.Board, move: chess.Move,
+                           before_a: Optional[AnalysisInfo], ply: int) -> None:
+        if before_a is None or before_a.best is None or before_a.best.move is None:
+            return
+        outcome = self._board.outcome(claim_draw=False)
+        winner = outcome.winner if outcome is not None else None
+        if winner is None:                       # a move forcing stalemate/draw
+            eval_after = Eval(cp=0, mate=None)
+        else:                                     # mover delivered mate (white-POV mate sign)
+            eval_after = Eval(cp=None, mate=(1 if winner == chess.WHITE else -1))
+        synthetic = AnalysisInfo(
+            fen=self._board.fen(), depth=before_a.depth,
+            lines=[Line(multipv=1, eval=eval_after, depth=before_a.depth, pv=[])])
+        c = classify_move(board_before, move, before_a, synthetic)
+        lm = serialize.last_move_to_dict(c, board_before, move, before_a, synthetic)
+        self._last_move = lm
+        self._pre_move_analysis = before_a
+        if 0 <= ply < len(self._history):
+            self._history[ply].classification = c
+            self._history[ply].last_move = lm
+            self._history[ply].pre_analysis = before_a
 
     def _reset_move_state(self) -> None:
         self._last_analysis = None
@@ -355,10 +382,23 @@ class Orchestrator:
         self._last_move = None
         self._pre_move_analysis = None
 
+    def _outcome_dict(self, board: chess.Board) -> Optional[dict]:
+        outcome = board.outcome(claim_draw=False)
+        if outcome is None:
+            return None
+        return {"result": outcome.result(),
+                "reason": outcome.termination.name.lower().replace("_", " ")}
+
     def _restart(self) -> None:
+        self._game_over = self._outcome_dict(self._board)
         if not self._analysis_enabled:
             self._analyzing = False
             self._send(self._state_frame(self._last_analysis, self._board))
+            return
+        if self._game_over is not None:
+            self._analyzing = False
+            self._last_analysis = None
+            self._send(self._state_frame(None, self._board))
             return
         if not self._engine_started and hasattr(self._engine, "select"):
             self._engine.select(self._engine_id)
@@ -409,6 +449,7 @@ class Orchestrator:
             "sideToMove": "white" if self._board.turn == chess.WHITE else "black",
             "engineId": self._engine_id,
             "analyzing": self._analyzing,
+            "gameOver": self._game_over,
             "eval": adict["eval"],
             "depth": adict["depth"],
             "lines": adict["lines"],

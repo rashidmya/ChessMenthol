@@ -39,7 +39,7 @@ def test_format_report_without_classification():
     analysis = AnalysisInfo(board.fen(), 12, [Line(1, Eval(mate=2), 12,
                             [chess.Move.from_uci("e2e4")])])
     text = format_report(board, analysis, None)
-    assert "#2" in text
+    assert "+M2" in text
     assert "Move class" not in text
 
 
