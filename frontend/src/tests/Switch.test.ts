@@ -10,3 +10,10 @@ it('reflects on state and emits toggle', async () => {
   await fireEvent.click(sw);
   expect(onToggle).toHaveBeenCalled();
 });
+
+it('toggles on Space keydown', async () => {
+  const onToggle = vi.fn();
+  const { getByRole } = render(Switch, { props: { on: false, onToggle, label: 'X' } });
+  await fireEvent.keyDown(getByRole('switch'), { key: ' ' });
+  expect(onToggle).toHaveBeenCalled();
+});

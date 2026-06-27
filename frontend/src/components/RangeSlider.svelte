@@ -1,13 +1,14 @@
 <script lang="ts">
   export let min = 0; export let max = 5; export let value = 0; export let step = 1;
   export let labels: string[] | null = null;
+  export let ariaLabel = '';
   export let onInput: (v: number) => void = () => {};
-  $: fill = ((value - min) / (max - min)) * 100;
-  $: text = labels ? labels[value] : String(value);
+  $: fill = max === min ? 0 : ((value - min) / (max - min)) * 100;
+  $: text = labels ? (labels[value] ?? String(value)) : String(value);
   function handle(e: Event) { value = Number((e.target as HTMLInputElement).value); onInput(value); }
 </script>
 <input class="rng" type="range" {min} {max} {step} {value}
-  style="--fill:{fill}%" on:input={handle} />
+  aria-label={ariaLabel || undefined} style="--fill:{fill}%" on:input={handle} />
 <span class="v" data-testid="range-value">{text}</span>
 <style>
   .v{flex:none; min-width:42px; text-align:center; font-family:var(--mono); font-weight:700;

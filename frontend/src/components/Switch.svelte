@@ -4,7 +4,8 @@
   export let label = '';
 </script>
 <div class="sw" class:on role="switch" aria-checked={on} aria-label={label}
-  tabindex="0" on:click={onToggle} on:keydown={(e) => e.key === 'Enter' && onToggle()}>
+  tabindex="0" on:click={onToggle}
+  on:keydown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); onToggle(); } }}>
   <span class="knob"></span>
 </div>
 <style>
