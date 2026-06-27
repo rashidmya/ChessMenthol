@@ -89,7 +89,7 @@
   <Header />
   <main>
     <div class="board-col">
-      {#if viewPrefs.evalBar && analysisEnabled}<EvalBar evalDto={s?.eval ?? null} />{/if}
+      {#if viewPrefs.evalBar && analysisEnabled}<EvalBar evalDto={s?.eval ?? null} {orientation} gameOver={s?.gameOver ?? null} />{/if}
       <div class="board-wrap">
         <Board bind:this={boardComp} {fen} {orientation} {onMove} revertSignal={$errorSeq}
           lines={s?.lines ?? []} showArrows={viewPrefs.arrows && analysisEnabled} {editing} {selectedEditPiece} />
@@ -130,7 +130,8 @@
           <div class="sec" data-testid="feedback-section">
             <div class="bd">
               <MoveFeedback lastMove={s?.lastMove ?? null}
-                onPlayBest={(uci) => send({ type: 'play_best', uci })} />
+                onPlayBest={(uci) => send({ type: 'play_best', uci })}
+                gameOver={s?.gameOver ?? null} />
             </div>
           </div>
         {/if}

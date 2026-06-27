@@ -5,6 +5,7 @@
 
   export let lastMove: LastMoveDto | null = null;
   export let onPlayBest: (uci: string) => void = () => {};
+  export let gameOver: { result: string; reason: string } | null = null;
 
   // phraseFor only runs in the played (non-best) row, so 'best'/'great' (which
   // imply isBest) never reach it; the `?? label` fallback covers any unknown.
@@ -25,41 +26,65 @@
     const t = evalText.trim();
     return (t.startsWith('-') || t.startsWith('−')) ? 'badv' : 'wadv';
   }
+
+  function resultClass(r: string): 'wadv' | 'badv' | 'draw' {
+    if (r === '1-0') return 'wadv';
+    if (r === '0-1') return 'badv';
+    return 'draw';
+  }
+
+  function resultText(r: string): string {
+    return r === '1/2-1/2' ? '½' : r;
+  }
 </script>
 
 {#if lastMove}
-  <div class="lm" data-testid="movefeedback">
-    {#if lastMove.classification.isBest}
-      <div class="mrow" data-testid="row-best">
-        <span class="badge {evalClass(lastMove.best.evalText)}">{lastMove.best.evalText}</span>
-        <MoveBadge label="best" size={20} />
+  {#if gameOver}
+    <div class="lm" data-testid="movefeedback">
+      <div class="mrow" data-testid="row-gameover">
+        <span class="badge {resultClass(gameOver.result)}">{resultText(gameOver.result)}</span>
+        <MoveBadge label={lastMove.classification.isBest ? 'best' : lastMove.classification.label} size={20} />
         <span class="mtext">
-          <span class="mname best">{lastMove.best.san} <span class="desc">is best</span></span>
-          {#if lastMove.best.pv}<span class="cont">{toFigurine(lastMove.best.pv)}</span>{/if}
+          <span class="mname {lastMove.classification.isBest ? 'best' : 'mist'}">
+            {lastMove.played.san} <span class="desc">{lastMove.classification.isBest ? 'is best' : 'is ' + phraseFor(lastMove.classification.label)}</span>
+          </span>
         </span>
       </div>
-    {:else}
-      <div class="mrow" data-testid="row-played">
-        <span class="badge {evalClass(lastMove.played.evalText)}">{lastMove.played.evalText}</span>
-        <MoveBadge label={lastMove.classification.label} size={20} />
-        <span class="mtext">
-          <span class="mname mist">{lastMove.played.san} <span class="desc">is {phraseFor(lastMove.classification.label)}</span></span>
-          {#if lastMove.played.pv}<span class="cont">{toFigurine(lastMove.played.pv)}</span>{/if}
-        </span>
-      </div>
-      <button class="mrow" data-testid="play-best"
-        title="Undo and play the best move"
-        aria-label="Undo and play the best move: {lastMove.best.san}"
-        on:click={play}>
-        <span class="badge {evalClass(lastMove.best.evalText)}">{lastMove.best.evalText}</span>
-        <MoveBadge label="best" size={20} />
-        <span class="mtext">
-          <span class="mname best">{lastMove.best.san} <span class="desc">is best</span></span>
-          {#if lastMove.best.pv}<span class="cont">{toFigurine(lastMove.best.pv)}</span>{/if}
-        </span>
-      </button>
-    {/if}
-  </div>
+    </div>
+  {:else}
+    <div class="lm" data-testid="movefeedback">
+      {#if lastMove.classification.isBest}
+        <div class="mrow" data-testid="row-best">
+          <span class="badge {evalClass(lastMove.best.evalText)}">{lastMove.best.evalText}</span>
+          <MoveBadge label="best" size={20} />
+          <span class="mtext">
+            <span class="mname best">{lastMove.best.san} <span class="desc">is best</span></span>
+            {#if lastMove.best.pv}<span class="cont">{toFigurine(lastMove.best.pv)}</span>{/if}
+          </span>
+        </div>
+      {:else}
+        <div class="mrow" data-testid="row-played">
+          <span class="badge {evalClass(lastMove.played.evalText)}">{lastMove.played.evalText}</span>
+          <MoveBadge label={lastMove.classification.label} size={20} />
+          <span class="mtext">
+            <span class="mname mist">{lastMove.played.san} <span class="desc">is {phraseFor(lastMove.classification.label)}</span></span>
+            {#if lastMove.played.pv}<span class="cont">{toFigurine(lastMove.played.pv)}</span>{/if}
+          </span>
+        </div>
+        <button class="mrow" data-testid="play-best"
+          title="Undo and play the best move"
+          aria-label="Undo and play the best move: {lastMove.best.san}"
+          on:click={play}>
+          <span class="badge {evalClass(lastMove.best.evalText)}">{lastMove.best.evalText}</span>
+          <MoveBadge label="best" size={20} />
+          <span class="mtext">
+            <span class="mname best">{lastMove.best.san} <span class="desc">is best</span></span>
+            {#if lastMove.best.pv}<span class="cont">{toFigurine(lastMove.best.pv)}</span>{/if}
+          </span>
+        </button>
+      {/if}
+    </div>
+  {/if}
 {/if}
 
 <style>
@@ -74,6 +99,7 @@
     font-variant-numeric: tabular-nums; border: 1px solid #cfc7b3; }
   .badge.wadv { background: #f7f4ec; color: #1b1916; }
   .badge.badv { background: #2b2723; color: #f4f1ea; border-color: #46413a; }
+  .badge.draw { background: var(--keyline); color: var(--ink-2); }
   .mtext { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 6px; overflow: hidden; }
   .mname { flex: none; font-weight: 700; font-size: 13px; letter-spacing: -.01em; }
   .mname .desc { font-weight: 600; }

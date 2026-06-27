@@ -24,6 +24,7 @@ export interface StateFrame {
   currentPly: number;
   analysisEnabled: boolean;
   movetime: number | null;
+  gameOver: { result: string; reason: string } | null;
 }
 export interface RegionShotFrame { type: 'region_shot'; jpegBase64: string; width: number; height: number; }
 export interface ErrorFrame { type: 'error'; message: string; }

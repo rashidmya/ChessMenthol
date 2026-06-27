@@ -73,4 +73,24 @@ describe('MoveFeedback', () => {
     // '16. Nxc3' → '16. ♞xc3'
     expect(getByTestId('row-played').textContent).toContain('♞xc3');
   });
+
+  it('game-over: shows result badge, move san, no play-best button', () => {
+    const bestLastMove = {
+      classification: { label: 'best', cpl: 0, isBest: true },
+      played: { san: 'Bh5#', uci: 'f1h5', evalText: '+M1', pv: '' },
+      best: { san: 'Bh5#', uci: 'f1h5', evalText: '+M1', pv: '' },
+    };
+    const { getByTestId, queryByTestId, getByText } = render(MoveFeedback, {
+      lastMove: bestLastMove,
+      gameOver: { result: '1-0', reason: 'checkmate' },
+    });
+    // Shows the move san
+    expect(getByTestId('row-gameover').textContent).toContain('Bh5#');
+    // Shows 1-0 on the badge
+    const badge = getByTestId('row-gameover').querySelector('.badge');
+    expect(badge?.textContent).toBe('1-0');
+    expect(badge?.classList.contains('wadv')).toBe(true);
+    // No play-best button
+    expect(queryByTestId('play-best')).toBeNull();
+  });
 });
