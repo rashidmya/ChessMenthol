@@ -28,7 +28,7 @@
   }
   function onUp() { dragging = false; }
   function confirmRegion() {
-    if (!shot || !hasBox || (selW === 0 && selH === 0)) { onCancel(); return; }
+    if (!shot || !hasBox || selW === 0 || selH === 0) { onCancel(); return; }
     const region = toDesktopRegion(
       box,
       // no explicit width/height on the <img>, only max-*, so the element box
