@@ -1,6 +1,9 @@
 <script lang="ts">
   import RangeSlider from './RangeSlider.svelte';
-  import { ENGINES, MEMORY_MB, SEARCH_TIMES } from '../lib/options';
+  import {
+    ENGINES, MEMORY_MB, SEARCH_TIMES,
+    DEFAULT_LINES, DEFAULT_SEARCH_INDEX, DEFAULT_THREADS, DEFAULT_MEMORY_INDEX,
+  } from '../lib/options';
   import type { Command } from '../lib/types';
 
   export let engineId: string = 'stockfish';
@@ -9,10 +12,10 @@
 
   // Note: Lines min is 1 (not the mockup's 0) because multipv must be ≥1 or the
   // engine rejects it. Hiding engine lines is the ViewMenu "Engine Lines" toggle's job.
-  let lines = 3;
-  let search = 2;
-  let threads = 4;
-  let mem = 4;
+  let lines = DEFAULT_LINES;
+  let search = DEFAULT_SEARCH_INDEX;
+  let threads = DEFAULT_THREADS;
+  let mem = DEFAULT_MEMORY_INDEX;
 </script>
 
 <div class="set-row">

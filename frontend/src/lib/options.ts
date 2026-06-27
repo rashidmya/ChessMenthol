@@ -6,6 +6,8 @@ export const SEARCH_TIMES: SearchTime[] = [
 export const MEMORY_MB = [16, 32, 64, 128, 256, 512];
 export const DEFAULT_SEARCH_INDEX = 2;   // 10s, matches the mockup
 export const DEFAULT_MEMORY_INDEX = 4;   // 256MB
+export const DEFAULT_LINES = 3;          // multipv (slider min is 1; multipv must be >= 1)
+export const DEFAULT_THREADS = 4;
 export const searchLabel = (i: number) => SEARCH_TIMES[i].label;
 export const memoryLabel = (i: number) => `${MEMORY_MB[i]}MB`;
 

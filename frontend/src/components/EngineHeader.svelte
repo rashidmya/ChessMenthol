@@ -24,7 +24,7 @@
     return () => document.removeEventListener('click', h);
   });
 
-  // suppress unused-variable warning for `analyzing` (used by parent for future state display)
+  // Reserved for F10 (live-analysis indicator); suppresses the unused-prop reactive-statement lint.
   $: void analyzing;
 </script>
 
