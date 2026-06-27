@@ -4,6 +4,9 @@ export interface LineDto {
   pv: string[]; san: string;
 }
 export interface ClassificationDto { label: string; cpl: number; isBest: boolean; }
+export interface MoveEntryDto {
+  ply: number; san: string; uci: string; classification: ClassificationDto | null;
+}
 export interface LastMovePvDto { san: string; uci?: string; evalText: string; pv: string; }
 export interface LastMoveDto {
   classification: ClassificationDto;
@@ -17,6 +20,10 @@ export interface StateFrame {
   visionStatus: 'idle' | 'found' | 'no_board' | 'low_confidence';
   detectedOrientation: 'white' | 'black' | null; lowConfidence: string[];
   region: { left: number; top: number; width: number; height: number } | null;
+  moveList: MoveEntryDto[];
+  currentPly: number;
+  analysisEnabled: boolean;
+  movetime: number | null;
 }
 export interface RegionShotFrame { type: 'region_shot'; jpegBase64: string; width: number; height: number; }
 export interface ErrorFrame { type: 'error'; message: string; }
@@ -28,10 +35,14 @@ export type Command =
   | { type: 'make_move'; uci: string }
   | { type: 'undo' }
   | { type: 'set_engine'; id: string }
-  | { type: 'set_options'; depth?: number; multipv?: number; threads?: number; hash?: number }
+  | { type: 'set_options'; depth?: number; multipv?: number; threads?: number;
+      hash?: number; movetime?: number | null }
   | { type: 'stop' }
   | { type: 'capture_now' }
   | { type: 'request_region_shot' }
   | { type: 'set_region'; left: number; top: number; width: number; height: number }
   | { type: 'clear_region' }
-  | { type: 'play_best'; uci: string };
+  | { type: 'play_best'; uci: string }
+  | { type: 'navigate'; index: number }
+  | { type: 'reset' }
+  | { type: 'set_analysis_enabled'; enabled: boolean };

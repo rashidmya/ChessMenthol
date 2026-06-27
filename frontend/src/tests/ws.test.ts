@@ -51,4 +51,18 @@ describe('applyFrame', () => {
     applyFrame({ type: 'region_shot', jpegBase64: 'AAAA', width: 5120, height: 1440 });
     expect(get(regionShot)).toEqual({ type: 'region_shot', jpegBase64: 'AAAA', width: 5120, height: 1440 });
   });
+
+  it('round-trips the new state-frame fields', () => {
+    applyFrame({
+      type: 'state', fen: 'startpos', sideToMove: 'white', engineId: 'stockfish',
+      analyzing: false, eval: null, depth: 0, lines: [], lastMove: null,
+      visionStatus: 'idle', detectedOrientation: null, lowConfidence: [], region: null,
+      moveList: [{ ply: 1, san: 'e4', uci: 'e2e4', classification: null }],
+      currentPly: 1, analysisEnabled: true, movetime: 5000,
+    } as any);
+    expect(get(state)!.moveList[0].san).toBe('e4');
+    expect(get(state)!.currentPly).toBe(1);
+    expect(get(state)!.analysisEnabled).toBe(true);
+    expect(get(state)!.movetime).toBe(5000);
+  });
 });
