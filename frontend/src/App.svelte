@@ -4,6 +4,7 @@
   import type { Command } from './lib/types';
   import { buildFen, kingCountOk } from './lib/edit';
   import Board from './components/Board.svelte';
+  import BoardBadge from './components/BoardBadge.svelte';
   import EvalBar from './components/EvalBar.svelte';
   import Lines from './components/Lines.svelte';
   import LastMove from './components/LastMove.svelte';
@@ -85,6 +86,7 @@
         <div class="board-wrap">
           <Board bind:this={boardComp} {fen} {orientation} {onMove} revertSignal={$errorSeq}
             lines={s?.lines ?? []} {showArrows} {editing} {selectedEditPiece} />
+          <BoardBadge lastMove={s?.lastMove ?? null} {orientation} />
         </div>
       </div>
       {#if editing}
@@ -131,7 +133,7 @@
   .app { display: flex; gap: 14px; align-items: flex-start; }
   .board-col { display: flex; flex-direction: column; gap: 8px; }
   .board-row { display: flex; gap: 8px; align-items: stretch; }
-  .board-wrap { width: min(60vh, 560px); flex: 0 0 auto; }
+  .board-wrap { width: min(60vh, 560px); flex: 0 0 auto; position: relative; }
   .panel { width: 320px; flex: 0 0 320px; display: flex; flex-direction: column; gap: 10px; }
   .box { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
     border-radius: 6px; padding: 10px; }
