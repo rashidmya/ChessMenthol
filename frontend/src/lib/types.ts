@@ -14,11 +14,13 @@ export interface StateFrame {
   type: 'state'; fen: string; sideToMove: 'white' | 'black'; engineId: string;
   analyzing: boolean; eval: EvalDto | null; depth: number; lines: LineDto[];
   lastMove: LastMoveDto | null;
-  tracking: boolean; visionStatus: 'off' | 'searching' | 'tracking' | 'low_confidence';
+  visionStatus: 'idle' | 'found' | 'no_board' | 'low_confidence';
   detectedOrientation: 'white' | 'black' | null; lowConfidence: string[];
+  region: { left: number; top: number; width: number; height: number } | null;
 }
+export interface RegionShotFrame { type: 'region_shot'; jpegBase64: string; width: number; height: number; }
 export interface ErrorFrame { type: 'error'; message: string; }
-export type ServerFrame = StateFrame | ErrorFrame;
+export type ServerFrame = StateFrame | ErrorFrame | RegionShotFrame;
 
 export type Command =
   | { type: 'set_fen'; fen: string }
@@ -28,6 +30,8 @@ export type Command =
   | { type: 'set_engine'; id: string }
   | { type: 'set_options'; depth?: number; multipv?: number; threads?: number; hash?: number }
   | { type: 'stop' }
-  | { type: 'set_auto'; on: boolean }
   | { type: 'capture_now' }
+  | { type: 'request_region_shot' }
+  | { type: 'set_region'; left: number; top: number; width: number; height: number }
+  | { type: 'clear_region' }
   | { type: 'play_best'; uci: string };

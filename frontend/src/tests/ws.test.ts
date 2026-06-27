@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { get } from 'svelte/store';
-import { applyFrame, state, lastError, errorSeq } from '../lib/ws';
+import { applyFrame, state, lastError, errorSeq, regionShot } from '../lib/ws';
 
 beforeEach(() => {
   state.set(null);
@@ -37,13 +37,18 @@ describe('applyFrame', () => {
     applyFrame({
       type: 'state', fen: 'startpos', sideToMove: 'white', engineId: 'stockfish',
       analyzing: false, eval: null, depth: 0, lines: [], lastMove: null,
-      tracking: true, visionStatus: 'tracking', detectedOrientation: 'black',
-      lowConfidence: ['e4'],
+      visionStatus: 'found', detectedOrientation: 'black',
+      lowConfidence: ['e4'], region: { left: 1, top: 2, width: 3, height: 4 },
     } as any);
     const s = get(state)!;
-    expect(s.tracking).toBe(true);
-    expect(s.visionStatus).toBe('tracking');
+    expect(s.visionStatus).toBe('found');
     expect(s.detectedOrientation).toBe('black');
     expect(s.lowConfidence).toEqual(['e4']);
+    expect(s.region).toEqual({ left: 1, top: 2, width: 3, height: 4 });
+  });
+
+  it('routes a region_shot frame to the regionShot store', () => {
+    applyFrame({ type: 'region_shot', jpegBase64: 'AAAA', width: 5120, height: 1440 });
+    expect(get(regionShot)).toEqual({ type: 'region_shot', jpegBase64: 'AAAA', width: 5120, height: 1440 });
   });
 });
