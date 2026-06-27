@@ -27,6 +27,7 @@ class HistoryEntry:
     san: str
     classification: Optional[Classification] = None
     last_move: Optional[dict] = None
+    pre_analysis: Optional[AnalysisInfo] = None
 
 
 class Orchestrator:
@@ -173,7 +174,7 @@ class Orchestrator:
         self._rebuild_board()
         self._last_analysis = None
         self._pending = None
-        self._pre_move_analysis = None
+        self._pre_move_analysis = (self._history[index - 1].pre_analysis if index > 0 else None)
         self._last_move = self._history[index - 1].last_move if index > 0 else None
         self._restart()
 
@@ -388,6 +389,7 @@ class Orchestrator:
                 if 0 <= ply < len(self._history):
                     self._history[ply].classification = c
                     self._history[ply].last_move = lm
+                    self._history[ply].pre_analysis = before_a
             self._pending = None
         self._send(self._state_frame(analysis, board))
 

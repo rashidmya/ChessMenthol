@@ -577,3 +577,65 @@ def test_on_search_done_sets_analyzing_false(make_orchestrator):
     last = [f for f in frames if f["type"] == "state"][-1]
     assert last["analyzing"] is False
     assert orch._analyzing is False
+
+
+# ---- play_best after navigation ----
+
+
+def test_play_best_works_after_navigation(make_orchestrator):
+    """play_best must work after navigating away from the tip and back.
+
+    Regression test for the bug where navigate() wiped _pre_move_analysis,
+    making the 'Undo & play best' button a silent no-op post-navigation even
+    though the move was already classified live.
+    """
+    orch, frames, holder = make_orchestrator()
+    # Deep analysis of the start position: engine's best move is d2d4.
+    holder["s"].queue = [_analysis(chess.STARTING_FEN, 30, [chess.Move.from_uci("d2d4")])]
+    orch.handle({"type": "set_fen", "fen": chess.STARTING_FEN})
+    # Player plays e2e4 instead; classifying it retains the deep start analysis.
+    after_e4 = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
+    holder["s"].queue = [_analysis(after_e4, 30, [chess.Move.from_uci("e7e5")], depth=12)]
+    orch.handle({"type": "make_move", "uci": "e2e4"})
+    # Navigate away and back -- this is where the bug manifested.
+    orch.handle({"type": "navigate", "index": 0})   # back to start
+    orch.handle({"type": "navigate", "index": 1})   # back to after e4
+    # Click "play best" (d2d4): must still work after navigation.
+    after_d4 = "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1"
+    holder["s"].queue = [_analysis(after_d4, 25, [chess.Move.from_uci("g8f6")], depth=12)]
+    orch.handle({"type": "play_best", "uci": "d2d4"})
+    state = [f for f in frames if f["type"] == "state"][-1]
+    assert state["fen"].startswith("rnbqkbnr/pppppppp/8/8/3P4")   # d4 is on the board
+    assert state["lastMove"]["classification"]["isBest"] is True
+    assert state["lastMove"]["best"]["uci"] == "d2d4"
+    assert state["lastMove"]["played"]["san"] == "d4"
+    # play_best must REPLACE the played move (e4), not append after it.
+    assert state["currentPly"] == len(state["moveList"])   # cursor at the tip
+    sans = [e["san"] for e in state["moveList"]]
+    assert sans[-1] == "d4"        # best move is the last (and only) entry
+    assert "e4" not in sans        # the sub-optimal played move is gone
+    assert len(state["moveList"]) == 1  # count did not grow by two
+
+
+def test_play_best_noop_at_cursor_zero_after_navigation(make_orchestrator):
+    """play_best at cursor 0 (start, no move) must be a safe no-op after navigation.
+
+    Confirms the guard correctly rejects play_best when there is genuinely
+    no pre-move analysis (index == 0 means no prior move existed).
+    """
+    orch, frames, holder = make_orchestrator()
+    holder["s"].queue = [_analysis(chess.STARTING_FEN, 30, [chess.Move.from_uci("d2d4")])]
+    orch.handle({"type": "set_fen", "fen": chess.STARTING_FEN})
+    after_e4 = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
+    holder["s"].queue = [_analysis(after_e4, 30, [chess.Move.from_uci("e7e5")], depth=12)]
+    orch.handle({"type": "make_move", "uci": "e2e4"})
+    # Navigate back to the start (cursor 0, empty board stack).
+    orch.handle({"type": "navigate", "index": 0})
+    board_fen_before = orch._board.fen()
+    history_len_before = len(orch._history)
+    # play_best at cursor 0 must be a safe no-op.
+    orch.handle({"type": "play_best", "uci": "d2d4"})
+    state = [f for f in frames if f["type"] == "state"][-1]
+    assert state["fen"] == board_fen_before          # board unchanged
+    assert len(orch._history) == history_len_before  # history unchanged (e4 still there)
+    assert state["currentPly"] == 0                  # cursor still at 0
