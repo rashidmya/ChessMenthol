@@ -28,6 +28,9 @@ class FakeStream:
 
     def stop(self):
         self.stopped = True
+        # Unblock any waiting thread immediately so stop() is deterministic.
+        if self._block is not None:
+            self._block.set()
 
 
 class FakeEngine:
@@ -107,3 +110,38 @@ def test_session_start_replaces_previous_run():
     session.join(timeout=2.0)
     assert len(got) == 4  # two full runs
     session.close()
+
+
+def test_on_done_fires_on_natural_completion():
+    """on_done is called exactly once when a finite stream ends naturally."""
+    done_calls = []
+    engine = FakeEngine([_info(1), _info(2)])
+    session = AnalysisSession(
+        engine,
+        lambda info, board: None,
+        on_done=lambda: done_calls.append(1),
+        throttle=0.0,
+    )
+    session.start(chess.Board(), time_limit=0.5)
+    session.join(timeout=2.0)
+    assert done_calls == [1]
+
+
+def test_on_done_not_fired_when_stopped():
+    """on_done is suppressed when stop() cancels the stream (stream.stopped=True)."""
+    block = threading.Event()
+    engine = FakeEngine([_info(1), _info(2), _info(3)], block=block)
+    done_calls = []
+    session = AnalysisSession(
+        engine,
+        lambda info, board: None,
+        on_done=lambda: done_calls.append(1),
+        throttle=0.0,
+    )
+    session.start(chess.Board())
+    # Wait until the worker thread has created the stream (is in flight).
+    assert _wait_for(lambda: engine.last_stream is not None)
+    # stop() sets stream.stopped=True; FakeStream.stop() also sets block so the
+    # thread exits promptly without waiting out the 2-second block timeout.
+    session.stop()
+    assert done_calls == []

@@ -558,3 +558,14 @@ def test_re_enable_analysis_restarts_session_exactly_once(make_orchestrator):
     holder["s"].started = 0
     orch.handle({"type": "set_analysis_enabled", "enabled": True})
     assert holder["s"].started == 1
+
+
+def test_on_search_done_sets_analyzing_false(make_orchestrator):
+    """_on_search_done flips analyzing off and emits a frozen state frame."""
+    orch, frames, _ = make_orchestrator()
+    # Simulate a search that completed naturally while analyzing was True.
+    orch._analyzing = True
+    orch._on_search_done()
+    last = [f for f in frames if f["type"] == "state"][-1]
+    assert last["analyzing"] is False
+    assert orch._analyzing is False

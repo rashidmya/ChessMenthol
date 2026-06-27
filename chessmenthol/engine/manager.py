@@ -130,6 +130,10 @@ class AnalysisStream:
             if scored:
                 yield AnalysisInfo.from_engine(self._fen, scored)
 
+    @property
+    def stopped(self) -> bool:
+        return self._stopped
+
     def stop(self) -> None:
         if not self._stopped:
             self._stopped = True

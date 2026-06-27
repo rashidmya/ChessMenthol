@@ -22,12 +22,13 @@ class AnalysisSession:
     or a fake in tests).
     """
 
-    def __init__(self, engine, on_update: UpdateCallback, *,
+    def __init__(self, engine, on_update: UpdateCallback, *, on_done=None,
                  throttle: float = 0.1, monotonic=time.monotonic):
         self._engine = engine
         self._on_update = on_update
         self._throttle = throttle
         self._monotonic = monotonic
+        self.on_done = on_done
         self._lock = threading.Lock()
         self._stream = None
         self._thread: Optional[threading.Thread] = None
@@ -64,6 +65,8 @@ class AnalysisSession:
                     last_emit = now
             if pending is not None:
                 self._on_update(pending, board)
+            if self.on_done is not None and not getattr(stream, "stopped", False):
+                self.on_done()
         except Exception:
             # A worker thread must never raise; log for debuggability and exit quietly.
             logger.exception("analysis worker thread crashed")

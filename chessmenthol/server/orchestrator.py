@@ -56,6 +56,7 @@ class Orchestrator:
         self._movetime: Optional[float] = 10.0  # seconds; None == infinite
         factory = session_factory or (lambda eng, cb: AnalysisSession(eng, cb))
         self._session = factory(self._engine, self._on_update)
+        self._session.on_done = self._on_search_done
         # ---- vision (on-demand capture) ----
         self._tracker = tracker
         self._vision_status = "idle"
@@ -388,6 +389,12 @@ class Orchestrator:
                     self._history[ply].last_move = lm
             self._pending = None
         self._send(self._state_frame(analysis, board))
+
+    def _on_search_done(self) -> None:
+        # A finite search reached its limit naturally: hold the last result and
+        # flip analyzing off so the UI shows a frozen (not perpetually-spinning) result.
+        self._analyzing = False
+        self._send(self._state_frame(self._last_analysis, self._board))
 
     def _state_frame(self, analysis: Optional[AnalysisInfo], board: chess.Board) -> dict:
         adict = serialize.analysis_to_dict(analysis, board) if analysis is not None else {
