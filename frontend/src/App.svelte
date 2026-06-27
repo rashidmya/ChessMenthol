@@ -86,7 +86,7 @@
         <div class="board-wrap">
           <Board bind:this={boardComp} {fen} {orientation} {onMove} revertSignal={$errorSeq}
             lines={s?.lines ?? []} {showArrows} {editing} {selectedEditPiece} />
-          <BoardBadge lastMove={s?.lastMove ?? null} {orientation} />
+          {#if !editing}<BoardBadge lastMove={s?.lastMove ?? null} {orientation} />{/if}
         </div>
       </div>
       {#if editing}
