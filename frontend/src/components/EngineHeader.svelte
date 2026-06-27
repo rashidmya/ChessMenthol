@@ -24,6 +24,10 @@
     return () => document.removeEventListener('click', h);
   });
 
+  // The View-options menu only exists while analysis is on; if analysis turns off
+  // while a popover is open, close it so it can't reappear open on re-enable.
+  $: if (!analysisEnabled) open = null;
+
   // Reserved for F10 (live-analysis indicator); suppresses the unused-prop reactive-statement lint.
   $: void analyzing;
 </script>
@@ -44,20 +48,24 @@
     aria-label="Engine settings"
     on:click|stopPropagation={() => (open = open === 'cog' ? null : 'cog')}
   >&#9881;</button>
-  <button
-    class="cog"
-    class:on={open === 'menu'}
-    aria-label="View options"
-    on:click|stopPropagation={() => (open = open === 'menu' ? null : 'menu')}
-  >&#9776;</button>
+  {#if analysisEnabled}
+    <button
+      class="cog"
+      class:on={open === 'menu'}
+      aria-label="View options"
+      on:click|stopPropagation={() => (open = open === 'menu' ? null : 'menu')}
+    >&#9776;</button>
+  {/if}
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
   <div class="settings" class:open={open === 'cog'} on:click|stopPropagation on:keydown|stopPropagation>
     <EngineSettings {engineId} {onCommand} {onSetEngine} />
   </div>
-  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-  <div class="settings menu" class:open={open === 'menu'} on:click|stopPropagation on:keydown|stopPropagation>
-    <ViewMenu {prefs} {onToggle} />
-  </div>
+  {#if analysisEnabled}
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+    <div class="settings menu" class:open={open === 'menu'} on:click|stopPropagation on:keydown|stopPropagation>
+      <ViewMenu {prefs} {onToggle} />
+    </div>
+  {/if}
 </div>
 
 <style>

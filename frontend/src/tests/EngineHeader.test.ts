@@ -28,6 +28,20 @@ it('tag shows depth and engine name', () => {
   expect(container.querySelector('.eng')?.textContent).toBe('Stockfish 16');
 });
 
+it('hides the View options button when analysis is disabled (cog + Analysis switch stay)', () => {
+  const { queryByRole, getByRole } = render(EngineHeader, {
+    props: { ...defaultProps, analysisEnabled: false },
+  });
+  expect(queryByRole('button', { name: 'View options' })).toBeNull();
+  expect(getByRole('button', { name: 'Engine settings' })).toBeTruthy();
+  expect(getByRole('switch', { name: 'Analysis' })).toBeTruthy();
+});
+
+it('shows the View options button when analysis is enabled', () => {
+  const { getByRole } = render(EngineHeader, { props: defaultProps });
+  expect(getByRole('button', { name: 'View options' })).toBeTruthy();
+});
+
 it('cog click opens settings popover; menu click swaps to view menu; body click closes both', async () => {
   const { container, getByRole } = render(EngineHeader, { props: defaultProps });
   const cogBtn = getByRole('button', { name: 'Engine settings' });

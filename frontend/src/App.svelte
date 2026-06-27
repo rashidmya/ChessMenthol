@@ -67,6 +67,10 @@
   function onSelectPiece(tok: string) { selectedEditPiece = tok; }
 
   $: s = $state;
+  // When analysis is off, the analysis-derived surfaces (eval bar, engine lines,
+  // suggestion arrows, move feedback) and the View-options menu are hidden entirely,
+  // regardless of the view-toggle prefs; they return (per the prefs) when re-enabled.
+  $: analysisEnabled = s?.analysisEnabled ?? true;
   $: fen = s?.fen ?? 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
   $: if (s?.detectedOrientation && !manualFlip) {
     orientation = s.detectedOrientation as 'white' | 'black';
@@ -85,10 +89,10 @@
   <Header />
   <main>
     <div class="board-col">
-      {#if viewPrefs.evalBar}<EvalBar evalDto={s?.eval ?? null} />{/if}
+      {#if viewPrefs.evalBar && analysisEnabled}<EvalBar evalDto={s?.eval ?? null} />{/if}
       <div class="board-wrap">
         <Board bind:this={boardComp} {fen} {orientation} {onMove} revertSignal={$errorSeq}
-          lines={s?.lines ?? []} showArrows={viewPrefs.arrows} {editing} {selectedEditPiece} />
+          lines={s?.lines ?? []} showArrows={viewPrefs.arrows && analysisEnabled} {editing} {selectedEditPiece} />
         {#if !editing}<BoardBadge lastMove={s?.lastMove ?? null} {orientation} />{/if}
         <BoardControls sideToMove={s?.sideToMove ?? 'white'}
           onSetTurn={(white) => send({ type: 'set_turn', white })} onFlip={onFlip} />
@@ -104,7 +108,7 @@
              is deliberately deferred — defaults align and no prop plumbing is needed yet. -->
         <div class="sec">
           <EngineHeader
-            analysisEnabled={s?.analysisEnabled ?? true}
+            {analysisEnabled}
             analyzing={s?.analyzing ?? false}
             depth={s?.depth ?? 0}
             engineId={s?.engineId ?? 'stockfish'}
@@ -112,7 +116,7 @@
             onSetEngine={(id) => send({ type: 'set_engine', id })}
             prefs={viewPrefs}
             onToggle={onToggleView} />
-          {#if viewPrefs.lines}
+          {#if viewPrefs.lines && analysisEnabled}
             <div class="bd">
               {#key s?.fen}
                 <Lines lines={s?.lines ?? []} />
@@ -122,7 +126,7 @@
         </div>
 
         <!-- 2. Move feedback -->
-        {#if viewPrefs.feedback}
+        {#if viewPrefs.feedback && analysisEnabled}
           <div class="sec">
             <div class="bd">
               <MoveFeedback lastMove={s?.lastMove ?? null}
