@@ -44,6 +44,7 @@
 
   function onFlip() { manualFlip = true; orientation = orientation === 'white' ? 'black' : 'white'; }
   function onMove(uci: string) { send({ type: 'make_move', uci }); }
+  function onNavigate(i: number) { send({ type: 'navigate', index: i }); }
 
   function onToggleEdit() {
     if (!editing) {
@@ -130,10 +131,11 @@
           </div>
         {/if}
 
-        <!-- 3. Move history (renders its own .movehist-sec; wrap in a .sec) -->
-        <div class="sec">
+        <!-- 3. Move history (renders its own .movehist-sec; wrap in a growing .sec
+             so the history list absorbs the card's remaining height and scrolls) -->
+        <div class="sec grow">
           <MoveHistory moveList={s?.moveList ?? []} currentPly={s?.currentPly ?? 0}
-            onNavigate={(i) => send({ type: 'navigate', index: i })} />
+            {onNavigate} />
         </div>
 
         <!-- 4. Source controls -->
@@ -152,7 +154,7 @@
         <!-- 6. Action bar -->
         <div class="sec">
           <ActionBar currentPly={s?.currentPly ?? 0} total={s?.moveList?.length ?? 0}
-            onNavigate={(i) => send({ type: 'navigate', index: i })} />
+            {onNavigate} />
         </div>
       </section>
     </div>
@@ -217,6 +219,9 @@
   /* ===== card section dividers ===== */
   .bd { padding: 7px 10px; }
   .sec + .sec { border-top: 1px solid var(--keyline); }
+  /* Only the move-history section grows to absorb the card's remaining height,
+     letting its inner .movehist-sec (flex:1) and .movehist (overflow-y:auto) scroll. */
+  .grow { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 
   .err {
     color: var(--blun);
