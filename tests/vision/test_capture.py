@@ -79,3 +79,17 @@ def test_wayland_backend_errors_when_no_cli():
     be = WaylandShotBackend(runner=lambda *a, **k: None, which=lambda b: None)
     with pytest.raises(RuntimeError):
         be.grab_full()
+
+
+def test_wayland_backend_prefers_spectacle_when_multiple_present():
+    import cv2
+
+    calls = {}
+
+    def runner(cmd, check, timeout):
+        calls["cmd"] = cmd
+        cv2.imwrite(cmd[-1], np.zeros((4, 4, 3), np.uint8))
+
+    be = WaylandShotBackend(runner=runner, which=lambda b: f"/usr/bin/{b}")
+    be.grab_full()
+    assert calls["cmd"][0] == "spectacle"

@@ -4,7 +4,6 @@ import os
 import shutil
 import subprocess
 import tempfile
-from pathlib import Path
 from typing import Callable, Optional, Protocol
 
 import numpy as np
@@ -84,14 +83,15 @@ class WaylandShotBackend:
         import cv2
 
         template = self._resolve()
-        tmp = Path(tempfile.gettempdir()) / "chessmenthol_shot.png"
-        if tmp.exists():
-            tmp.unlink()
-        cmd = [arg.format(path=str(tmp)) for arg in template]
-        self._runner(cmd, check=True, timeout=20)
-        image = cv2.imread(str(tmp))
-        if tmp.exists():
-            tmp.unlink()
+        fd, path = tempfile.mkstemp(suffix=".png", prefix="chessmenthol_shot_")
+        os.close(fd)
+        cmd = [arg.format(path=path) for arg in template]
+        try:
+            self._runner(cmd, check=True, timeout=20)
+            image = cv2.imread(path)
+        finally:
+            if os.path.exists(path):
+                os.unlink(path)
         if image is None:
             raise RuntimeError(f"screenshot tool produced no image: {cmd}")
         return image
@@ -121,7 +121,10 @@ class Capturer:
     def select_monitor(self, index: int) -> None:
         """Convenience for the debug CLI: focus a monitor by cropping to its rect
         (relative to the virtual desktop; assumes the desktop origin is 0,0)."""
-        m = next(x for x in self._backend.list_monitors() if x.index == index)
+        matches = [x for x in self._backend.list_monitors() if x.index == index]
+        if not matches:
+            raise ValueError(f"no monitor with index {index}")
+        m = matches[0]
         self._region = Region(m.left, m.top, m.width, m.height)
 
     def set_region(self, region: Optional[Region]) -> None:
