@@ -1,6 +1,6 @@
 <script lang="ts">
   import MoveBadge from './MoveBadge.svelte';
-  import { squareCorner } from '../lib/boardBadge';
+  import { squareCorner } from '../lib/squareCorner';
   import type { LastMoveDto } from '../lib/types';
 
   export let lastMove: LastMoveDto | null = null;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { squareCorner } from '../lib/boardBadge';
+import { squareCorner } from '../lib/squareCorner';
 
 describe('squareCorner (white at bottom)', () => {
   it('a8 (top-left square) → top-right corner (12.5, 0)', () => {
