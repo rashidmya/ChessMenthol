@@ -34,19 +34,27 @@ describe('Controls', () => {
     expect(onCommand).toHaveBeenCalledWith({ type: 'stop' });
   });
 
-  it('region-btn remains disabled', () => {
-    setup();
-    expect((screen.getByTestId('region-btn') as HTMLButtonElement).disabled).toBe(true);
+  it('Region button calls onPickRegion', async () => {
+    const onPickRegion = vi.fn();
+    const { getByTestId } = render(Controls, { props: { sideToMove: 'white', engineId: 'stockfish',
+      analyzing: true, fen: 'startpos', onCommand: vi.fn(), onPickRegion } as any });
+    await fireEvent.click(getByTestId('region-btn'));
+    expect(onPickRegion).toHaveBeenCalled();
   });
 
-  it('Auto button is enabled and emits set_auto', async () => {
+  it('Clear button appears with a region and emits clear_region', async () => {
     const onCommand = vi.fn();
     const { getByTestId } = render(Controls, { props: { sideToMove: 'white', engineId: 'stockfish',
-      analyzing: true, fen: 'startpos', onCommand, tracking: false } as any });
-    const btn = getByTestId('auto-btn');
-    expect(btn).not.toBeDisabled();
-    await fireEvent.click(btn);
-    expect(onCommand).toHaveBeenCalledWith({ type: 'set_auto', on: true });
+      analyzing: true, fen: 'startpos', onCommand,
+      region: { left: 1, top: 1, width: 10, height: 10 } } as any });
+    await fireEvent.click(getByTestId('clear-region-btn'));
+    expect(onCommand).toHaveBeenCalledWith({ type: 'clear_region' });
+  });
+
+  it('hides Clear when no region is set', () => {
+    const { queryByTestId } = render(Controls, { props: { sideToMove: 'white', engineId: 'stockfish',
+      analyzing: true, fen: 'startpos', onCommand: vi.fn(), region: null } as any });
+    expect(queryByTestId('clear-region-btn')).toBeNull();
   });
 
   it('Capture button emits capture_now', async () => {

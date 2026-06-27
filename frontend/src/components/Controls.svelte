@@ -6,8 +6,9 @@
   export let fen = '';
   export let onCommand: (cmd: Command) => void = () => {};
   export let onFlip: () => void = () => {};
-  export let tracking: boolean = false;
-  export let visionStatus: string = 'off';
+  export let region: { left: number; top: number; width: number; height: number } | null = null;
+  export let onPickRegion: () => void = () => {};
+  export let visionStatus: string = 'idle';
   export let lowConfidence: string[] = [];
   export let editing: boolean = false;
   export let showArrows: boolean = true;
@@ -49,17 +50,18 @@
   <section class="csec">
     <div class="clab">◉ Source</div>
     <div class="btns">
-      <button data-testid="auto-btn" aria-pressed={tracking}
-        class:on={tracking}
-        on:click={() => onCommand({ type: 'set_auto', on: !tracking })}>Auto ●</button>
+      <button data-testid="region-btn" on:click={onPickRegion}>Region</button>
       <button data-testid="capture-btn"
         on:click={() => onCommand({ type: 'capture_now' })}>Capture</button>
-      <button data-testid="region-btn" disabled>Region</button>
+      {#if region}
+        <button data-testid="clear-region-btn"
+          on:click={() => onCommand({ type: 'clear_region' })}>Clear</button>
+      {/if}
     </div>
     <span class="vision-status" data-testid="vision-status">
-      {#if visionStatus === 'tracking'}tracking ●
+      {#if visionStatus === 'found'}found ●
       {:else if visionStatus === 'low_confidence'}● {lowConfidence.length} uncertain
-      {:else if visionStatus === 'searching'}searching…
+      {:else if visionStatus === 'no_board'}no board
       {:else}—{/if}
     </span>
   </section>
