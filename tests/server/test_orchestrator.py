@@ -314,6 +314,36 @@ def test_clear_region_resets(make_orchestrator):
     assert frames[-1]["region"] is None
 
 
+def test_capture_now_exception_emits_error_and_no_board_status(make_orchestrator):
+    class ErrorTracker(FakeTracker):
+        def detect_position(self, frame=None):
+            raise OSError("no display")
+
+    frames = []
+    orch = make_orchestrator(tracker=ErrorTracker(None), send=frames.append)
+    orch.handle({"type": "capture_now"})
+    assert frames[-1]["type"] == "error"
+    assert orch._vision_status == "no_board"
+
+
+def test_request_region_shot_grab_failure_emits_error(make_orchestrator):
+    class GrabFailTracker(FakeTracker):
+        def grab_full_desktop(self):
+            raise OSError("no display")
+
+    frames = []
+    orch = make_orchestrator(tracker=GrabFailTracker(None), send=frames.append)
+    orch.handle({"type": "request_region_shot"})
+    assert frames[-1]["type"] == "error"
+
+
+def test_set_region_missing_keys_errors(make_orchestrator):
+    frames = []
+    orch = make_orchestrator(tracker=FakeTracker(None), send=frames.append)
+    orch.handle({"type": "set_region"})
+    assert frames[-1]["type"] == "error"
+
+
 class RecordingEngine:
     """Engine stub that records select()/configure() calls (no real binary)."""
 

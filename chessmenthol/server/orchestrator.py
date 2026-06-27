@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, Optional, Tuple
+from typing import TYPE_CHECKING, Callable, Optional, Tuple
 
 import chess
 
@@ -9,6 +9,9 @@ from ..engine.manager import EngineManager
 from ..engine.types import AnalysisInfo
 from . import serialize
 from .session import AnalysisSession
+
+if TYPE_CHECKING:
+    from chessmenthol.vision.types import Region
 
 SendCallback = Callable[[dict], None]
 CLASSIFY_MIN_DEPTH = 8
@@ -43,7 +46,7 @@ class Orchestrator:
         self._vision_status = "idle"
         self._detected_orientation: Optional[str] = None
         self._low_confidence: list[str] = []
-        self._region: Optional[object] = None  # vision.types.Region | None
+        self._region: Optional["Region"] = None
 
     # ---- command dispatch ----
     def handle(self, cmd: dict) -> None:
@@ -233,10 +236,9 @@ class Orchestrator:
         self._ensure_tracker()
         try:
             image = self._tracker.grab_full_desktop()
+            self._send(serialize.region_shot_to_dict(image))
         except Exception as exc:  # noqa: BLE001
             self._error(f"screen capture unavailable: {exc}")
-            return
-        self._send(serialize.region_shot_to_dict(image))
 
     def _set_region(self, cmd: dict) -> None:
         from chessmenthol.vision.types import Region
@@ -257,6 +259,7 @@ class Orchestrator:
 
     def _clear_region(self) -> None:
         self._region = None
+        self._vision_status = "idle"
         if self._tracker is not None:
             self._tracker.set_region(None)
         self._send(self._state_frame(self._last_analysis, self._board))
