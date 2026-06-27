@@ -68,6 +68,7 @@ def last_move_to_dict(c: Classification, board_before: chess.Board, move: chess.
         "classification": classification_to_dict(c),
         "played": {
             "san": board_before.san(move),
+            "uci": move.uci(),
             "evalText": after_a.best.eval.format_white(),
             "pv": _continuation_san(after_played, after_a.best.pv, plies),
         },

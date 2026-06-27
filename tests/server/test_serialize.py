@@ -73,7 +73,7 @@ def test_last_move_to_dict_best_not_played():
     d = last_move_to_dict(c, board, move, before, after)
 
     assert d["classification"] == {"label": "mistake", "cpl": 276, "isBest": False}
-    assert d["played"] == {"san": "a3", "evalText": "+5.03", "pv": "1...e5 2. Nf3"}
+    assert d["played"] == {"san": "a3", "uci": "a2a3", "evalText": "+5.03", "pv": "1...e5 2. Nf3"}
     assert d["best"] == {
         "san": "e4", "uci": "e2e4", "evalText": "+2.27",
         "pv": "1...e5 2. Nf3 Nc6 …",
@@ -96,6 +96,7 @@ def test_last_move_to_dict_best_played_single():
                          "pv": "1...e5 2. Nf3"}
     assert d["played"]["san"] == "e4"
     assert d["played"]["evalText"] == "+0.28"
+    assert d["played"]["uci"] == "e2e4"
     assert d["played"]["pv"] == "1...e5 2. Nf3"
 
 
