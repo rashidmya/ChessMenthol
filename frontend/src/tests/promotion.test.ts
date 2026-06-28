@@ -4,11 +4,15 @@ import { promotionPiece } from '../lib/board';
 describe('promotionPiece', () => {
   it('returns a queen for a pawn reaching the last rank (white)', () => {
     // White pawn on e7 about to step to e8.
-    expect(promotionPiece('4k3/4P3/8/8/8/8/8/4K3 w - - 0 1', 'e7', 'e8')).toBe('q');
+    // NOTE: FEN fixed — the previous FEN had the black king on e8, making e7-e8
+    // an illegal blocked push; the old implementation only checked piece type and
+    // ignored legality. King moved to h8 so e7-e8 is a genuine legal promotion.
+    expect(promotionPiece('7k/4P3/8/8/8/8/8/4K3 w - - 0 1', 'e7', 'e8')).toBe('q');
   });
 
   it('returns a queen for a pawn reaching the last rank (black)', () => {
-    expect(promotionPiece('4k3/8/8/8/8/8/4p3/4K3 b - - 0 1', 'e2', 'e1')).toBe('q');
+    // NOTE: FEN fixed — previous FEN had the white king on e1, blocking e2-e1. King on h1.
+    expect(promotionPiece('4k3/8/8/8/8/8/4p3/7K b - - 0 1', 'e2', 'e1')).toBe('q');
   });
 
   it('returns a queen for a pawn capturing onto the last rank', () => {

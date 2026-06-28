@@ -1,4 +1,4 @@
-import { Chess } from 'chess.js';
+import { posFromFen, legalDestsCg, legalMovesUci } from '../core/chess';
 
 /** Convert a chessground (orig, dest) move to a UCI string. Pure join; the
  *  caller passes a promotion piece (e.g. 'q') when a pawn reaches the back rank. */
@@ -14,14 +14,12 @@ export function moveToUci(orig: string, dest: string, promotion?: string): strin
 export function promotionPiece(fen: string, orig: string, dest: string): 'q' | undefined {
   const lastRank = dest[1] === '1' || dest[1] === '8';
   if (!lastRank) return undefined;
-  let game: Chess;
   try {
-    game = new Chess(fen);
+    const pos = posFromFen(fen);
+    return legalMovesUci(pos).includes(`${orig}${dest}q`) ? 'q' : undefined;
   } catch {
     return undefined;
   }
-  const piece = game.get(orig as any);
-  return piece && piece.type === 'p' ? 'q' : undefined;
 }
 
 /** Side to move from a FEN's turn field ('w'/'b'); defaults to white if absent. */
@@ -34,20 +32,9 @@ export function turnColor(fen: string): 'white' | 'black' {
  *  the board permits exactly the legal moves and snaps everything else back.
  *  Returns an empty map for an unparseable FEN (e.g. a transient edit position). */
 export function legalDests(fen: string): Map<string, string[]> {
-  const dests = new Map<string, string[]>();
-  let game: Chess;
   try {
-    game = new Chess(fen);
+    return legalDestsCg(posFromFen(fen));
   } catch {
-    return dests;
+    return new Map<string, string[]>();
   }
-  for (const move of game.moves({ verbose: true })) {
-    const tos = dests.get(move.from);
-    if (tos) {
-      if (!tos.includes(move.to)) tos.push(move.to);
-    } else {
-      dests.set(move.from, [move.to]);
-    }
-  }
-  return dests;
 }
