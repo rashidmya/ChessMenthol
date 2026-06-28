@@ -6,7 +6,7 @@ import { svelteTesting } from '@testing-library/svelte/vite';
 export default defineConfig({
   plugins: [svelte(), svelteTesting()],
   build: {
-    outDir: '../chessmenthol/server/static',
+    outDir: 'dist',
     emptyOutDir: true,
   },
   server: {
