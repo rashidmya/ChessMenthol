@@ -51,6 +51,7 @@ import type {
 
 export const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 export const CLASSIFY_MIN_DEPTH = 8;
+export const DEFAULT_MOVETIME_MS = 10000; // ms; null == infinite
 
 // ─── injection seams ──────────────────────────────────────────────────────────
 
@@ -96,9 +97,9 @@ export interface OrchestratorOptions {
 export interface HistoryEntry {
   move: string; // UCI
   san: string;
-  classification?: Classification | null;
-  lastMove?: LastMoveDto | null;
-  preAnalysis?: AnalysisInfo | null;
+  classification?: Classification;
+  lastMove?: LastMoveDto;
+  preAnalysis?: AnalysisInfo;
 }
 
 /** (board_before, uci, before_analysis, ply) awaiting deep-analysis classify. */
@@ -120,7 +121,7 @@ export class Orchestrator {
   _threads: number | null = null;
   _hash: number | null = null;
   _engineStarted = false;
-  _movetimeMs: number | null = 10000; // ms; null == infinite
+  _movetimeMs: number | null = DEFAULT_MOVETIME_MS; // ms; null == infinite
 
   // ---- analysis / classify state ----
   _lastAnalysis: AnalysisInfo | null = null;
@@ -343,6 +344,13 @@ export class Orchestrator {
     this._session.stop();
     this._analyzing = false;
     this._send(this._stateFrame(this._lastAnalysis));
+  }
+
+  /** Tear down the session and (if it supports it) the engine. Mirrors Python's
+   *  `close()`: `self._session.close(); if hasattr(self._engine, "close"): ...`. */
+  close(): void {
+    this._session.dispose();
+    this._engine.dispose?.();
   }
 
   // ──────────────────────────────────────────────────────────────────────────
