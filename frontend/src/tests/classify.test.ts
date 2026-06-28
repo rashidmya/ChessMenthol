@@ -1,0 +1,234 @@
+/**
+ * src/tests/classify.test.ts
+ *
+ * Vitest port of all 14 pytest cases in tests/analysis/test_classify.py.
+ * The Python source is the parity spec; every assertion reproduces the Python's
+ * expected value exactly.  Any divergence from the Python result is called out
+ * in a comment rather than silently "fixed".
+ */
+
+import { describe, it, expect } from 'vitest';
+import type { Chess } from '../core/chess';
+import { fenOf, playUci, posFromFen } from '../core/chess';
+import {
+  DEFAULT_THRESHOLDS,
+  MoveClass,
+  classifyMove,
+  isSacrifice,
+} from '../core/classify';
+import type { BookLookup } from '../core/book';
+import type { AnalysisInfo, Eval, Line } from '../engine/types';
+
+// ─── Test helpers ─────────────────────────────────────────────────────────────
+
+/**
+ * Build an AnalysisInfo from compact fixture data.
+ * lines: Array of [Eval, string[]] pairs, best-first.
+ * Mirrors the Python mk_analysis helper.
+ */
+function mkAnalysis(
+  fen:   string,
+  lines: Array<[Eval, string[]]>,
+  depth  = 20,
+): AnalysisInfo {
+  const lineObjs: Line[] = lines.map(([ev, pv], i) => ({
+    multipv: i + 1,
+    eval:    ev,
+    depth,
+    pv,
+  }));
+  return { fen, depth, lines: lineObjs };
+}
+
+/** Convenience: FEN of the starting position. */
+const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+
+/** Build (pos-before, afterFen) from the starting position by playing uci. */
+function startAndAfter(uci: string): [Chess, string] {
+  const pos   = posFromFen(START_FEN);
+  const after = fenOf(playUci(pos, uci));
+  return [pos, after];
+}
+
+/** eval({cp}) shorthand — mate is always null in our fixtures. */
+function cp(centipawns: number): Eval {
+  return { cp: centipawns, mate: null };
+}
+
+// ─── 1. MoveClass string stability ───────────────────────────────────────────
+
+describe('MoveClass', () => {
+  // Python: test_moveclass_values_are_stable_strings
+  it('has stable lowercase string values', () => {
+    expect(MoveClass.BRILLIANT).toBe('brilliant');
+    expect(MoveClass.BLUNDER).toBe('blunder');
+    // Spot-check the remaining labels while we're here.
+    expect(MoveClass.GREAT).toBe('great');
+    expect(MoveClass.BEST).toBe('best');
+    expect(MoveClass.EXCELLENT).toBe('excellent');
+    expect(MoveClass.GOOD).toBe('good');
+    expect(MoveClass.BOOK).toBe('book');
+    expect(MoveClass.INACCURACY).toBe('inaccuracy');
+    expect(MoveClass.MISTAKE).toBe('mistake');
+    expect(MoveClass.MISS).toBe('miss');
+  });
+});
+
+// ─── 2. Thresholds sane defaults ─────────────────────────────────────────────
+
+describe('DEFAULT_THRESHOLDS', () => {
+  // Python: test_thresholds_have_sane_defaults
+  it('CPL bands are ordered excellentMax < goodMax < inaccuracyMax < mistakeMax', () => {
+    const t = DEFAULT_THRESHOLDS;
+    expect(t.excellentMax).toBeLessThan(t.goodMax);
+    expect(t.goodMax).toBeLessThan(t.inaccuracyMax);
+    expect(t.inaccuracyMax).toBeLessThan(t.mistakeMax);
+  });
+});
+
+// ─── 3–5. isSacrifice ────────────────────────────────────────────────────────
+
+describe('isSacrifice', () => {
+  // Python: test_is_sacrifice_true_when_queen_moves_to_pawn_attacked_square
+  // Position: k7/8/6p1/8/8/8/8/3QK3 w - - 0 1
+  // Black pawn on g6 attacks f5 and h5.  White queen d1→h5 (h5 empty, attacked).
+  // gain=0, risked=900, (900-0=900) >= 200 → true.
+  it('returns true when queen moves to a pawn-attacked empty square', () => {
+    const pos = posFromFen('k7/8/6p1/8/8/8/8/3QK3 w - - 0 1');
+    expect(isSacrifice(pos, 'd1h5')).toBe(true);
+  });
+
+  // Python: test_is_sacrifice_false_for_safe_queen_move
+  // Same position: d1→d5; d5 is NOT attacked by black.
+  it('returns false for a queen move to an unattacked square', () => {
+    const pos = posFromFen('k7/8/6p1/8/8/8/8/3QK3 w - - 0 1');
+    expect(isSacrifice(pos, 'd1d5')).toBe(false);
+  });
+
+  // Python: test_is_sacrifice_false_for_equal_capture
+  // Position: k7/8/6p1/7q/8/8/8/3QK3 w - - 0 1  (black queen on h5)
+  // Qxh5: gain=900 (black queen), risked=900 (white queen), (900-900=0) < 200 → false.
+  it('returns false for an equal capture (Qxh5 with pawn guarding h5)', () => {
+    const pos = posFromFen('k7/8/6p1/7q/8/8/8/3QK3 w - - 0 1');
+    expect(isSacrifice(pos, 'd1h5')).toBe(false);
+  });
+});
+
+// ─── 6–14. classifyMove ──────────────────────────────────────────────────────
+
+describe('classifyMove', () => {
+
+  // Python: test_best_move_is_classified_best
+  // before: [(cp=30, ['e2e4']), (cp=15, ['d2d4'])]; e4 played.
+  // best_mover=30, played_mover=30, cpl=0, is_best=True → BEST
+  it('classifies the best move as BEST', () => {
+    const [pos, afterFen] = startAndAfter('e2e4');
+    const before = mkAnalysis(START_FEN, [[cp(30), ['e2e4']], [cp(15), ['d2d4']]]);
+    const after  = mkAnalysis(afterFen,  [[cp(30), ['e7e5']]]);
+    const result = classifyMove(pos, 'e2e4', before, after);
+    expect(result.label).toBe(MoveClass.BEST);
+    expect(result.isBest).toBe(true);
+    expect(result.cpl).toBe(0);
+  });
+
+  // Python: test_blunder_when_eval_collapses
+  // before: [(cp=50, ['d2d4']), (cp=20, ['e2e4'])]; e4 played.
+  // best_mover=50, played_mover=-300, cpl=350, is_best=False → BLUNDER
+  it('classifies as BLUNDER when eval collapses (cpl 350)', () => {
+    const [pos, afterFen] = startAndAfter('e2e4');
+    const before = mkAnalysis(START_FEN, [[cp(50), ['d2d4']], [cp(20), ['e2e4']]]);
+    const after  = mkAnalysis(afterFen,  [[cp(-300), ['e7e5']]]);
+    const result = classifyMove(pos, 'e2e4', before, after);
+    expect(result.label).toBe(MoveClass.BLUNDER);
+    expect(result.isBest).toBe(false);
+    expect(result.cpl).toBe(350);
+  });
+
+  // Python: test_inaccuracy_band
+  // before: [(cp=90, ['d2d4']), (cp=20, ['e2e4'])]; e4 played.
+  // best_mover=90, played_mover=10, cpl=80 (in 51–100 band) → INACCURACY
+  it('classifies as INACCURACY in the 51–100 cpl band', () => {
+    const [pos, afterFen] = startAndAfter('e2e4');
+    const before = mkAnalysis(START_FEN, [[cp(90), ['d2d4']], [cp(20), ['e2e4']]]);
+    const after  = mkAnalysis(afterFen,  [[cp(10), ['e7e5']]]);
+    const result = classifyMove(pos, 'e2e4', before, after);
+    expect(result.label).toBe(MoveClass.INACCURACY);
+  });
+
+  // Python: test_book_move_short_circuits
+  // AlwaysBook stub returns true → BOOK regardless of eval quality.
+  it('labels a book move as BOOK, short-circuiting all other rules', () => {
+    const [pos, afterFen] = startAndAfter('e2e4');
+    const before = mkAnalysis(START_FEN, [[cp(30), ['e2e4']]]);
+    const after  = mkAnalysis(afterFen,  [[cp(30), ['e7e5']]]);
+    const alwaysBook: BookLookup = { containsMove: () => true };
+    const result = classifyMove(pos, 'e2e4', before, after, alwaysBook);
+    expect(result.label).toBe(MoveClass.BOOK);
+  });
+
+  // Python: test_great_move_is_only_move
+  // before: [(cp=50, ['e2e4']), (cp=-150, ['d2d4'])]; e4 played.
+  // is_best=True, second_gap = 50 − (−150) = 200 >= 150 → GREAT
+  it('classifies as GREAT when it is the only move that holds', () => {
+    const [pos, afterFen] = startAndAfter('e2e4');
+    const before = mkAnalysis(START_FEN, [[cp(50), ['e2e4']], [cp(-150), ['d2d4']]]);
+    const after  = mkAnalysis(afterFen,  [[cp(50), ['e7e5']]]);
+    const result = classifyMove(pos, 'e2e4', before, after);
+    expect(result.label).toBe(MoveClass.GREAT);
+  });
+
+  // Python: test_brilliant_sound_sacrifice
+  // Position: k7/8/6p1/8/8/8/8/3QK3 w - - 0 1; Qh5 (sacrifice into g6 pawn).
+  // cpl=0, played_mover=300 >= −50, isSacrifice=true → BRILLIANT
+  it('classifies a sound sacrifice as BRILLIANT', () => {
+    const sacFen = 'k7/8/6p1/8/8/8/8/3QK3 w - - 0 1';
+    const pos    = posFromFen(sacFen);
+    const afterFen = fenOf(playUci(pos, 'd1h5'));
+    const before = mkAnalysis(sacFen,  [[cp(300), ['d1h5']]]);
+    const after  = mkAnalysis(afterFen, [[cp(300), ['a8b8']]]);
+    const result = classifyMove(pos, 'd1h5', before, after);
+    expect(result.label).toBe(MoveClass.BRILLIANT);
+  });
+
+  // Python: test_missed_win
+  // before: [(cp=400, ['d2d4']), (cp=60, ['e2e4'])]; e4 played.
+  // best_mover=400 >= 200 (missWin), played_mover=30 < 100 (missKeep) → MISS
+  it('labels a missed win as MISS', () => {
+    const [pos, afterFen] = startAndAfter('e2e4');
+    const before = mkAnalysis(START_FEN, [[cp(400), ['d2d4']], [cp(60), ['e2e4']]]);
+    const after  = mkAnalysis(afterFen,  [[cp(30),  ['e7e5']]]);
+    const result = classifyMove(pos, 'e2e4', before, after);
+    expect(result.label).toBe(MoveClass.MISS);
+  });
+
+  // Python: test_mistake_band
+  // before: [(cp=150, ['d2d4']), (cp=120, ['e2e4'])]; e4 played.
+  // best_mover=150, played_mover=0, cpl=150 (in 101–250 band) → MISTAKE
+  it('classifies as MISTAKE in the 101–250 cpl band', () => {
+    const [pos, afterFen] = startAndAfter('e2e4');
+    const before = mkAnalysis(START_FEN, [[cp(150), ['d2d4']], [cp(120), ['e2e4']]]);
+    const after  = mkAnalysis(afterFen,  [[cp(0),   ['e7e5']]]);
+    const result = classifyMove(pos, 'e2e4', before, after);
+    expect(result.label).toBe(MoveClass.MISTAKE);
+    expect(result.cpl).toBe(150);
+  });
+
+  // Python: test_black_to_move_blunder_uses_mover_pov
+  // Black to move after 1.e4.  Evals are White POV.
+  // before: [(cp=−20, ['c7c5']), (cp=−10, ['e7e5'])]; g8f6 played.
+  // mover_white=false
+  //   best_mover   = evalPov({cp:−20}, false) = −(−20) = 20
+  //   played_mover = evalPov({cp:400}, false) = −400
+  //   cpl = max(0, 20 − (−400)) = 420 → BLUNDER
+  it('uses mover POV for black-to-move blunder (cpl 420)', () => {
+    const blackFen = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1';
+    const pos      = posFromFen(blackFen);
+    const afterFen = fenOf(playUci(pos, 'g8f6'));
+    const before   = mkAnalysis(blackFen, [[cp(-20), ['c7c5']], [cp(-10), ['e7e5']]]);
+    const after    = mkAnalysis(afterFen,  [[cp(400), ['f1c4']]]);
+    const result   = classifyMove(pos, 'g8f6', before, after);
+    expect(result.isBest).toBe(false);
+    expect(result.cpl).toBe(420);
+    expect(result.label).toBe(MoveClass.BLUNDER);
+  });
+});

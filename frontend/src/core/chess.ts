@@ -19,7 +19,7 @@ import type { Color, Move, Role, Square, SquareName } from 'chessops/types';
 
 // Re-export Chess so callers can type positions without importing chessops directly.
 export type { Chess };
-export type { Color, Square, SquareName };
+export type { Color, Role, Square, SquareName };
 
 // Promotion roles, in the order chessops/python-chess enumerate them.
 // Module-scoped so `legalMovesUci` does not re-allocate it on every call.
@@ -195,6 +195,26 @@ export function attackedBy(pos: Chess, square: Square | SquareName, color: Color
     typeof square === 'number' ? square : parseSquare(square);
   if (sq === undefined) throw new Error(`Invalid square: "${square}"`);
   return pos.kingAttackers(sq, color, pos.board.occupied).nonEmpty();
+}
+
+// ─── roleAt ──────────────────────────────────────────────────────────────────
+
+/**
+ * Return the `Role` (piece type) of the piece on `square`, or `undefined` if
+ * the square is empty.
+ *
+ * `square` may be a chessops `Square` (numeric 0–63) or a `SquareName` string.
+ * Throws on an unrecognised square string.
+ *
+ * Intended use: classify.ts needs to know what piece stands on a destination
+ * square before and after a move (to compute material gain/risk in `isSacrifice`).
+ * Keeping this inside the wrapper ensures classify.ts never imports chessops.
+ */
+export function roleAt(pos: Chess, square: Square | SquareName): Role | undefined {
+  const sq: Square | undefined =
+    typeof square === 'number' ? square : parseSquare(square);
+  if (sq === undefined) throw new Error(`Invalid square: "${square}"`);
+  return pos.board.get(sq)?.role;
 }
 
 // ─── makeSquare re-export ─────────────────────────────────────────────────────

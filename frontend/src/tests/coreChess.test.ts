@@ -14,6 +14,7 @@ import {
   variationSan,
   outcomeOf,
   attackedBy,
+  roleAt,
 } from '../core/chess';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -232,5 +233,36 @@ describe('attackedBy', () => {
   it('accepts a numeric Square index', () => {
     // b3 = file 1, rank 2 → square index 17
     expect(attackedBy(posFromFen(START_FEN), 17, 'white')).toBe(true);
+  });
+});
+
+// ─── roleAt ──────────────────────────────────────────────────────────────────
+
+describe('roleAt', () => {
+  it('returns the role of a piece on an occupied square', () => {
+    const pos = posFromFen(START_FEN);
+    expect(roleAt(pos, 'e2')).toBe('pawn');   // white pawn
+    expect(roleAt(pos, 'd1')).toBe('queen');  // white queen
+    expect(roleAt(pos, 'g1')).toBe('knight'); // white knight
+  });
+
+  it('returns undefined for an empty square', () => {
+    // e4 is empty at the start position
+    expect(roleAt(posFromFen(START_FEN), 'e4')).toBeUndefined();
+    expect(roleAt(posFromFen(START_FEN), 'd5')).toBeUndefined();
+  });
+
+  it('returns the promoted-piece role immediately after a promotion move', () => {
+    // PROMO_FEN: white pawn on a7; only legal moves are a7a8{q,r,b,n}
+    const pos = posFromFen(PROMO_FEN);
+    const afterQ = playUci(pos, 'a7a8q');
+    expect(roleAt(afterQ, 'a8')).toBe('queen');
+    const afterR = playUci(pos, 'a7a8r');
+    expect(roleAt(afterR, 'a8')).toBe('rook');
+  });
+
+  it('throws on an unrecognised square string', () => {
+    // 'z9' is not a valid algebraic square name; parseSquare returns undefined
+    expect(() => roleAt(posFromFen(START_FEN), 'z9' as 'a1')).toThrow('Invalid square');
   });
 });
