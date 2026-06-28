@@ -60,4 +60,38 @@ describe('real stockfish.wasm via Node (AnalysisSession integration)', () => {
     expect(Math.abs(best!.eval.cp!)).toBeLessThan(200);   // roughly balanced, White POV
     expect(last.lines.length).toBeGreaterThanOrEqual(2);  // MultiPV 2 -> two lines accumulated
   }, 60_000);
+
+  it('supersedes an in-flight search: onDone fires once, only for the new position', async () => {
+    let sf: any;
+    try {
+      sf = await (initEngine as unknown as (p: string) => Promise<any>)('lite-single');
+    } catch {
+      return; // engine unavailable -> skip rather than fail
+    }
+    const engine = nodeAdapter(sf);
+    await new Promise<void>((resolve) => {
+      engine.onLine((l) => { if (l === 'uciok') resolve(); });
+      engine.send('uci');
+    });
+
+    // Position after 1.e4 (black to move) — distinct from the start position.
+    const FEN2 = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1';
+    const updates: AnalysisInfo[] = [];
+    let doneCount = 0;
+    await new Promise<void>((resolve) => {
+      const s = new AnalysisSession(engine, {
+        onUpdate: (a) => updates.push(a),
+        onDone: () => { doneCount++; resolve(); },
+      });
+      s.start(START_FEN, { depth: 40, multipv: 1, timeMs: null });       // long search, still running shortly after
+      setTimeout(() => s.start(FEN2, { depth: 12, multipv: 1, timeMs: null }), 200); // supersede mid-flight
+    });
+    engine.dispose();
+
+    // The stopped first search is DRAINED (no onDone); only the new search completes.
+    expect(doneCount).toBe(1);
+    const last = updates[updates.length - 1];
+    expect(last.fen).toBe(FEN2);                 // last updates are for the superseded-to position
+    expect(bestLine(last)).not.toBeNull();
+  }, 60_000);
 });

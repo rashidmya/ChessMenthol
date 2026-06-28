@@ -47,17 +47,22 @@ export function threadsAvailable(): boolean {
 
 /**
  * Load stockfish.wasm: pick the threaded build when available, else single-threaded.
- * Resolves once the engine answers `uciok`.
+ * Resolves once the engine answers `uciok`; rejects (and tears down the worker) if
+ * it does not initialize within `timeoutMs`, so a failed load surfaces an error
+ * instead of hanging the UI.
  */
-export async function loadStockfish(base = '/engine/'): Promise<UciEngine> {
+export async function loadStockfish(base = '/engine/', timeoutMs = 10_000): Promise<UciEngine> {
   const manifest: { single: string; multi: string } =
     await fetch(`${base}engine-manifest.json`).then((r) => r.json());
   const file = threadsAvailable() ? manifest.multi : manifest.single;
   const worker = new Worker(`${base}${file}`);
   const engine = new WorkerEngine(worker);
-  await new Promise<void>((resolve) => {
-    const onLine = (line: string) => { if (line === 'uciok') resolve(); };
-    engine.onLine(onLine);
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      engine.dispose();
+      reject(new Error(`stockfish failed to initialize within ${timeoutMs}ms`));
+    }, timeoutMs);
+    engine.onLine((line: string) => { if (line === 'uciok') { clearTimeout(timer); resolve(); } });
     engine.send('uci');
   });
   return engine;

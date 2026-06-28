@@ -4,10 +4,9 @@ import { AnalysisSession } from '../engine/session';
 import type { UciEngine } from '../engine/engine';
 import type { AnalysisInfo } from '../engine/types';
 
-// Models a real UCI engine's ordering: `stop` ends the current search and emits
-// its `bestmove` immediately; `isready` -> `readyok`; `go` begins searching.
-// This reproduces the real-engine guarantee that a stopped search's bestmove
-// precedes the next readyok, which is what the session relies on.
+// Models real UCI ordering: `go` starts searching; `stop` ends the current search
+// and emits its `bestmove`. The session synchronizes on that `bestmove` (drain),
+// never on `readyok`, so the fake deliberately has no readyok at all.
 class FakeEngine implements UciEngine {
   sent: string[] = [];
   private cb: ((line: string) => void) | null = null;
@@ -16,8 +15,6 @@ class FakeEngine implements UciEngine {
     this.sent.push(cmd);
     if (cmd === 'stop') {
       if (this.searching) { this.searching = false; this.emit('bestmove (none)'); }
-    } else if (cmd === 'isready') {
-      this.emit('readyok');
     } else if (cmd.startsWith('go')) {
       this.searching = true;
     }
@@ -34,14 +31,13 @@ function makeSession(eng: UciEngine, now: () => number, onUpdate: (a: AnalysisIn
   return new AnalysisSession(eng, { onUpdate, onDone, throttleMs: 100, now });
 }
 
-describe('AnalysisSession handshake + go', () => {
-  it('sends setoption MultiPV, isready, then position+go on readyok', () => {
+describe('AnalysisSession launch', () => {
+  it('launches with setoption MultiPV, position, then go (no isready barrier)', () => {
     const eng = new FakeEngine();
     const s = makeSession(eng, () => 0, () => {});
     s.start(START_FEN, { depth: 18, multipv: 3, timeMs: null });
     expect(eng.sent).toEqual([
       'setoption name MultiPV value 3',
-      'isready',
       `position fen ${START_FEN}`,
       'go depth 18',
     ]);
@@ -96,31 +92,32 @@ describe('AnalysisSession streaming + throttle', () => {
 });
 
 describe('AnalysisSession cancellation', () => {
-  it('stop() sends stop, suppresses onDone, and ignores the stale bestmove', () => {
+  it('stop() drains the search, suppresses onDone, and ignores later bestmoves', () => {
     const eng = new FakeEngine();
     const updates: AnalysisInfo[] = [];
     const done = vi.fn();
     const s = makeSession(eng, () => 1000, (a) => updates.push(a), done);
     s.start(START_FEN, { depth: 30, multipv: 1, timeMs: null });
     eng.emit('info depth 10 multipv 1 score cp 5 pv e2e4');
-    s.stop();                       // engine emits the stopped search's bestmove (ignored, phase=idle)
+    s.stop();                       // engine emits the stopped search's bestmove -> drained to idle
     expect(eng.last()).toBe('stop');
-    eng.emit('bestmove e2e4');      // any further stale bestmove -> also ignored
+    eng.emit('bestmove e2e4');      // any further stale bestmove -> ignored (idle)
     expect(done).not.toHaveBeenCalled();
     expect(updates).toHaveLength(1); // only the pre-stop emit
   });
 
-  it('a superseding start() stops the old search (no onDone) and only the new search completes', () => {
+  it('a superseding start() drains the old search (no onDone) and only the new search completes', () => {
     const eng = new FakeEngine();
     const done = vi.fn();
-    const s = makeSession(eng, () => 1000, () => {}, done);
+    const updates: AnalysisInfo[] = [];
+    const s = makeSession(eng, () => 1000, (a) => updates.push(a), done);
     s.start(START_FEN, { depth: 30, multipv: 1, timeMs: null });
     eng.emit('info depth 10 multipv 1 score cp 5 pv e2e4');
 
     const otherFen = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1';
     s.start(otherFen, { depth: 30, multipv: 1, timeMs: null });
-    // The first search was stopped; its bestmove (emitted by the engine on `stop`)
-    // arrived in WAITING_READY and was ignored -> no onDone.
+    // start() sent `stop`; the engine's stale bestmove was drained and the new
+    // search launched. The superseded search must NOT fire onDone.
     expect(eng.sent).toContain('stop');
     expect(eng.sent).toContain(`position fen ${otherFen}`);
     expect(done).not.toHaveBeenCalled();

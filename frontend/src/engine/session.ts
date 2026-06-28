@@ -12,7 +12,13 @@ export interface SessionCallbacks {
   now?: () => number;
 }
 
-type Phase = 'idle' | 'waiting_ready' | 'searching';
+// 'draining' = we sent `stop` and are waiting for the stopped search's trailing
+// `bestmove` before launching the next search (or going idle). We synchronize on
+// `bestmove`, NOT on `readyok`: a real UCI engine answers `isready` immediately —
+// even mid-search — so `readyok` arrives BEFORE the stopped search's `bestmove`
+// (verified against stockfish.wasm). Draining is the order-independent way to
+// supersede a search, matching how python-chess waits for the stopped bestmove.
+type Phase = 'idle' | 'searching' | 'draining';
 
 export class AnalysisSession {
   private readonly engine: UciEngine;
@@ -28,6 +34,7 @@ export class AnalysisSession {
   private pending: AnalysisInfo | null = null;
   private lastEmit = 0;
   private lastMultipv = -1;
+  private nextStart: { fen: string; opts: StartOptions } | null = null;
 
   constructor(engine: UciEngine, cb: SessionCallbacks) {
     this.engine = engine;
@@ -39,35 +46,33 @@ export class AnalysisSession {
   }
 
   start(fen: string, opts: StartOptions): void {
-    // Leave SEARCHING *before* sending `stop`, so the stopped search's trailing
-    // `bestmove` is observed in WAITING_READY and ignored (never mistaken for the
-    // new search completing) — correct regardless of how soon the engine replies.
-    // The isready/readyok barrier then orders that stale bestmove ahead of our
-    // new position/go.
-    const wasSearching = this.phase === 'searching';
-    this.phase = 'waiting_ready';
-    if (wasSearching) this.engine.send('stop');
-    this.fen = fen;
-    this.limit = { depth: opts.depth, timeMs: opts.timeMs };
-    this.lines = new Map();
-    this.pending = null;
-    // Prime lastEmit so the very first info of a search always emits (leading edge),
-    // independent of the clock's epoch.
-    this.lastEmit = this.now() - this.throttleMs;
-    if (opts.multipv !== this.lastMultipv) {
-      this.engine.send(`setoption name MultiPV value ${opts.multipv}`);
-      this.lastMultipv = opts.multipv;
+    if (this.phase === 'searching') {
+      // Stop the running search and wait for its bestmove before launching the new
+      // one. Set state BEFORE sending `stop` so a synchronously-delivered bestmove
+      // is handled as a drain, not as the running search completing.
+      this.nextStart = { fen, opts };
+      this.pending = null;
+      this.phase = 'draining';
+      this.engine.send('stop');
+      return;
     }
-    this.engine.send('isready');
+    if (this.phase === 'draining') {
+      // Already draining a prior stop; queue the latest request (newest wins).
+      this.nextStart = { fen, opts };
+      return;
+    }
+    this.launch(fen, opts); // idle
   }
 
   stop(): void {
-    // Leave SEARCHING before sending `stop` so the trailing bestmove is ignored
-    // and onDone is suppressed.
-    const wasSearching = this.phase === 'searching';
-    this.phase = 'idle';
-    this.pending = null;
-    if (wasSearching) this.engine.send('stop');
+    if (this.phase === 'searching') {
+      this.nextStart = null;
+      this.pending = null;
+      this.phase = 'draining';
+      this.engine.send('stop');
+    } else if (this.phase === 'draining') {
+      this.nextStart = null; // cancel any queued start; stay draining until bestmove
+    }
   }
 
   dispose(): void {
@@ -75,22 +80,41 @@ export class AnalysisSession {
     this.engine.dispose();
   }
 
+  private launch(fen: string, opts: StartOptions): void {
+    this.fen = fen;
+    this.limit = { depth: opts.depth, timeMs: opts.timeMs };
+    this.lines = new Map();
+    this.pending = null;
+    this.nextStart = null;
+    // Prime lastEmit so the first info of a search always emits (leading edge),
+    // independent of the clock's epoch.
+    this.lastEmit = this.now() - this.throttleMs;
+    if (opts.multipv !== this.lastMultipv) {
+      this.engine.send(`setoption name MultiPV value ${opts.multipv}`);
+      this.lastMultipv = opts.multipv;
+    }
+    this.engine.send(`position fen ${fen}`);
+    this.engine.send(goLimitString(this.limit));
+    this.phase = 'searching';
+  }
+
   private handleLine(line: string): void {
-    if (line === 'readyok') {
-      if (this.phase === 'waiting_ready') {
-        this.engine.send(`position fen ${this.fen}`);
-        this.engine.send(goLimitString(this.limit));
-        this.phase = 'searching';
+    if (line.startsWith('bestmove')) {
+      if (this.phase === 'searching') {
+        this.phase = 'idle';
+        if (this.pending) { this.onUpdate(this.pending); this.pending = null; }
+        this.onDone?.();
+      } else if (this.phase === 'draining') {
+        // The stopped search's trailing bestmove. Launch the queued search, if any;
+        // never fires onDone (this search was superseded/cancelled, not completed).
+        const next = this.nextStart;
+        this.nextStart = null;
+        if (next) this.launch(next.fen, next.opts);
+        else this.phase = 'idle';
       }
       return;
     }
-    if (this.phase !== 'searching') return;       // ignore stale output
-    if (line.startsWith('bestmove')) {
-      this.phase = 'idle';
-      if (this.pending) { this.onUpdate(this.pending); this.pending = null; }
-      this.onDone?.();
-      return;
-    }
+    if (this.phase !== 'searching') return; // ignore info/other lines while idle/draining
     if (line.startsWith('info')) {
       const parsed = parseInfoLine(line);
       if (!parsed) return;
