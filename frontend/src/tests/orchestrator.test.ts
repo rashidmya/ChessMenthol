@@ -13,7 +13,7 @@
  * The doubles below mirror the Python FakeSession / OrderSession / RecordingEngine.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import {
   Orchestrator,
   START_FEN,
@@ -21,6 +21,7 @@ import {
   type SessionFactory,
   type SessionLike,
   type OrchestratorEngine,
+  type VisionTrackerLike,
 } from '../core/orchestrator';
 import { posFromFen, fenOf } from '../core/chess';
 import type { AnalysisInfo } from '../engine/types';
@@ -574,5 +575,154 @@ describe('castling (regression: the board sends king-two-square UCI; make_move m
     orch.handle({ type: 'make_move', uci: 'e1c1' });
     expect(frames.some((f) => f.type === 'error')).toBe(false);
     expect(lastState(frames).moveList[0].san).toBe('O-O-O');
+  });
+});
+
+// ─── vision (Phase 2) ───────────────────────────────────────────────────────────
+// Ports the vision-relevant test_orchestrator.py cases. The async handlers are
+// fire-and-forget from handle(); `flush()` lets the microtask/timer queue drain
+// before asserting on a state that an awaited capture/detect produced.
+
+const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
+
+/** Minimal engine the default session factory can build an AnalysisSession over. */
+function fakeEngine(): OrchestratorEngine {
+  return { onLine: () => {}, send: () => {}, dispose: () => {} };
+}
+
+/** A canned VisionTracker facade; override individual methods per test. */
+function fakeTracker(over: Partial<VisionTrackerLike> = {}): VisionTrackerLike {
+  return {
+    detectPosition: async () => null,
+    grabFullDesktop: async () => ({ data: new Uint8ClampedArray(4), width: 1, height: 1 }),
+    setRegion: () => {},
+    setSideOverride: () => {},
+    setOrientationOverride: () => {},
+    reset: () => {},
+    ...over,
+  };
+}
+
+describe('orchestrator — vision', () => {
+  // jsdom has no OffscreenCanvas/ImageData, which the default region-shot encoder
+  // uses. Stub them just for this suite so request_region_shot exercises the real
+  // serialize path (the encoder's dimension math is unit-tested in serialize.test.ts).
+  let savedOC: unknown;
+  let savedID: unknown;
+  beforeAll(() => {
+    class FakeBlob { async arrayBuffer() { return new Uint8Array([1, 2, 3]).buffer; } }
+    class FakeOffscreenCanvas {
+      constructor(public width: number, public height: number) {}
+      getContext() { return { putImageData() {}, drawImage() {} }; }
+      async convertToBlob() { return new FakeBlob(); }
+    }
+    class FakeImageData {
+      constructor(public data: Uint8ClampedArray, public width: number, public height: number) {}
+    }
+    const g = globalThis as Record<string, unknown>;
+    savedOC = g.OffscreenCanvas;
+    savedID = g.ImageData;
+    g.OffscreenCanvas = FakeOffscreenCanvas;
+    g.ImageData = FakeImageData;
+  });
+  afterAll(() => {
+    const g = globalThis as Record<string, unknown>;
+    g.OffscreenCanvas = savedOC;
+    g.ImageData = savedID;
+  });
+
+  it('set_region validates, stores the region, and triggers a capture that applies a detected placement', async () => {
+    const frames: ServerFrame[] = [];
+    const tracker = fakeTracker({
+      detectPosition: async () => ({
+        fen: '4k3/8/8/8/8/8/8/4K3 w - - 0 1',
+        isLegal: true,
+        status: 'valid',
+        lowConfidence: ['e4'],
+        move: null,
+        orientation: 'white_bottom',
+        sideToMove: 'white',
+      }),
+    });
+    const orch = new Orchestrator((f) => frames.push(f), { engine: fakeEngine(), tracker });
+    orch.handle({ type: 'set_region', left: 10, top: 20, width: 100, height: 100 });
+    await flush(); // let the async capture resolve
+    const last = lastState(frames);
+    expect(last.region).toEqual({ left: 10, top: 20, width: 100, height: 100 });
+    expect(last.visionStatus).toBe('low_confidence');
+    expect(last.lowConfidence).toEqual(['e4']);
+    expect(last.detectedOrientation).toBe('white');
+    // placement changed -> the detected FEN was applied to the working board
+    expect(last.fen.split(' ')[0]).toBe('4k3/8/8/8/8/8/8/4K3');
+  });
+
+  it('set_region rejects a non-positive rectangle', () => {
+    const frames: ServerFrame[] = [];
+    const orch = new Orchestrator((f) => frames.push(f), { engine: fakeEngine(), tracker: fakeTracker() });
+    orch.handle({ type: 'set_region', left: -1, top: 0, width: 0, height: 5 });
+    expect(frames.at(-1)?.type).toBe('error');
+  });
+
+  it('capture_now with no board -> visionStatus no_board', async () => {
+    const frames: ServerFrame[] = [];
+    const orch = new Orchestrator((f) => frames.push(f), {
+      engine: fakeEngine(),
+      tracker: fakeTracker({ detectPosition: async () => null }),
+    });
+    orch.handle({ type: 'capture_now' });
+    await flush();
+    expect(lastState(frames).visionStatus).toBe('no_board');
+  });
+
+  it('request_region_shot emits a region_shot frame with the true dimensions', async () => {
+    const frames: ServerFrame[] = [];
+    const tracker = fakeTracker({
+      grabFullDesktop: async () => ({ data: new Uint8ClampedArray(800 * 600 * 4), width: 800, height: 600 }),
+    });
+    const orch = new Orchestrator((f) => frames.push(f), { engine: fakeEngine(), tracker });
+    orch.handle({ type: 'request_region_shot' });
+    await flush();
+    const last = frames.at(-1);
+    expect(last?.type).toBe('region_shot');
+    if (last && last.type === 'region_shot') {
+      expect(last.width).toBe(800); // TRUE desktop width (not the downscaled encode)
+    }
+  });
+
+  it('clear_region resets region + status and forwards to the tracker', () => {
+    const frames: ServerFrame[] = [];
+    const setRegion = vi.fn();
+    const orch = new Orchestrator((f) => frames.push(f), {
+      engine: fakeEngine(),
+      tracker: fakeTracker({ setRegion }),
+    });
+    orch.handle({ type: 'clear_region' });
+    const last = lastState(frames);
+    expect(last.region).toBeNull();
+    expect(last.visionStatus).toBe('idle');
+    expect(setRegion).toHaveBeenCalledWith(null);
+  });
+
+  it('set_turn forwards a side override to the tracker', () => {
+    const setSideOverride = vi.fn();
+    const orch = new Orchestrator(() => {}, {
+      engine: fakeEngine(),
+      tracker: fakeTracker({ setSideOverride }),
+    });
+    orch.handle({ type: 'set_turn', white: false });
+    expect(setSideOverride).toHaveBeenCalledWith(false);
+  });
+
+  it('no tracker injected -> vision commands re-emit state and never throw', async () => {
+    const frames: ServerFrame[] = [];
+    const orch = new Orchestrator((f) => frames.push(f), { engine: fakeEngine() });
+    expect(() => orch.handle({ type: 'capture_now' })).not.toThrow();
+    expect(() => orch.handle({ type: 'request_region_shot' })).not.toThrow();
+    // valid set_region: its `void _captureNow()` hits the null-tracker re-emit branch
+    expect(() => orch.handle({ type: 'set_region', left: 0, top: 0, width: 100, height: 100 })).not.toThrow();
+    expect(() => orch.handle({ type: 'clear_region' })).not.toThrow();
+    await flush();
+    // every emitted frame is a benign state frame (never an error)
+    expect(frames.every((f) => f.type === 'state')).toBe(true);
   });
 });

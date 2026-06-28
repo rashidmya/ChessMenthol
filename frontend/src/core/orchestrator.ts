@@ -18,7 +18,9 @@
  *      as `timeMs`, and echoed in the state frame's `movetime` field (no x1000).
  *   2. The analyzed position for serialization comes from `analysis.fen`
  *      (`_onUpdate` carries only `info`, no board).
- *   3. Vision commands are accepted but INERT in Phase 1b (no-op re-emit).
+ *   3. Vision commands drive an injected `VisionTrackerLike` facade (Phase 2).
+ *      When no tracker is injected (pure-web / non-Tauri) the handlers degrade
+ *      gracefully: re-emit the current state, never throw.
  *
  * All chess logic is routed through core/chess.ts; chessops is never imported here.
  */
@@ -32,9 +34,12 @@ import {
   sanOf,
   legalMovesUci,
   outcomeOf,
+  boardFenOf,
 } from './chess';
 import { classifyMove, type Classification } from './classify';
-import { analysisToDict, classificationToDict, lastMoveToDict } from './serialize';
+import { analysisToDict, classificationToDict, lastMoveToDict, regionShotToDict } from './serialize';
+import type { AssembledPosition } from '../vision/position';
+import type { RgbaImage } from '../lib/capture';
 import { type AnalysisInfo, type Eval, bestLine, lineMove } from '../engine/types';
 import { AnalysisSession, type StartOptions, type SessionCallbacks } from '../engine/session';
 import type { UciEngine } from '../engine/engine';
@@ -87,10 +92,26 @@ const defaultSessionFactory: SessionFactory = (engine, callbacks) =>
   // The real engine is a full UciEngine that also exposes select/configure.
   new AnalysisSession(engine as unknown as UciEngine, callbacks);
 
+/**
+ * The subset of the vision facade the orchestrator drives (all async where the
+ * capture/worker round-trip is async). Injected ONLY under Tauri (built in
+ * Task iii.1: `VisionTracker` = Capturer + worker client); non-Tauri builds
+ * inject nothing and the handlers degrade to a state re-emit.
+ */
+export interface VisionTrackerLike {
+  detectPosition(): Promise<AssembledPosition | null>;
+  grabFullDesktop(): Promise<RgbaImage>;
+  setRegion(region: { left: number; top: number; width: number; height: number } | null): void;
+  setSideOverride(white: boolean | null): void;
+  setOrientationOverride(o: 'white_bottom' | 'black_bottom' | null): void;
+  reset(): void;
+}
+
 export interface OrchestratorOptions {
   engine: OrchestratorEngine;
   sessionFactory?: SessionFactory;
   analysisEnabled?: boolean;
+  tracker?: VisionTrackerLike;
 }
 
 /** A single played move in the explicit linear history. */
@@ -139,10 +160,18 @@ export class Orchestrator {
   _analysisEnabled: boolean;
   _gameOver: { result: string; reason: string } | null = null;
 
+  // ---- vision (on-demand; tracker injected only under Tauri) ----
+  _tracker: VisionTrackerLike | null;
+  _visionStatus: 'idle' | 'found' | 'low_confidence' | 'no_board' = 'idle';
+  _detectedOrientation: 'white' | 'black' | null = null;
+  _lowConfidence: string[] = [];
+  _region: { left: number; top: number; width: number; height: number } | null = null;
+
   constructor(send: SendCallback, opts: OrchestratorOptions) {
     this._send = send;
     this._engine = opts.engine;
     this._analysisEnabled = opts.analysisEnabled ?? false;
+    this._tracker = opts.tracker ?? null;
     const factory = opts.sessionFactory ?? defaultSessionFactory;
     this._session = factory(this._engine, {
       onUpdate: this._onUpdate,
@@ -155,15 +184,14 @@ export class Orchestrator {
   // ──────────────────────────────────────────────────────────────────────────
 
   handle(cmd: Command): void {
-    // Vision commands are accepted but INERT in Phase 1b: re-emit current state,
-    // never touch state, never error.
+    // Vision commands route to the real (mostly async) handlers. The async ones
+    // are fire-and-forget: each method catches + emits its own error/state frame,
+    // so a rejection never escapes here.
     switch (cmd.type) {
-      case 'capture_now':
-      case 'request_region_shot':
-      case 'set_region':
-      case 'clear_region':
-        this._send(this._stateFrame(this._lastAnalysis));
-        return;
+      case 'capture_now': void this._captureNow(); return;
+      case 'request_region_shot': void this._requestRegionShot(); return;
+      case 'set_region': this._setRegion(cmd); return;
+      case 'clear_region': this._clearRegion(); return;
     }
     try {
       switch (cmd.type) {
@@ -229,6 +257,9 @@ export class Orchestrator {
     this._board = board;
     this._resetMoveState();
     this._restart();
+    // Forward the user's side override to the tracker so the next detection
+    // assembles with the correct side to move (mirrors orchestrator.py set_turn).
+    this._tracker?.setSideOverride(white);
   }
 
   makeMove(uci: string): void {
@@ -351,6 +382,85 @@ export class Orchestrator {
   close(): void {
     this._session.dispose();
     this._engine.dispose?.();
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // vision (on-demand) — port of orchestrator.py _capture_now / _request_region_shot
+  // / _set_region / _clear_region / _apply_detection. No tracker ⇒ graceful re-emit.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  private async _captureNow(): Promise<void> {
+    if (this._tracker === null) {
+      this._send(this._stateFrame(this._lastAnalysis));
+      return;
+    }
+    let assembled: AssembledPosition | null;
+    try {
+      assembled = await this._tracker.detectPosition();
+    } catch (exc) {
+      // capture/detect can fail at runtime (no permission, worker error, …).
+      this._visionStatus = 'no_board';
+      this._error(`capture failed: ${exc instanceof Error ? exc.message : String(exc)}`);
+      return;
+    }
+    this._applyDetection(assembled);
+  }
+
+  private async _requestRegionShot(): Promise<void> {
+    if (this._tracker === null) {
+      this._send(this._stateFrame(this._lastAnalysis));
+      return;
+    }
+    try {
+      const image = await this._tracker.grabFullDesktop();
+      this._send(await regionShotToDict(image));
+    } catch (exc) {
+      this._error(`screen capture unavailable: ${exc instanceof Error ? exc.message : String(exc)}`);
+    }
+  }
+
+  private _setRegion(cmd: { left: number; top: number; width: number; height: number }): void {
+    const left = Number(cmd.left);
+    const top = Number(cmd.top);
+    const width = Number(cmd.width);
+    const height = Number(cmd.height);
+    // Synchronous validation: emit the error frame immediately (no async hop).
+    if ([left, top, width, height].some((n) => !Number.isFinite(n))) {
+      this._error('invalid region');
+      return;
+    }
+    if (width <= 0 || height <= 0 || left < 0 || top < 0) {
+      this._error('invalid region: must be positive and on-screen');
+      return;
+    }
+    const region = { left, top, width, height };
+    this._region = region;
+    this._tracker?.setRegion(region);
+    void this._captureNow(); // trigger a capture for the new region (async)
+  }
+
+  private _clearRegion(): void {
+    this._region = null;
+    this._visionStatus = 'idle';
+    this._tracker?.setRegion(null);
+    this._send(this._stateFrame(this._lastAnalysis));
+  }
+
+  private _applyDetection(assembled: AssembledPosition | null): void {
+    if (assembled === null || !assembled.isLegal) {
+      this._visionStatus = 'no_board';
+      this._send(this._stateFrame(this._lastAnalysis));
+      return;
+    }
+    this._detectedOrientation = assembled.orientation === 'black_bottom' ? 'black' : 'white';
+    this._lowConfidence = [...assembled.lowConfidence];
+    this._visionStatus = assembled.lowConfidence.length ? 'low_confidence' : 'found';
+    // Compare PLACEMENT only (a screenshot can't read turn/castling/ep reliably).
+    if (assembled.fen.split(' ')[0] !== boardFenOf(this._board)) {
+      this._applyFen(assembled.fen); // stops session, resets history, restarts
+    } else {
+      this._send(this._stateFrame(this._lastAnalysis));
+    }
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -516,11 +626,11 @@ export class Orchestrator {
       depth: adict.depth,
       lines: adict.lines,
       lastMove: this._lastMove,
-      // ---- inert vision defaults (Phase 2) ----
-      visionStatus: 'idle',
-      detectedOrientation: null,
-      lowConfidence: [],
-      region: null,
+      // ---- live vision state (Phase 2) ----
+      visionStatus: this._visionStatus,
+      detectedOrientation: this._detectedOrientation,
+      lowConfidence: this._lowConfidence,
+      region: this._region,
       // ---- history ----
       moveList: this._history.map((e, i) => ({
         ply: i + 1,
