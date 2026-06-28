@@ -136,7 +136,10 @@ export function variationSan(pos: Chess, uciList: string[]): string {
     if (!move) throw new Error(`Invalid UCI notation in variation: "${uci}"`);
     return move;
   });
-  return makeSanVariation(pos, moves);
+  const raw = makeSanVariation(pos, moves);
+  // chessops emits "1... e5" (space after ...) but python-chess emits "1...e5".
+  // Normalise to python-chess format so parity tests hold.
+  return raw.replace(/(\d+\.\.\.) /g, '$1');
 }
 
 // ─── outcomeOf ───────────────────────────────────────────────────────────────
