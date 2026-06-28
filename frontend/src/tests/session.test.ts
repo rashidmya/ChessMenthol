@@ -25,7 +25,20 @@ class FakeEngine implements UciEngine {
   last(): string { return this.sent[this.sent.length - 1]; }
 }
 
+// A fully manual fake: records commands and emits ONLY when the test calls emit().
+// Unlike FakeEngine it does not auto-emit `bestmove` on `stop`, so a test can hold
+// the session in the 'draining' phase and exercise drain-window edge cases.
+class ManualEngine implements UciEngine {
+  sent: string[] = [];
+  private cb: ((line: string) => void) | null = null;
+  send(cmd: string): void { this.sent.push(cmd); }
+  onLine(cb: (line: string) => void): void { this.cb = cb; }
+  dispose(): void {}
+  emit(line: string): void { this.cb?.(line); }
+}
+
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+const E4_FEN = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1';
 
 function makeSession(eng: UciEngine, now: () => number, onUpdate: (a: AnalysisInfo) => void, onDone?: () => void) {
   return new AnalysisSession(eng, { onUpdate, onDone, throttleMs: 100, now });
@@ -125,5 +138,34 @@ describe('AnalysisSession cancellation', () => {
     // The new search completing naturally fires onDone exactly once.
     eng.emit('bestmove d2d4');
     expect(done).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('AnalysisSession draining edge cases', () => {
+  it('stop() while draining cancels the queued search and goes idle on bestmove', () => {
+    const eng = new ManualEngine();
+    const done = vi.fn();
+    const s = makeSession(eng, () => 0, () => {}, done);
+    s.start(START_FEN, { depth: 30, multipv: 1, timeMs: null }); // launch A (sends go)
+    s.start(E4_FEN, { depth: 30, multipv: 1, timeMs: null });    // searching -> draining, queue B, send stop
+    s.stop();                                                    // cancel the queued B, stay draining
+    eng.emit('bestmove (none)');                                 // drain completes -> idle
+    expect(done).not.toHaveBeenCalled();
+    expect(eng.sent).not.toContain(`position fen ${E4_FEN}`);    // B was never launched
+  });
+
+  it('ignores info lines that arrive during the drain window', () => {
+    const eng = new ManualEngine();
+    const updates: AnalysisInfo[] = [];
+    const s = makeSession(eng, () => 0, (a) => updates.push(a));
+    s.start(START_FEN, { depth: 30, multipv: 1, timeMs: null });
+    eng.emit('info depth 8 multipv 1 score cp 10 pv e2e4');      // searching -> update (1)
+    s.start(E4_FEN, { depth: 30, multipv: 1, timeMs: null });    // -> draining (stop sent)
+    eng.emit('info depth 9 multipv 1 score cp 99 pv h2h4');      // stale, during drain -> IGNORED
+    expect(updates).toHaveLength(1);
+    eng.emit('bestmove (none)');                                 // drain -> launch B (searching)
+    eng.emit('info depth 5 multipv 1 score cp 7 pv g8f6');       // new search -> update (2)
+    expect(updates).toHaveLength(2);
+    expect(updates[1].fen).toBe(E4_FEN);
   });
 });
