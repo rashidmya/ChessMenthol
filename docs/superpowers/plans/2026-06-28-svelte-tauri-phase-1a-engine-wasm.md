@@ -916,6 +916,13 @@ cd frontend && git add src/engine/engine.ts scripts/copy-engine.mjs package.json
 
 A guarded integration test: loads the real wasm and analyses the start position, asserting it streams a sane White-POV eval and a best move. It is **skipped automatically** when the dist is absent (so CI without the copy step stays green), mirroring the repo's `engine`-marked Python tests.
 
+> **Correction applied during implementation (committed `41463da`):** the planned browser-`Worker` smoke test below **auto-skips under vitest/jsdom** (no `Worker`), so it would validate nothing in the automated run. It was replaced by a stronger, actually-runnable gate:
+> - `src/tests/engine.integration.test.ts` (`// @vitest-environment node`) drives `AnalysisSession` against **real Stockfish via the package's Node API** (`initEngine('lite-single')` → `sf.sendCommand` / `sf.listener`), asserting depth ≥ 10, a finite White-POV eval (|cp| < 200), a non-empty PV, and ≥ 2 MultiPV lines. This validates the UCI parsing, the isready/readyok/bestmove handshake, and white-POV conversion against actual engine output.
+> - `src/tests/workerEngine.test.ts` unit-tests the browser `WorkerEngine` glue (postMessage forwarding, batched-line splitting, bare-string events, dispose) via a fake worker, since a real `Worker` can't run under vitest.
+> - `src/stockfish.d.ts` adds an ambient `declare module 'stockfish'` (the package ships no types).
+>
+> The browser `loadStockfish`/`WorkerEngine` path is exercised for real when the app runs in a browser (Phase 1b / manual `vite dev`). The committed tests are authoritative; the code block below is the original draft.
+
 **Files:**
 - Create: `frontend/src/tests/engineLoad.smoke.test.ts`
 
