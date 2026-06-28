@@ -1,0 +1,26 @@
+{
+  "chesscom_brown_start.png": {
+    "left": 20,
+    "top": 30,
+    "width": 352,
+    "height": 352
+  },
+  "lichess_brown_midgame.png": {
+    "left": 16,
+    "top": 48,
+    "width": 304,
+    "height": 304
+  },
+  "green_sparse.png": {
+    "left": 80,
+    "top": 18,
+    "width": 384,
+    "height": 384
+  },
+  "grey_blue_midgame.png": {
+    "left": 40,
+    "top": 55,
+    "width": 288,
+    "height": 288
+  }
+}

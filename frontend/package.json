@@ -4,9 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "predev": "node scripts/copy-engine.mjs",
-    "prebuild": "node scripts/copy-engine.mjs",
+    "predev": "node scripts/copy-engine.mjs && node scripts/copy-vision-assets.mjs",
+    "prebuild": "node scripts/copy-engine.mjs && node scripts/copy-vision-assets.mjs",
     "copy-engine": "node scripts/copy-engine.mjs",
+    "copy-vision-assets": "node scripts/copy-vision-assets.mjs",
+    "copy-vision-fixtures": "node scripts/copy-vision-fixtures.mjs",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
@@ -21,7 +23,10 @@
     "@testing-library/svelte": "^5.4.2",
     "@tsconfig/svelte": "^5.0.8",
     "@types/node": "^24.13.2",
+    "@types/pngjs": "^6.0.5",
     "jsdom": "^29.1.1",
+    "onnxruntime-node": "^1.27.0",
+    "pngjs": "^7.0.0",
     "svelte": "^5.56.3",
     "svelte-check": "^4.6.0",
     "typescript": "~6.0.2",
@@ -32,6 +37,7 @@
     "@lichess-org/chessground": "^10.1.1",
     "@tauri-apps/api": "^2.11.1",
     "chessops": "^0.15.0",
+    "onnxruntime-web": "^1.27.0",
     "stockfish": "^18.0.8"
   }
 }
