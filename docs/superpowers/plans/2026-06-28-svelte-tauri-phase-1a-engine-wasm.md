@@ -55,9 +55,9 @@ Expected: `stockfish` appears under `dependencies` in `frontend/package.json`; i
 
 Run:
 ```bash
-cd frontend && ls node_modules/stockfish/src
+cd frontend && ls node_modules/stockfish/bin
 ```
-Expected: a list of engine builds. Note the **lite single-threaded** `.js` (name contains `lite` and `single`, e.g. `stockfish-17-lite-single.js`) and the **lite multi-threaded** `.js` (name contains `lite` and `multi`/`mt`), plus their sibling `.wasm` (and any `.worker.js`). The copy script in Task 7 discovers these by pattern, so you do not hardcode the version number anywhere — just confirm both a `single` and a `multi` lite build exist.
+Expected (confirmed for `stockfish@18.0.8`): the dist lives in **`bin/`** (not `src/`). The **lite single-threaded** build is `stockfish-18-lite-single.js` (+ `.wasm`); the **lite multi-threaded** build is `stockfish-18-lite.js` (+ `.wasm`) — note it has **no `multi`/`mt` token**; it is simply the lite `.js` *without* `single`. The copy script in Task 6 discovers these by pattern (multi = lite `.js` lacking `single`), so no version number is hardcoded.
 
 - [ ] **Step 3: Create the engine source directory**
 
@@ -778,7 +778,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const SRC = join(here, '..', 'node_modules', 'stockfish', 'src');
+const SRC = join(here, '..', 'node_modules', 'stockfish', 'bin'); // stockfish@18 ships dist in bin/
 const OUT = join(here, '..', 'public', 'engine');
 
 if (!existsSync(SRC)) { console.error(`[copy-engine] missing ${SRC} — run npm install`); process.exit(1); }
@@ -787,11 +787,13 @@ mkdirSync(OUT, { recursive: true });
 const files = readdirSync(SRC);
 for (const f of files) copyFileSync(join(SRC, f), join(OUT, f));
 
-const js = files.filter((f) => f.endsWith('.js') && !f.includes('.worker'));
+// Classify by filename (version-agnostic). stockfish@18: lite-single = single,
+// lite (no "single") = multi-threaded. Exclude the asm.js fallback from the JS pool.
+const js = files.filter((f) => f.endsWith('.js') && !f.includes('.worker') && !f.includes('asm'));
 const lite = js.filter((f) => f.includes('lite'));
 const pool = lite.length ? lite : js;
 const single = pool.find((f) => f.includes('single'));
-const multi = pool.find((f) => f.includes('multi') || f.includes('mt'));
+const multi = pool.find((f) => !f.includes('single')); // lite build without the "single" token
 if (!single) { console.error('[copy-engine] no single-threaded build found in', js); process.exit(1); }
 
 writeFileSync(join(OUT, 'engine-manifest.json'),
