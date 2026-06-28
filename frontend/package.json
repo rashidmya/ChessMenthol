@@ -4,6 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/copy-engine.mjs",
+    "prebuild": "node scripts/copy-engine.mjs",
+    "copy-engine": "node scripts/copy-engine.mjs",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",

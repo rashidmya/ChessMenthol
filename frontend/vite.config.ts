@@ -10,6 +10,10 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+    },
     proxy: {
       '/ws': { target: 'ws://127.0.0.1:8765', ws: true },
       '/healthz': { target: 'http://127.0.0.1:8765' },
