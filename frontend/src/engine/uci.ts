@@ -53,10 +53,17 @@ export function goLimitString(limit: GoLimit): string {
   return parts.length ? `go ${parts.join(' ')}` : 'go infinite';
 }
 
-// buildAnalysisInfo is implemented in the NEXT task (kept in this file).
 export function buildAnalysisInfo(
   fen: string,
   lineByMultipv: Map<number, ParsedInfo>,
 ): AnalysisInfo {
-  throw new Error('not implemented');
+  const whiteToMove = sideToMoveIsWhite(fen);
+  const lines: Line[] = [];
+  for (const p of lineByMultipv.values()) {
+    const ev: Eval = toWhitePov(p.cp, p.mate, whiteToMove);
+    lines.push({ multipv: p.multipv, eval: ev, depth: p.depth, pv: p.pv });
+  }
+  lines.sort((a, b) => a.multipv - b.multipv);
+  const depth = lines.reduce((mx, l) => Math.max(mx, l.depth), 0);
+  return { fen, depth, lines };
 }

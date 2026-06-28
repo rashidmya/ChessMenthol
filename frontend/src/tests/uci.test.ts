@@ -44,3 +44,31 @@ describe('goLimitString', () => {
   it('both', () => { expect(goLimitString({ depth: 18, timeMs: 5000 })).toBe('go depth 18 movetime 5000'); });
   it('neither -> infinite', () => { expect(goLimitString({ depth: null, timeMs: null })).toBe('go infinite'); });
 });
+
+describe('buildAnalysisInfo', () => {
+  it('converts to white POV, sorts by multipv, sets max depth', () => {
+    // Black to move: side-to-move cp must be negated to White POV.
+    const fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1';
+    const m = new Map([
+      [2, { depth: 18, multipv: 2, cp: -10, mate: null, pv: ['d7d5'] }],
+      [1, { depth: 20, multipv: 1, cp: 40, mate: null, pv: ['e7e5'] }],
+    ]);
+    const info = buildAnalysisInfo(fen, m);
+    expect(info.fen).toBe(fen);
+    expect(info.depth).toBe(20);
+    expect(info.lines.map((l) => l.multipv)).toEqual([1, 2]);
+    expect(info.lines[0]).toEqual({ multipv: 1, eval: { cp: -40, mate: null }, depth: 20, pv: ['e7e5'] });
+    expect(info.lines[1].eval).toEqual({ cp: 10, mate: null });
+  });
+  it('white to move keeps the sign; mate converts too', () => {
+    const fen = '7k/8/8/8/8/8/8/6QK w - - 0 1';
+    const m = new Map([[1, { depth: 5, multipv: 1, cp: null, mate: 2, pv: ['g1g7'] }]]);
+    const info = buildAnalysisInfo(fen, m);
+    expect(info.lines[0].eval).toEqual({ cp: null, mate: 2 });
+  });
+  it('empty map -> no lines, depth 0', () => {
+    const info = buildAnalysisInfo('x w - - 0 1', new Map());
+    expect(info.lines).toEqual([]);
+    expect(info.depth).toBe(0);
+  });
+});
