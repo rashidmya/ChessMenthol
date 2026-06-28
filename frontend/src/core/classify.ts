@@ -92,7 +92,8 @@ export function isSacrifice(
   uci:        string,
   thresholds?: Thresholds,
 ): boolean {
-  const t    = thresholds ?? DEFAULT_THRESHOLDS;
+  const t = thresholds ?? DEFAULT_THRESHOLDS;
+  // Columns 2–3 of any UCI string are the destination square ('e2e4' → 'e4', 'e7e8q' → 'e8').
   const dest = uci.slice(2, 4) as SquareName;
 
   // Material on the destination BEFORE the move (captured piece, if any).
@@ -105,7 +106,7 @@ export function isSacrifice(
   if (movedRole === undefined) return false;   // shouldn't happen for legal moves
 
   const risked   = PIECE_VALUE[movedRole];
-  const opponent = posBefore.turn === 'white' ? 'black' : 'white';
+  const opponent = posBefore.turn === 'white' ? 'black' : 'white'; // Python: not mover
 
   if (attackedBy(after, dest, opponent)) {
     return (risked - gain) >= t.sacrificeMin;
@@ -146,11 +147,11 @@ export function classifyMove(
 
   // ── best line before the move ─────────────────────────────────────────────
   const bestLineBefore = bestLine(analysisBefore);
-  if (bestLineBefore === null || lineMove(bestLineBefore) === null) {
+  const bestMoveUci    = bestLineBefore !== null ? lineMove(bestLineBefore) : null;
+  if (bestLineBefore === null || bestMoveUci === null) {
     throw new Error('analysis_before must contain at least one line with a move');
   }
-  const bestMoveUci = lineMove(bestLineBefore)!;
-  const bestMover   = evalPov(bestLineBefore.eval, moverWhite);
+  const bestMover = evalPov(bestLineBefore.eval, moverWhite);
 
   // ── best line after the move (measures played eval) ──────────────────────
   const afterBest = bestLine(analysisAfter);
