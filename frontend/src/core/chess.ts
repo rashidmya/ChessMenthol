@@ -71,8 +71,21 @@ export function legalMovesUci(pos: Chess): string[] {
   for (const [from, dests] of pos.allDests()) {
     const piece = pos.board.get(from);
     const isPawn = piece?.role === 'pawn';
+    const isKing = piece?.role === 'king';
 
     for (const to of dests) {
+      const destPiece = pos.board.get(to);
+      // chessops encodes castling as king-captures-own-rook (e.g. e1h1), but the
+      // board (chessgroundDests) and python-chess use the king-two-square form
+      // (e1g1) — and the UI sends THAT. Emit BOTH so the orchestrator accepts
+      // whichever destination the board offered (chessgroundDests offers the king
+      // both the rook square and the g/c file). Standard-chess only (king on e-file).
+      if (isKing && destPiece?.role === 'rook' && destPiece.color === piece!.color) {
+        const kingFile = to > from ? 6 : 2; // g-file kingside / c-file queenside
+        moves.push(makeUci({ from, to: kingFile + squareRank(from) * 8 })); // e1g1 / e1c1
+        moves.push(makeUci({ from, to })); // e1h1 / e1a1 (king-takes-rook form)
+        continue;
+      }
       const onBackrank = squareRank(to) === 0 || squareRank(to) === 7;
       if (isPawn && onBackrank) {
         for (const promotion of PROMOTION_ROLES) {

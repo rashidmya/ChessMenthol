@@ -276,3 +276,41 @@ describe('roleAt', () => {
     expect(() => roleAt(posFromFen(START_FEN), 'z9' as 'a1')).toThrow('Invalid square');
   });
 });
+
+describe('castling UCI — board (chessgroundDests) vs orchestrator (legalMovesUci) must agree', () => {
+  // White K e1, rooks a1/h1, full castling rights, white to move.
+  const CASTLE_FEN = 'r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1';
+
+  it('legalMovesUci includes the king-two-square forms the UI/python-chess send', () => {
+    const moves = legalMovesUci(posFromFen(CASTLE_FEN));
+    expect(moves).toContain('e1g1'); // kingside (chessground "drop on g1")
+    expect(moves).toContain('e1c1'); // queenside
+  });
+
+  it('legalMovesUci also accepts the king-takes-rook forms chessgroundDests offers', () => {
+    const moves = legalMovesUci(posFromFen(CASTLE_FEN));
+    expect(moves).toContain('e1h1');
+    expect(moves).toContain('e1a1');
+  });
+
+  it('accepts every king destination the board offers (no board move is rejected)', () => {
+    const pos = posFromFen(CASTLE_FEN);
+    const boardKingDests = legalDestsCg(pos).get('e1' as 'a1') ?? [];
+    const legal = new Set(legalMovesUci(pos));
+    // chessgroundDests offers the castling king g1, h1, c1, a1 — every one must be
+    // a UCI the orchestrator's legality check will accept, or the board can send a
+    // move that gets rejected (the castling-breaks-the-board bug).
+    for (const to of boardKingDests) {
+      expect(legal.has(`e1${to}`)).toBe(true);
+    }
+  });
+
+  it('playUci/sanOf castle correctly for both UCI forms', () => {
+    const pos = posFromFen(CASTLE_FEN);
+    expect(sanOf(pos, 'e1g1')).toBe('O-O');
+    expect(sanOf(pos, 'e1h1')).toBe('O-O');
+    expect(sanOf(pos, 'e1c1')).toBe('O-O-O');
+    expect(fenOf(playUci(pos, 'e1g1')).split(' ')[0]).toBe('r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R4RK1');
+    expect(fenOf(playUci(pos, 'e1c1')).split(' ')[0]).toBe('r3k2r/pppppppp/8/8/8/8/PPPPPPPP/2KR3R');
+  });
+});

@@ -549,3 +549,30 @@ describe('Orchestrator parity', () => {
     expect(orch._pending).toBeNull();      // pending consumed
   });
 });
+
+describe('castling (regression: the board sends king-two-square UCI; make_move must accept it)', () => {
+  // White K e1, rooks a1/h1, full castling rights, white to move.
+  const CASTLE_FEN = 'r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1';
+  const lastState = (frames: ServerFrame[]) =>
+    frames.filter((f): f is StateFrame => f.type === 'state').at(-1)!;
+
+  it('make_move e1g1 castles kingside with no error and records O-O', () => {
+    const { orch, frames } = makeOrchestrator();
+    orch.handle({ type: 'set_fen', fen: CASTLE_FEN });
+    orch.handle({ type: 'make_move', uci: 'e1g1' });
+    expect(frames.some((f) => f.type === 'error')).toBe(false);
+    const s = lastState(frames);
+    expect(s.fen.split(' ')[0]).toBe('r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R4RK1'); // king g1, rook f1
+    expect(s.moveList).toHaveLength(1);
+    expect(s.moveList[0].san).toBe('O-O');
+    expect(s.currentPly).toBe(1);
+  });
+
+  it('make_move e1c1 castles queenside and records O-O-O', () => {
+    const { orch, frames } = makeOrchestrator();
+    orch.handle({ type: 'set_fen', fen: CASTLE_FEN });
+    orch.handle({ type: 'make_move', uci: 'e1c1' });
+    expect(frames.some((f) => f.type === 'error')).toBe(false);
+    expect(lastState(frames).moveList[0].san).toBe('O-O-O');
+  });
+});
