@@ -526,4 +526,26 @@ describe('Orchestrator parity', () => {
     orch.handle({ type: 'set_fen', fen: START_FEN });
     expect(lastState(frames).gameOver).toBeNull();
   });
+
+  // ─── depth gate boundary (CLASSIFY_MIN_DEPTH = 8) ────────────────────────
+
+  it('depth gate: depth < 8 skips classify, depth >= 8 fires it', () => {
+    const { orch } = makeOrchestrator();
+    const boardBefore = posFromFen(START_FEN);
+    // Valid pre-move analysis: engine preferred d4, player will play e4.
+    const beforeAnalysis = analysis(START_FEN, 30, ['d2d4'], 12);
+    orch._pending = [boardBefore, 'e2e4', beforeAnalysis, 0];
+
+    // ── depth 5 (< 8): classify must NOT fire, _pending must survive ─────────
+    const shallowAfter = analysis(AFTER_E4, -20, ['e7e5'], 5);
+    orch._onUpdate(shallowAfter);
+    expect(orch._lastMove).toBeNull();    // no classification yet
+    expect(orch._pending).not.toBeNull(); // pending still queued (not consumed)
+
+    // ── depth 10 (>= 8): classify must fire and _pending be consumed ─────────
+    const deepAfter = analysis(AFTER_E4, -20, ['e7e5'], 10);
+    orch._onUpdate(deepAfter);
+    expect(orch._lastMove).not.toBeNull(); // classification fired
+    expect(orch._pending).toBeNull();      // pending consumed
+  });
 });
