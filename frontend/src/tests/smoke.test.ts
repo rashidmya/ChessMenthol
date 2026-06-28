@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import App from '../App.svelte';
@@ -22,23 +22,6 @@ function stateFrame(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
-
-// jsdom WebSocket may throw on an invalid URL (about:blank → "ws:///ws").
-// Stub it as a silent no-op so onMount's connect() doesn't throw.
-beforeAll(() => {
-  vi.stubGlobal('WebSocket', class {
-    constructor(_url: string) {}
-    addEventListener() {}
-    removeEventListener() {}
-    send() {}
-    close() {}
-    readyState = 0;
-    static CONNECTING = 0;
-    static OPEN = 1;
-    static CLOSING = 2;
-    static CLOSED = 3;
-  });
-});
 
 describe('App shell', () => {
   it('mounts without throwing and renders the board', () => {

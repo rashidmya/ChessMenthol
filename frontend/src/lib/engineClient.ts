@@ -91,6 +91,11 @@ const engineController: OrchestratorEngine & {
           applyIfLoaded();
           return e;
         });
+        // Don't cache a failed load — clear it so a later start() can retry
+        // loadStockfish() instead of resolving the stale rejected promise.
+        loadPromise.catch(() => {
+          loadPromise = null;
+        });
       }
       return loadPromise;
     },
@@ -129,6 +134,7 @@ class LazySession implements SessionLike {
         .ensureEngine()
         .then((engine) => {
           this.real = new AnalysisSession(engine, this.cb);
+          this.loading = false;
           const p = this.pendingStart;
           this.pendingStart = null;
           if (p) this.real.start(p.fen, p.opts); // honor start unless stop() cleared it
@@ -159,6 +165,9 @@ class LazySession implements SessionLike {
 
 const orch = new Orchestrator(applyFrame, {
   engine: engineController,
+  // `_engine` is intentionally ignored: the factory closes over `engineController`
+  // directly (the same object passed as `engine`), so LazySession shares the one
+  // lazy controller rather than receiving it back through the orchestrator.
   sessionFactory: (_engine, cb) => new LazySession(engineController, cb),
 });
 
