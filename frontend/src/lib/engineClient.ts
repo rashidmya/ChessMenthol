@@ -20,6 +20,8 @@ import type { UciEngine } from '../engine/engine';
 import { AnalysisSession, type SessionCallbacks, type StartOptions } from '../engine/session';
 import { Orchestrator } from '../core/orchestrator';
 import type { OrchestratorEngine, SessionLike } from '../core/orchestrator';
+import { Capturer, hasNativeCapture } from './capture';
+import { VisionWorkerClient, VisionTracker } from '../vision/visionClient';
 
 // ─── stores ────────────────────────────────────────────────────────────────
 
@@ -159,6 +161,18 @@ class LazySession implements SessionLike {
   }
 }
 
+// ─── vision tracker (Tauri-only) ───────────────────────────────────────────
+// Returns undefined in a plain browser or jsdom (hasNativeCapture() is false),
+// so no Worker is ever constructed during tests. The new URL(...) reference
+// lets Vite bundle the worker for production but the Worker constructor only
+// executes inside the hasNativeCapture() branch.
+
+function makeVisionTracker(): VisionTracker | undefined {
+  if (!hasNativeCapture()) return undefined; // pure-web: analysis-only
+  const worker = new Worker(new URL('../vision/vision-worker.ts', import.meta.url), { type: 'module' });
+  return new VisionTracker(new Capturer(), new VisionWorkerClient(worker));
+}
+
 // ─── orchestrator ──────────────────────────────────────────────────────────
 // One module-level instance. Custom sessionFactory bypasses the default cast
 // path (engine as unknown as UciEngine) in the orchestrator's defaultSessionFactory.
@@ -169,6 +183,7 @@ const orch = new Orchestrator(applyFrame, {
   // directly (the same object passed as `engine`), so LazySession shares the one
   // lazy controller rather than receiving it back through the orchestrator.
   sessionFactory: (_engine, cb) => new LazySession(engineController, cb),
+  tracker: makeVisionTracker(),
 });
 
 // Emit the initial start-position frame (analysis off, empty history) so the
