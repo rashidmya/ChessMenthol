@@ -1,0 +1,132 @@
+// frontend/src/tests/session.test.ts
+import { describe, it, expect, vi } from 'vitest';
+import { AnalysisSession } from '../engine/session';
+import type { UciEngine } from '../engine/engine';
+import type { AnalysisInfo } from '../engine/types';
+
+// Models a real UCI engine's ordering: `stop` ends the current search and emits
+// its `bestmove` immediately; `isready` -> `readyok`; `go` begins searching.
+// This reproduces the real-engine guarantee that a stopped search's bestmove
+// precedes the next readyok, which is what the session relies on.
+class FakeEngine implements UciEngine {
+  sent: string[] = [];
+  private cb: ((line: string) => void) | null = null;
+  private searching = false;
+  send(cmd: string): void {
+    this.sent.push(cmd);
+    if (cmd === 'stop') {
+      if (this.searching) { this.searching = false; this.emit('bestmove (none)'); }
+    } else if (cmd === 'isready') {
+      this.emit('readyok');
+    } else if (cmd.startsWith('go')) {
+      this.searching = true;
+    }
+  }
+  onLine(cb: (line: string) => void): void { this.cb = cb; }
+  dispose(): void {}
+  emit(line: string): void { this.cb?.(line); }
+  last(): string { return this.sent[this.sent.length - 1]; }
+}
+
+const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+
+function makeSession(eng: UciEngine, now: () => number, onUpdate: (a: AnalysisInfo) => void, onDone?: () => void) {
+  return new AnalysisSession(eng, { onUpdate, onDone, throttleMs: 100, now });
+}
+
+describe('AnalysisSession handshake + go', () => {
+  it('sends setoption MultiPV, isready, then position+go on readyok', () => {
+    const eng = new FakeEngine();
+    const s = makeSession(eng, () => 0, () => {});
+    s.start(START_FEN, { depth: 18, multipv: 3, timeMs: null });
+    expect(eng.sent).toEqual([
+      'setoption name MultiPV value 3',
+      'isready',
+      `position fen ${START_FEN}`,
+      'go depth 18',
+    ]);
+  });
+});
+
+describe('AnalysisSession streaming + throttle', () => {
+  it('emits on first info, throttles within the window, accumulates multipv', () => {
+    const eng = new FakeEngine();
+    let t = 0;
+    const updates: AnalysisInfo[] = [];
+    const s = makeSession(eng, () => t, (a) => updates.push(a));
+    s.start(START_FEN, { depth: 30, multipv: 2, timeMs: null });
+
+    t = 0;   eng.emit('info depth 10 multipv 1 score cp 20 pv e2e4');   // first -> emit
+    t = 50;  eng.emit('info depth 10 multipv 2 score cp 10 pv d2d4');   // within window -> held
+    t = 120; eng.emit('info depth 11 multipv 1 score cp 25 pv e2e4 e7e5'); // window passed -> emit
+
+    expect(updates).toHaveLength(2);
+    expect(updates[0].lines.map((l) => l.multipv)).toEqual([1]);
+    expect(updates[1].lines.map((l) => l.multipv)).toEqual([1, 2]); // multipv 2 accumulated
+    expect(updates[1].depth).toBe(11);
+    expect(updates[1].lines[0].pv).toEqual(['e2e4', 'e7e5']);
+  });
+
+  it('flushes the final pending snapshot and fires onDone on bestmove', () => {
+    const eng = new FakeEngine();
+    let t = 0;
+    const updates: AnalysisInfo[] = [];
+    const done = vi.fn();
+    const s = makeSession(eng, () => t, (a) => updates.push(a), done);
+    s.start(START_FEN, { depth: 5, multipv: 1, timeMs: null });
+
+    t = 0;  eng.emit('info depth 4 multipv 1 score cp 12 pv e2e4'); // emitted
+    t = 10; eng.emit('info depth 5 multipv 1 score cp 15 pv e2e4'); // held (within window)
+    eng.emit('bestmove e2e4');
+
+    expect(updates).toHaveLength(2);          // first + flushed final
+    expect(updates[1].depth).toBe(5);
+    expect(done).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores info lines that carry no score', () => {
+    const eng = new FakeEngine();
+    const updates: AnalysisInfo[] = [];
+    const s = makeSession(eng, () => 1000, (a) => updates.push(a));
+    s.start(START_FEN, { depth: 5, multipv: 1, timeMs: null });
+    eng.emit('info string hello');
+    eng.emit('info depth 1 currmove e2e4 currmovenumber 1');
+    expect(updates).toHaveLength(0);
+  });
+});
+
+describe('AnalysisSession cancellation', () => {
+  it('stop() sends stop, suppresses onDone, and ignores the stale bestmove', () => {
+    const eng = new FakeEngine();
+    const updates: AnalysisInfo[] = [];
+    const done = vi.fn();
+    const s = makeSession(eng, () => 1000, (a) => updates.push(a), done);
+    s.start(START_FEN, { depth: 30, multipv: 1, timeMs: null });
+    eng.emit('info depth 10 multipv 1 score cp 5 pv e2e4');
+    s.stop();                       // engine emits the stopped search's bestmove (ignored, phase=idle)
+    expect(eng.last()).toBe('stop');
+    eng.emit('bestmove e2e4');      // any further stale bestmove -> also ignored
+    expect(done).not.toHaveBeenCalled();
+    expect(updates).toHaveLength(1); // only the pre-stop emit
+  });
+
+  it('a superseding start() stops the old search (no onDone) and only the new search completes', () => {
+    const eng = new FakeEngine();
+    const done = vi.fn();
+    const s = makeSession(eng, () => 1000, () => {}, done);
+    s.start(START_FEN, { depth: 30, multipv: 1, timeMs: null });
+    eng.emit('info depth 10 multipv 1 score cp 5 pv e2e4');
+
+    const otherFen = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1';
+    s.start(otherFen, { depth: 30, multipv: 1, timeMs: null });
+    // The first search was stopped; its bestmove (emitted by the engine on `stop`)
+    // arrived in WAITING_READY and was ignored -> no onDone.
+    expect(eng.sent).toContain('stop');
+    expect(eng.sent).toContain(`position fen ${otherFen}`);
+    expect(done).not.toHaveBeenCalled();
+
+    // The new search completing naturally fires onDone exactly once.
+    eng.emit('bestmove d2d4');
+    expect(done).toHaveBeenCalledTimes(1);
+  });
+});
