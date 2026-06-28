@@ -1,5 +1,7 @@
 // frontend/src/tests/visionFixtures.ts
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
 import type { RgbaImage } from '../lib/capture';
 import type { BoardLocation, Region } from '../vision/types';
@@ -81,9 +83,20 @@ export function iou(a: Region, b: Region): number {
   return union ? inter / union : 0;
 }
 
-/** Decode a committed PNG fixture to RGBA (pngjs, node test env). */
+/** Decode a committed PNG fixture to RGBA (pngjs, node test env).
+ *  Under jsdom, Vite rewrites this module's `import.meta.url` to a root-relative
+ *  `file:///src/...`, so resolve robustly: prefer the file-relative path, then fall
+ *  back to the cwd-anchored project path (vitest runs from `frontend/`). */
 export function loadFixturePng(relPath: string): RgbaImage {
-  const url = new URL(`./fixtures/vision/${relPath}`, import.meta.url);
-  const png = PNG.sync.read(readFileSync(url));
+  const candidates: string[] = [];
+  try {
+    const fileDir = dirname(fileURLToPath(import.meta.url));
+    candidates.push(resolve(fileDir, 'fixtures', 'vision', relPath));
+  } catch {
+    /* import.meta.url is not a usable file URL in this environment */
+  }
+  candidates.push(resolve(process.cwd(), 'src', 'tests', 'fixtures', 'vision', relPath));
+  const path = candidates.find(existsSync) ?? candidates[candidates.length - 1];
+  const png = PNG.sync.read(readFileSync(path));
   return { data: new Uint8ClampedArray(png.data), width: png.width, height: png.height };
 }
