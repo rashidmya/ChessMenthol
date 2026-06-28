@@ -236,6 +236,31 @@ export function roleAt(pos: Chess, square: Square | SquareName): Role | undefine
   return pos.board.get(sq)?.role;
 }
 
+// ─── pieceCodeAt ──────────────────────────────────────────────────────────────
+
+// Role -> single-letter code; inverse of ROLE_OF below.
+const CODE_OF_ROLE: Record<Role, string> = {
+  pawn: 'P', knight: 'N', bishop: 'B', rook: 'R', queen: 'Q', king: 'K',
+};
+
+/**
+ * Return the 2-char piece code ('wP'..'bK') of the piece on `square`, or `null`
+ * if the square is empty.
+ *
+ * The inverse of `pieceFromCode` / `assembleFromGrid`'s input convention and the
+ * colour-aware counterpart of `roleAt`. vision/position.ts needs a piece's COLOUR
+ * (to derive side-to-move from a highlighted square) and must not import chessops,
+ * so this accessor lives in the wrapper layer.
+ */
+export function pieceCodeAt(pos: Chess, square: Square | SquareName): string | null {
+  const sq: Square | undefined =
+    typeof square === 'number' ? square : parseSquare(square);
+  if (sq === undefined) throw new Error(`Invalid square: "${square}"`);
+  const piece = pos.board.get(sq);
+  if (!piece) return null;
+  return (piece.color === 'white' ? 'w' : 'b') + CODE_OF_ROLE[piece.role];
+}
+
 // ─── makeSquare re-export ─────────────────────────────────────────────────────
 
 /**
@@ -255,7 +280,11 @@ export interface AssembleResult {
   fen: string;        // full FEN (en_passant shown if set)
   placement: string;  // first FEN field
   isLegal: boolean;
-  status: string;     // 'valid' | 'invalid' (extended if callers need error detail)
+  // 'valid' when legal, else a human-readable reason derived from the chessops
+  // PositionError (e.g. 'kings', 'opposite check', 'pawns on backrank'). This
+  // mirrors python-chess's status text closely enough that callers can substring-
+  // match (position.py's tests assert "king" in status for a two-kings placement).
+  status: string;
   pos: Chess | null;  // present only when legal
 }
 
@@ -317,7 +346,9 @@ export function assembleFromGrid(
     const pos = result.unwrap();
     return { fen: makeFen(pos.toSetup()), placement, isLegal: true, status: 'valid', pos };
   }
-  // Illegal: synthesize a FEN string for display/compare from the raw setup.
+  // Illegal: synthesize a FEN string for display/compare from the raw setup, and
+  // surface the validation reason (chessops 'ERR_KINGS' -> 'kings', etc.).
   const fen = `${placement} ${opts.white ? 'w' : 'b'} - - 0 1`;
-  return { fen, placement, isLegal: false, status: 'invalid', pos: null };
+  const reason = result.error.message.replace(/^ERR_/, '').toLowerCase().replace(/_/g, ' ');
+  return { fen, placement, isLegal: false, status: reason || 'invalid', pos: null };
 }
