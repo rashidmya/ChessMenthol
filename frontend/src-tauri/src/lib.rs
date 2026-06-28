@@ -14,10 +14,15 @@ pub fn run() {
 #[tauri::command]
 fn capture_frame() -> Result<tauri::ipc::Response, String> {
     let monitors = Monitor::all().map_err(|e| format!("enumerate monitors: {e}"))?;
+    // Prefer the primary monitor; fall back to the first available one. On some
+    // Wayland compositors `is_primary()` returns Err for every monitor, so a
+    // strict primary-only filter would wrongly report "no monitor" on a normal
+    // single-display setup. `.iter()` borrows so the fallback can reuse the Vec.
     let monitor = monitors
-        .into_iter()
+        .iter()
         .find(|m| m.is_primary().unwrap_or(false))
-        .ok_or_else(|| "no primary monitor found".to_string())?;
+        .or_else(|| monitors.first())
+        .ok_or_else(|| "no monitor found".to_string())?;
     let img = monitor
         .capture_image()
         .map_err(|e| format!("capture failed: {e}"))?;
