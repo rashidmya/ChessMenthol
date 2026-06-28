@@ -10,12 +10,15 @@
  * ergonomic for classify.ts callers who extract squares from UCI strings.
  */
 
-import { parseFen, makeFen } from 'chessops/fen';
+import { parseFen, makeFen, makeBoardFen } from 'chessops/fen';
 import { Chess } from 'chessops/chess';
 import { chessgroundDests } from 'chessops/compat';
 import { makeSan, makeSanVariation } from 'chessops/san';
 import { parseUci, makeUci, makeSquare, parseSquare, squareRank } from 'chessops/util';
-import type { Color, Move, Role, Square, SquareName } from 'chessops/types';
+import type { Color, Move, Piece, Role, Square, SquareName } from 'chessops/types';
+import { Board } from 'chessops/board';
+import { defaultSetup } from 'chessops/setup';
+import { SquareSet } from 'chessops/squareSet';
 
 // Re-export Chess so callers can type positions without importing chessops directly.
 export type { Chess };
@@ -240,3 +243,81 @@ export function roleAt(pos: Chess, square: Square | SquareName): Role | undefine
  * Convenience export so callers never need to import from chessops/util.
  */
 export { makeSquare };
+
+// ─── boardFenOf / assembleFromGrid ────────────────────────────────────────────
+
+/** Placement-only FEN field (python-chess board_fen equivalent). */
+export function boardFenOf(pos: Chess): string {
+  return makeBoardFen(pos.board);
+}
+
+export interface AssembleResult {
+  fen: string;        // full FEN (en_passant shown if set)
+  placement: string;  // first FEN field
+  isLegal: boolean;
+  status: string;     // 'valid' | 'invalid' (extended if callers need error detail)
+  pos: Chess | null;  // present only when legal
+}
+
+// piece-code "wP"/"bK"/null -> chessops Piece
+const ROLE_OF: Record<string, Role> = {
+  P: 'pawn', N: 'knight', B: 'bishop', R: 'rook', Q: 'queen', K: 'king',
+};
+
+function pieceFromCode(code: string | null): Piece | null {
+  if (!code) return null;
+  return { color: code[0] === 'w' ? 'white' : 'black', role: ROLE_OF[code[1]] };
+}
+
+// Geometric (col, row) where row 0 = rank 8 (top of board when white is at bottom).
+function squareNameGeom(col: number, row: number): SquareName {
+  return `${String.fromCharCode(97 + col)}${8 - row}` as SquareName;
+}
+
+// Infer castling rights from kings+rooks on their home squares.
+function inferCastling(board: Board): SquareSet {
+  let rights = SquareSet.empty();
+  const at = (name: string) => board.get(parseSquare(name as SquareName)!);
+  const wk = at('e1'), bk = at('e8');
+  if (wk && wk.role === 'king' && wk.color === 'white') {
+    const h1 = at('h1'), a1 = at('a1');
+    if (h1 && h1.role === 'rook' && h1.color === 'white') rights = rights.with(parseSquare('h1' as SquareName)!);
+    if (a1 && a1.role === 'rook' && a1.color === 'white') rights = rights.with(parseSquare('a1' as SquareName)!);
+  }
+  if (bk && bk.role === 'king' && bk.color === 'black') {
+    const h8 = at('h8'), a8 = at('a8');
+    if (h8 && h8.role === 'rook' && h8.color === 'black') rights = rights.with(parseSquare('h8' as SquareName)!);
+    if (a8 && a8.role === 'rook' && a8.color === 'black') rights = rights.with(parseSquare('a8' as SquareName)!);
+  }
+  return rights;
+}
+
+/**
+ * Build a position from a geometric grid (grid[row][col], row0 = a8..h8) with the
+ * given side to move. Castling rights are inferred from kings+rooks on home squares
+ * (mirrors position.py `_infer_castling_rights`); ep is left unset here (the caller
+ * sets it for an inferred double pawn push). Reports legality without throwing.
+ */
+export function assembleFromGrid(
+  grid: (string | null)[][],
+  opts: { white: boolean },
+): AssembleResult {
+  const board = Board.empty();
+  for (let row = 0; row < 8; row++) {
+    for (let col = 0; col < 8; col++) {
+      const piece = pieceFromCode(grid[row][col]);
+      if (piece) board.set(parseSquare(squareNameGeom(col, row))!, piece);
+    }
+  }
+  const setup = { ...defaultSetup(), board, turn: (opts.white ? 'white' : 'black') as Color };
+  setup.castlingRights = inferCastling(board);
+  const result = Chess.fromSetup(setup);
+  const placement = makeBoardFen(board);
+  if (result.isOk) {
+    const pos = result.unwrap();
+    return { fen: makeFen(pos.toSetup()), placement, isLegal: true, status: 'valid', pos };
+  }
+  // Illegal: synthesize a FEN string for display/compare from the raw setup.
+  const fen = `${placement} ${opts.white ? 'w' : 'b'} - - 0 1`;
+  return { fen, placement, isLegal: false, status: 'invalid', pos: null };
+}

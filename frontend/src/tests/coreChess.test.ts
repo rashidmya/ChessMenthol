@@ -15,6 +15,8 @@ import {
   outcomeOf,
   attackedBy,
   roleAt,
+  assembleFromGrid,
+  boardFenOf,
 } from '../core/chess';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -312,5 +314,40 @@ describe('castling UCI — board (chessgroundDests) vs orchestrator (legalMovesU
     expect(sanOf(pos, 'e1c1')).toBe('O-O-O');
     expect(fenOf(playUci(pos, 'e1g1')).split(' ')[0]).toBe('r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R4RK1');
     expect(fenOf(playUci(pos, 'e1c1')).split(' ')[0]).toBe('r3k2r/pppppppp/8/8/8/8/PPPPPPPP/2KR3R');
+  });
+});
+
+// ─── assembleFromGrid ─────────────────────────────────────────────────────────
+
+describe('assembleFromGrid', () => {
+  it('builds the start position from a placement grid (legal)', () => {
+    // grid[row][col] in geometric order; row0=a8..h8. null = empty.
+    const startGrid = [
+      ['bR','bN','bB','bQ','bK','bB','bN','bR'],
+      ['bP','bP','bP','bP','bP','bP','bP','bP'],
+      [null,null,null,null,null,null,null,null],
+      [null,null,null,null,null,null,null,null],
+      [null,null,null,null,null,null,null,null],
+      [null,null,null,null,null,null,null,null],
+      ['wP','wP','wP','wP','wP','wP','wP','wP'],
+      ['wR','wN','wB','wQ','wK','wB','wN','wR'],
+    ];
+    const res = assembleFromGrid(startGrid, { white: true });
+    expect(res.isLegal).toBe(true);
+    expect(res.placement).toBe('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR');
+    // full castling inferred from kings+rooks on home squares
+    expect(res.fen).toContain(' w KQkq ');
+  });
+
+  it('flags an illegal two-white-kings placement', () => {
+    const grid: (string | null)[][] = Array.from({ length: 8 }, () => Array(8).fill(null));
+    grid[0][4] = 'wK'; grid[7][4] = 'wK';
+    const res = assembleFromGrid(grid, { white: true });
+    expect(res.isLegal).toBe(false);
+    expect(res.fen.split(' ')[0]).toBe('4K3/8/8/8/8/8/8/4K3');
+  });
+
+  it('boardFenOf returns the placement field of a position', () => {
+    expect(boardFenOf(posFromFen(START_FEN))).toBe('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR');
   });
 });
