@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import App from '../App.svelte';
-import { state } from '../lib/ws';
+import { state } from '../lib/engineClient';
 
 function stateFrame(overrides: Record<string, unknown> = {}) {
   return {

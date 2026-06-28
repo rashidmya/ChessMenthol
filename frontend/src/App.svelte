@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { state, lastError, errorSeq, regionShot, connect, send } from './lib/ws';
+  import { state, lastError, errorSeq, regionShot, connect, send } from './lib/engineClient';
   import { buildFen, kingCountOk } from './lib/edit';
   import { loadViewPrefs, saveViewPrefs } from './lib/viewprefs';
   import type { ViewPrefs } from './lib/viewprefs';
