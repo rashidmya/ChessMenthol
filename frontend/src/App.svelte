@@ -30,6 +30,7 @@
   let lastSeq = 0;
   let committedPlacement: string | null = null;
   let boardComp: Board;
+  const hasCapture = false; // Phase 1b is pure-web: no screen-capture API. Phase 2 (Tauri) detects the capture invoke and sets this true.
   let pickingRegion = false;
   function onPickRegion() { regionShot.set(null); pickingRegion = true; send({ type: 'request_region_shot' }); }
   function onConfirmRegion(r: Region) { pickingRegion = false; send({ type: 'set_region', ...r }); }
@@ -143,13 +144,15 @@
             {onNavigate} />
         </div>
 
-        <!-- 4. Source controls -->
+        <!-- 4. Source controls (Phase 2 / Tauri only — hidden in Phase 1b pure-web) -->
+        {#if hasCapture}
         <div class="sec">
           <SourceControls region={s?.region ?? null}
             visionStatus={s?.visionStatus ?? 'idle'}
             lowConfidence={s?.lowConfidence ?? []}
             onCommand={send} onPickRegion={onPickRegion} />
         </div>
+        {/if}
 
         <!-- 5. Position controls -->
         <div class="sec">
@@ -164,7 +167,7 @@
       </section>
     </div>
   </main>
-  {#if pickingRegion}
+  {#if pickingRegion && hasCapture}
     <RegionOverlay shot={$regionShot} onConfirm={onConfirmRegion} onCancel={onCancelRegion} />
   {/if}
 </div>
