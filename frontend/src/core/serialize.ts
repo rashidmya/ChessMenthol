@@ -7,6 +7,8 @@
  * All chess logic goes through core/chess.ts; chessops is never imported here.
  */
 
+import type { RgbaImage } from '../lib/capture';
+import type { RegionShotFrame } from '../lib/types';
 import type { Chess } from './chess';
 import { sanOf, playUci, variationSan } from './chess';
 import { type Eval, type Line, type AnalysisInfo, formatWhiteEval, bestLine, lineMove } from '../engine/types';
@@ -153,5 +155,51 @@ export function lastMoveToDict(
       // Python: best_line.pv[1:]
       pv:       continuationSan(afterBest, bestLineBefore.pv.slice(1), plies),
     },
+  };
+}
+
+// ─── regionShotToDict ─────────────────────────────────────────────────────────
+
+/**
+ * Encoder signature: receives the target (w, h) and the source image, returns
+ * a base64 JPEG string (no data: prefix). Injectable so dimension math is
+ * unit-testable in jsdom (which has no OffscreenCanvas).
+ */
+export type JpegEncoder = (width: number, height: number, scaledFrom: RgbaImage) => Promise<string>;
+
+/** Default encoder: draw the (already-decided) scaled size via OffscreenCanvas, JPEG q80. */
+export async function offscreenJpegEncoder(width: number, height: number, src: RgbaImage): Promise<string> {
+  const srcCanvas = new OffscreenCanvas(src.width, src.height);
+  // Cast: RgbaImage.data is Uint8ClampedArray<ArrayBufferLike> but ImageData needs
+  // <ArrayBuffer>; safe because decodeCaptureBuffer always produces a real ArrayBuffer.
+  srcCanvas.getContext('2d')!.putImageData(new ImageData(src.data as Uint8ClampedArray<ArrayBuffer>, src.width, src.height), 0, 0);
+  const dst = new OffscreenCanvas(width, height);
+  const ctx = dst.getContext('2d')!;
+  ctx.drawImage(srcCanvas, 0, 0, width, height);
+  const blob = await dst.convertToBlob({ type: 'image/jpeg', quality: 0.8 });
+  const buf = new Uint8Array(await blob.arrayBuffer());
+  // Array.from(...).join avoids the O(n²) string += over a multi-MB JPEG buffer.
+  return btoa(Array.from(buf, (b) => String.fromCharCode(b)).join(''));
+}
+
+const MAX_WIDTH = 2560;
+
+/**
+ * Port of serialize.py::region_shot_to_dict.
+ * Downscales to ≤2560 width (no upscale), JPEG q80 via the injected encoder,
+ * and returns the TRUE (original) desktop dimensions in the frame.
+ */
+export async function regionShotToDict(
+  image: RgbaImage,
+  encode: JpegEncoder = offscreenJpegEncoder,
+): Promise<RegionShotFrame> {
+  const scale = Math.min(1, MAX_WIDTH / image.width);
+  const w = scale >= 1 ? image.width : Math.max(1, Math.round(image.width * scale));
+  const h = scale >= 1 ? image.height : Math.max(1, Math.round(image.height * scale));
+  return {
+    type: 'region_shot',
+    jpegBase64: await encode(w, h, image),
+    width: image.width,   // TRUE dims
+    height: image.height,
   };
 }

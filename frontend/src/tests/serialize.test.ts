@@ -220,3 +220,26 @@ describe('PV_PLIES', () => {
     expect(PV_PLIES).toBe(3);
   });
 });
+
+// ─── 6. regionShotToDict ──────────────────────────────────────────────────────
+
+import { regionShotToDict } from '../core/serialize';
+
+describe('regionShotToDict', () => {
+  it('reports TRUE dims and downscales the encoded canvas past 2560 width', async () => {
+    const calls: Array<{ w: number; h: number }> = [];
+    const fakeEncode = async (w: number, h: number) => { calls.push({ w, h }); return 'BASE64'; };
+    const shot = await regionShotToDict({ data: new Uint8ClampedArray(4), width: 5120, height: 2880 }, fakeEncode);
+    expect(shot.type).toBe('region_shot');
+    expect(shot.width).toBe(5120);   // true dims, not downscaled
+    expect(shot.height).toBe(2880);
+    expect(calls[0].w).toBe(2560);   // encoded at half scale
+    expect(calls[0].h).toBe(1440);
+    expect(shot.jpegBase64).toBe('BASE64');
+  });
+  it('does not upscale a small image', async () => {
+    const calls: Array<{ w: number; h: number }> = [];
+    await regionShotToDict({ data: new Uint8ClampedArray(4), width: 800, height: 600 }, async (w, h) => { calls.push({ w, h }); return ''; });
+    expect(calls[0]).toEqual({ w: 800, h: 600 });
+  });
+});
