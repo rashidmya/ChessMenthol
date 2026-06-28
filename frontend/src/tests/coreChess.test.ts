@@ -133,9 +133,19 @@ describe('sanOf', () => {
 // ─── variationSan ────────────────────────────────────────────────────────────
 
 describe('variationSan', () => {
-  it('produces numbered SAN for 1.e4 e5 2.Nf3', () => {
+  it('produces numbered SAN for 1.e4 e5 2.Nf3 (white to move)', () => {
     const result = variationSan(posFromFen(START_FEN), ['e2e4', 'e7e5', 'g1f3']);
     expect(result).toBe('1. e4 e5 2. Nf3');
+  });
+
+  // Regression for the python-chess parity fix in core/chess.ts: chessops'
+  // makeSanVariation emits "1... e5" (space after the dots) but python-chess
+  // (and our serialize parity tests) require "1...e5" with NO space. The regex
+  // in variationSan normalises this; lock the black-to-move branch directly.
+  it('produces "1...e5 2. Nf3" with NO space after the dots (black to move)', () => {
+    const blackToMoveFen = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1';
+    const result = variationSan(posFromFen(blackToMoveFen), ['e7e5', 'g1f3']);
+    expect(result).toBe('1...e5 2. Nf3');
   });
 
   it('returns empty string for an empty move list', () => {

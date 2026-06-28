@@ -18,7 +18,7 @@ import { posFromFen, playUci } from '../core/chess';
 import type { Chess } from '../core/chess';
 import { MoveClass } from '../core/classify';
 import type { Classification } from '../core/classify';
-import type { AnalysisInfo, Eval, Line } from '../engine/types';
+import type { AnalysisInfo, Line } from '../engine/types';
 import type { EvalDto, LineDto, ClassificationDto, LastMoveDto } from '../lib/types';
 import {
   evalToDict,
@@ -40,26 +40,6 @@ const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
  */
 function mkLine(cpVal: number, ucis: string[], depth = 20): Line {
   return { multipv: 1, eval: { cp: cpVal, mate: null }, depth, pv: ucis };
-}
-
-/**
- * Build an AnalysisInfo from compact fixture data.
- * Mirrors the Python mk_analysis helper in test_classify.py.
- * lines: Array of [Eval, string[]] pairs, best-first.
- */
-function mkAnalysis(fen: string, lines: Array<[Eval, string[]]>, depth = 20): AnalysisInfo {
-  const lineObjs: Line[] = lines.map(([ev, pv], i) => ({
-    multipv: i + 1,
-    eval: ev,
-    depth,
-    pv,
-  }));
-  return { fen, depth, lines: lineObjs };
-}
-
-/** eval({cp}) shorthand — mate is null. */
-function cp(centipawns: number): Eval {
-  return { cp: centipawns, mate: null };
 }
 
 // ─── 1. eval_to_dict cp & mate ───────────────────────────────────────────────
