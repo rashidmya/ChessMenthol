@@ -25,6 +25,14 @@ const FOOLS_MATE_FEN = 'rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq 
 // Stalemate: black king at a8, white queen c7, white king b6 — black to move, stalemated
 const STALEMATE_FEN = 'k7/2Q5/1K6/8/8/8/8/8 b - - 0 1';
 
+// Promotion-only position: white pawn on a7; the white king on a1 is boxed in
+// (black Rh2 covers a2/b2, black Bf5 covers b1) but NOT in check, so white's
+// only legal moves are the four a7a8 promotions.
+const PROMO_FEN = '4k3/P7/8/5b2/8/8/7r/K7 w - - 0 1';
+
+// King vs King — insufficient material draw.
+const KVK_FEN = '8/8/8/8/8/8/8/k1K5 w - - 0 1';
+
 // ─── posFromFen / fenOf ───────────────────────────────────────────────────────
 
 describe('posFromFen', () => {
@@ -70,6 +78,15 @@ describe('legalMovesUci', () => {
   it('returns an empty array from a checkmate position', () => {
     expect(legalMovesUci(posFromFen(FOOLS_MATE_FEN))).toHaveLength(0);
   });
+
+  it('expands a promotion into four UCI moves (q/r/b/n)', () => {
+    const moves = legalMovesUci(posFromFen(PROMO_FEN));
+    expect(moves).toHaveLength(4);
+    expect(moves).toContain('a7a8q');
+    expect(moves).toContain('a7a8r');
+    expect(moves).toContain('a7a8b');
+    expect(moves).toContain('a7a8n');
+  });
 });
 
 // ─── legalDestsCg ────────────────────────────────────────────────────────────
@@ -99,6 +116,16 @@ describe('sanOf', () => {
 
   it('converts g1f3 to Nf3 from start position', () => {
     expect(sanOf(posFromFen(START_FEN), 'g1f3')).toBe('Nf3');
+  });
+
+  it('throws on an illegal move rather than returning a bogus SAN', () => {
+    // 'e2e5' is syntactically valid UCI but illegal; without the legality
+    // guard chessops makeSan would silently produce 'e5'.
+    expect(() => sanOf(posFromFen(START_FEN), 'e2e5')).toThrow();
+  });
+
+  it('throws on a syntactically invalid UCI string', () => {
+    expect(() => sanOf(posFromFen(START_FEN), 'invalid')).toThrow();
   });
 });
 
@@ -134,6 +161,13 @@ describe('outcomeOf', () => {
     expect(outcome).not.toBeNull();
     expect(outcome!.result).toBe('1/2-1/2');
     expect(outcome!.reason).toBe('stalemate');
+  });
+
+  it('returns insufficient-material outcome for K vs K', () => {
+    const outcome = outcomeOf(posFromFen(KVK_FEN));
+    expect(outcome).not.toBeNull();
+    expect(outcome!.result).toBe('1/2-1/2');
+    expect(outcome!.reason).toBe('insufficient material');
   });
 });
 
@@ -178,11 +212,20 @@ describe('attackedBy', () => {
     expect(attackedBy(posFromFen(START_FEN), 'e5', 'white')).toBe(false);
   });
 
-  // After 1.e4, d3 is attacked by the pawn on e4 (white) and not by black.
-  it('detects that d3 is attacked by white after e4 is played', () => {
+  // After 1.e4, d3 is attacked by the white f1 bishop along the f1-a6 diagonal
+  // (NOT by the e4 pawn — a white pawn on e4 attacks d5/f5, the rank in front).
+  it('detects that d3 is attacked by white (f1 bishop) after e4 is played', () => {
     const pos = playUci(posFromFen(START_FEN), 'e2e4');
     expect(attackedBy(pos, 'd3', 'white')).toBe(true);
     expect(attackedBy(pos, 'd3', 'black')).toBe(false);
+  });
+
+  // Genuine pawn attack: a white pawn on e4 attacks the two diagonal squares
+  // in front of it, d5 and f5.
+  it('detects the e4 pawn attacking d5 and f5', () => {
+    const pos = playUci(posFromFen(START_FEN), 'e2e4');
+    expect(attackedBy(pos, 'd5', 'white')).toBe(true);
+    expect(attackedBy(pos, 'f5', 'white')).toBe(true);
   });
 
   // Also accepts a numeric Square (0–63): e4 = file 4, rank 3 → square 28

@@ -21,6 +21,10 @@ import type { Color, Move, Role, Square, SquareName } from 'chessops/types';
 export type { Chess };
 export type { Color, Square, SquareName };
 
+// Promotion roles, in the order chessops/python-chess enumerate them.
+// Module-scoped so `legalMovesUci` does not re-allocate it on every call.
+const PROMOTION_ROLES: Role[] = ['queen', 'rook', 'bishop', 'knight'];
+
 // ─── posFromFen ──────────────────────────────────────────────────────────────
 
 /**
@@ -63,7 +67,6 @@ export function legalDestsCg(pos: Chess): Map<SquareName, SquareName[]> {
  */
 export function legalMovesUci(pos: Chess): string[] {
   const moves: string[] = [];
-  const promotionRoles: Role[] = ['queen', 'rook', 'bishop', 'knight'];
 
   for (const [from, dests] of pos.allDests()) {
     const piece = pos.board.get(from);
@@ -72,7 +75,7 @@ export function legalMovesUci(pos: Chess): string[] {
     for (const to of dests) {
       const onBackrank = squareRank(to) === 0 || squareRank(to) === 7;
       if (isPawn && onBackrank) {
-        for (const promotion of promotionRoles) {
+        for (const promotion of PROMOTION_ROLES) {
           moves.push(makeUci({ from, to, promotion }));
         }
       } else {
@@ -106,11 +109,14 @@ export function playUci(pos: Chess, uci: string): Chess {
  * Convert a single UCI move to SAN notation within the given position.
  * e.g. `sanOf(pos, 'e2e4') === 'e4'`.
  *
- * Throws on invalid or illegal UCI.
+ * Throws on syntactically invalid OR illegal UCI. The legality guard matters:
+ * chessops `makeSan` does not validate, so without it an illegal move like
+ * 'e2e5' would silently produce a bogus SAN ('e5') instead of throwing.
  */
 export function sanOf(pos: Chess, uci: string): string {
   const move: Move | undefined = parseUci(uci);
   if (!move) throw new Error(`Invalid UCI notation: "${uci}"`);
+  if (!pos.isLegal(move)) throw new Error(`Illegal move: "${uci}"`);
   return makeSan(pos, move);
 }
 
@@ -184,9 +190,9 @@ export function outcomeOf(
  * which — despite the name — is a general "pieces of `color` that attack `sq`"
  * computation used throughout the chessops engine.
  */
-export function attackedBy(pos: Chess, square: Square | string, color: Color): boolean {
+export function attackedBy(pos: Chess, square: Square | SquareName, color: Color): boolean {
   const sq: Square | undefined =
-    typeof square === 'number' ? square : parseSquare(square as string);
+    typeof square === 'number' ? square : parseSquare(square);
   if (sq === undefined) throw new Error(`Invalid square: "${square}"`);
   return pos.kingAttackers(sq, color, pos.board.occupied).nonEmpty();
 }
