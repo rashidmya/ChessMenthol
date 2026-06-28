@@ -505,6 +505,10 @@ Ports `AnalysisSession` (`server/session.py`) + the `stream_analysis` setup (`en
 
 **State machine:** `IDLE → (start) WAITING_READY → (readyok) SEARCHING → (bestmove) IDLE`. Only `SEARCHING` processes `info`/`bestmove`; this is what makes the stale `bestmove` from a stopped search harmless.
 
+> **Correction applied during implementation (committed `ef24773`):** two fixes vs the first draft below.
+> (1) `start()`/`stop()` must transition OUT of `searching` (to `waiting_ready`/`idle`) *before* calling `engine.send('stop')`, otherwise a synchronously-delivered stale `bestmove` is mis-read as the new search completing. (The draft's separate `pendingStop` flag was rejected: it leaves the flag set when the stale bestmove arrives in `waiting_ready`, then wrongly swallows the *next* search's real completion.)
+> (2) `start()` primes `this.lastEmit = this.now() - this.throttleMs` (not `0`) so the first `info` of a search always emits on the leading edge regardless of the clock epoch. The test `FakeEngine` correspondingly emits a `bestmove` on `stop` (modeling real `stop → bestmove → readyok` ordering). The committed `session.ts`/`session.test.ts` are authoritative; the code blocks below are the pre-correction draft.
+
 **Throttle (faithful to `session.py`, timer-less):** keep a `pending` snapshot; emit immediately when `now() - lastEmit >= throttleMs`, otherwise hold it; always flush `pending` on natural completion. `now` is injected for deterministic tests.
 
 **Files:**
