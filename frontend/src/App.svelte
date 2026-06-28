@@ -19,6 +19,7 @@
   import PositionControls from './components/PositionControls.svelte';
   import ActionBar from './components/ActionBar.svelte';
   import type { Region } from './lib/region';
+  import { hasNativeCapture } from './lib/capture';
 
   let orientation: 'white' | 'black' = 'white';
   let manualFlip = false;
@@ -30,7 +31,7 @@
   let lastSeq = 0;
   let committedPlacement: string | null = null;
   let boardComp: Board;
-  const hasCapture = false; // Phase 1b is pure-web: no screen-capture API. Phase 2 (Tauri) detects the capture invoke and sets this true.
+  const hasCapture = hasNativeCapture(); // true inside Tauri; false in a plain browser
   let pickingRegion = false;
   function onPickRegion() { regionShot.set(null); pickingRegion = true; send({ type: 'request_region_shot' }); }
   function onConfirmRegion(r: Region) { pickingRegion = false; send({ type: 'set_region', ...r }); }
