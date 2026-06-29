@@ -11,6 +11,7 @@
     "copy-vision-fixtures": "node scripts/copy-vision-fixtures.mjs",
     "dev": "vite",
     "build": "vite build",
+    "postbuild": "node scripts/prune-dist-ort.mjs",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
     "test": "vitest run",
