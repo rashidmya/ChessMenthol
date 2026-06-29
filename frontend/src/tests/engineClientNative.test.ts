@@ -5,8 +5,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const { loadNativeEngine, loadStockfish, isTauriMock } = vi.hoisted(() => {
   const fakeEngine = () => ({ send: vi.fn(), onLine: vi.fn(), dispose: vi.fn() });
   return {
-    loadNativeEngine: vi.fn(async () => fakeEngine()),
-    loadStockfish: vi.fn(async () => fakeEngine()),
+    loadNativeEngine: vi.fn(async (..._a: unknown[]) => fakeEngine()),
+    loadStockfish: vi.fn(async (..._a: unknown[]) => fakeEngine()),
     isTauriMock: vi.fn(() => true),
   };
 });

@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // vi.hoisted() is required because vi.mock factories are hoisted above module-level
 // declarations; `class` and `const` have TDZ, so we must hoist them explicitly.
 const { invokeMock, FakeChannel } = vi.hoisted(() => {
-  const invokeMock = vi.fn(async () => {});
+  const invokeMock = vi.fn(async (..._args: unknown[]): Promise<void> => {});
   class FakeChannel { onmessage: ((m: string) => void) | null = null; }
   return { invokeMock, FakeChannel };
 });
@@ -21,8 +21,10 @@ beforeEach(() => invokeMock.mockClear());
 
 // Resolve loadNativeEngine by making engine_start fire `uciok` through the channel.
 function autoUciok() {
-  invokeMock.mockImplementation(async (cmd: string, args: { onLine?: { onmessage?: (m: string) => void } }) => {
-    if (cmd === 'engine_start') queueMicrotask(() => args.onLine?.onmessage?.('uciok'));
+  invokeMock.mockImplementation(async (...a: unknown[]) => {
+    const cmd = a[0] as string;
+    const args = a[1] as { onLine?: { onmessage?: (m: string) => void } } | undefined;
+    if (cmd === 'engine_start') queueMicrotask(() => args?.onLine?.onmessage?.('uciok'));
   });
 }
 
@@ -35,7 +37,8 @@ describe('loadNativeEngine', () => {
     const lines: string[] = [];
     engine.onLine((l) => lines.push(l));
     // Grab the channel passed to engine_start and push a batched message.
-    const ch = invokeMock.mock.calls.find((c) => c[0] === 'engine_start')![1].onLine as InstanceType<typeof Channel> & { onmessage: (m: string) => void };
+    const startArgs = invokeMock.mock.calls.find((c) => c[0] === 'engine_start')![1] as { onLine: InstanceType<typeof Channel> & { onmessage: (m: string) => void } };
+    const ch = startArgs.onLine;
     ch.onmessage('info depth 1 score cp 20\nbestmove e2e4');
     expect(lines).toEqual(['info depth 1 score cp 20', 'bestmove e2e4']);
   });
