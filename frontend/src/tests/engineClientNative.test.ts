@@ -24,7 +24,14 @@ vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(), isTauri: () => isTauri
 // engine SELECTION still uses the isTauri() mock above.
 vi.mock('../lib/capture', () => ({ hasNativeCapture: () => false, Capturer: class {} }));
 
-beforeEach(() => { loadNativeEngine.mockClear(); loadStockfish.mockClear(); });
+beforeEach(async () => {
+  // engineController is a module singleton with a cached loadPromise; reset it between
+  // tests so each ensureEngine() actually re-runs load() (mirrors engineReload.test.ts).
+  const { engineController } = await import('../lib/engineClient');
+  engineController.dispose();
+  loadNativeEngine.mockClear();
+  loadStockfish.mockClear();
+});
 
 describe('engineController loader selection', () => {
   it('uses the native engine under Tauri', async () => {
@@ -33,5 +40,13 @@ describe('engineController loader selection', () => {
     await engineController.ensureEngine();
     expect(loadNativeEngine).toHaveBeenCalledTimes(1);
     expect(loadStockfish).not.toHaveBeenCalled();
+  });
+
+  it('uses the wasm engine (loadStockfish) in a plain browser', async () => {
+    isTauriMock.mockReturnValue(false);
+    const { engineController } = await import('../lib/engineClient');
+    await engineController.ensureEngine();
+    expect(loadStockfish).toHaveBeenCalledTimes(1);
+    expect(loadNativeEngine).not.toHaveBeenCalled();
   });
 });
