@@ -29,11 +29,20 @@
   function onUp() { dragging = false; }
   function confirmRegion() {
     if (!shot || !hasBox || selW === 0 || selH === 0) { onCancel(); return; }
+    // The <img> ELEMENT box can be larger than the *painted* image: with
+    // object-fit:contain inside a flex container the element is stretched, so
+    // clientWidth/Height include letterbox padding. Map the drag box relative to
+    // the painted-image rect (from naturalWidth/Height), not the element box, so
+    // the desktop scale is correct on every webview engine.
+    const r = img.getBoundingClientRect();
+    const scale = Math.min(r.width / img.naturalWidth, r.height / img.naturalHeight);
+    const paintedW = img.naturalWidth * scale;
+    const paintedH = img.naturalHeight * scale;
+    const offX = (r.width - paintedW) / 2;
+    const offY = (r.height - paintedH) / 2;
     const region = toDesktopRegion(
-      box,
-      // no explicit width/height on the <img>, only max-*, so the element box
-      // self-sizes to the rendered image — clientWidth/Height = visible image size.
-      { width: img.clientWidth, height: img.clientHeight },
+      { x: box.x - offX, y: box.y - offY, w: box.w, h: box.h },
+      { width: paintedW, height: paintedH },
       { width: shot.width, height: shot.height },
     );
     onConfirm(region);
