@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::process::Command;
 
+use tauri::Manager;
 use xcap::Monitor;
 
 mod engine;
@@ -16,8 +17,17 @@ pub fn run() {
             engine::engine_send,
             engine::engine_stop
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            // The shell plugin only auto-kills JS-spawned children, not our Rust-side
+            // CommandChild — so kill the native engine here to avoid an orphaned process.
+            if let tauri::RunEvent::Exit = event {
+                if let Some(child) = app.state::<engine::EngineState>().0.lock().unwrap().take() {
+                    let _ = child.kill();
+                }
+            }
+        });
 }
 
 /// Capture the full desktop as RGBA. Returns an 8-byte little-endian header

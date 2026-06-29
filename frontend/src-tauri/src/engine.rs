@@ -38,13 +38,15 @@ pub fn engine_start(
         .resolve("resources/engine", tauri::path::BaseDirectory::Resource)
         .map_err(|e| format!("resolve net dir: {e}"))?;
 
-    let (mut rx, child) = app
+    let cmd = app
         .shell()
         .sidecar("stockfish")
-        .map_err(|e| format!("sidecar: {e}"))?
-        .current_dir(net_dir)
-        .spawn()
-        .map_err(|e| format!("spawn: {e}"))?;
+        .map_err(|e| format!("sidecar: {e}"))?;
+    // Packaged build: the bundled net is here and Stockfish auto-loads it from CWD.
+    // `tauri dev` doesn't copy resources next to the dev binary, so fall back to the
+    // engine's embedded net instead of failing spawn with ENOENT.
+    let cmd = if net_dir.is_dir() { cmd.current_dir(net_dir) } else { cmd };
+    let (mut rx, child) = cmd.spawn().map_err(|e| format!("spawn: {e}"))?;
 
     *state.0.lock().unwrap() = Some(child);
 
@@ -55,6 +57,12 @@ pub fn engine_start(
                 CommandEvent::Stdout(bytes) => {
                     let line = String::from_utf8_lossy(&bytes).to_string();
                     let _ = on_line.send(line);
+                }
+                CommandEvent::Stderr(bytes) => {
+                    eprintln!("[stockfish stderr] {}", String::from_utf8_lossy(&bytes).trim_end());
+                }
+                CommandEvent::Error(err) => {
+                    eprintln!("[stockfish error] {err}");
                 }
                 CommandEvent::Terminated(_) => break,
                 _ => {}
