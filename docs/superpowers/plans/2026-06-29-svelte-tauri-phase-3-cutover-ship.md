@@ -323,6 +323,275 @@ git add frontend/package.json
 git commit -m "chore(scripts): drop dead copy-vision-fixtures (fixtures are committed under frontend)"
 ```
 
+### Task i.4a: Engine asset — 2-axis manifest (full+lite × single+multi) + `loadStockfish(variant)`
+
+**Context (added 2026-06-29 by user decision):** `copy-engine.mjs` copies the entire `node_modules/stockfish/bin/` into `public/engine/` but writes a manifest mapping ONLY the ~7 MB **lite** builds, so the two ~108 MB **full** NNUE builds are shipped-but-never-loaded and BOTH presets silently run on lite. Decision: **wire the full engine** — the `stockfish` preset loads the full build, `stockfish_lite` loads lite. Ship **both full + both lite** (single & multi each; the single-thread builds are the no-SAB fallback for older Linux WebKitGTK); drop only the dead `stockfish-18-asm.js` fallback and the bare `stockfish.js`/`stockfish.wasm` symlinks. This task changes the manifest shape + the loader's binary-selection signature; the runtime wiring is i.4b.
+
+**Files:**
+- Modify: `frontend/scripts/copy-engine.mjs` (2-axis manifest; ship only versioned builds; export pure helpers + guard main)
+- Modify: `frontend/src/engine/engine.ts` (`loadStockfish` gains a `variant` param + new manifest type)
+- Create: `frontend/src/tests/copyEngine.test.ts` (locks the manifest classification — currently untested)
+
+- [ ] **Step 1: Write the failing manifest test**
+
+Create `frontend/src/tests/copyEngine.test.ts`:
+```ts
+import { describe, it, expect } from 'vitest';
+import { buildManifest, shippedFiles } from '../../scripts/copy-engine.mjs';
+
+const BIN = [
+  'stockfish-18.js', 'stockfish-18.wasm',
+  'stockfish-18-single.js', 'stockfish-18-single.wasm',
+  'stockfish-18-lite.js', 'stockfish-18-lite.wasm',
+  'stockfish-18-lite-single.js', 'stockfish-18-lite-single.wasm',
+  'stockfish-18-asm.js', 'stockfish.js', 'stockfish.wasm',
+];
+
+describe('copy-engine manifest', () => {
+  it('maps full and lite x single/multi from versioned loaders', () => {
+    expect(buildManifest(BIN)).toEqual({
+      full: { single: 'stockfish-18-single.js', multi: 'stockfish-18.js' },
+      lite: { single: 'stockfish-18-lite-single.js', multi: 'stockfish-18-lite.js' },
+    });
+  });
+  it('ships only the 8 versioned full+lite builds (no asm, no bare symlinks)', () => {
+    const shipped = shippedFiles(BIN).sort();
+    expect(shipped).toEqual([
+      'stockfish-18-lite-single.js', 'stockfish-18-lite-single.wasm',
+      'stockfish-18-lite.js', 'stockfish-18-lite.wasm',
+      'stockfish-18-single.js', 'stockfish-18-single.wasm',
+      'stockfish-18.js', 'stockfish-18.wasm',
+    ].sort());
+    expect(shipped).not.toContain('stockfish-18-asm.js');
+    expect(shipped).not.toContain('stockfish.js');
+  });
+  it('throws if a build family is incomplete', () => {
+    expect(() => buildManifest(['stockfish-18-lite.js', 'stockfish-18-lite-single.js'])).toThrow(/full/);
+  });
+});
+```
+Run `cd frontend && npx vitest run src/tests/copyEngine.test.ts` → FAILS (no such exports yet).
+
+- [ ] **Step 2: Rewrite `copy-engine.mjs` with pure, exported, testable helpers**
+
+Replace the whole file with:
+```js
+// frontend/scripts/copy-engine.mjs
+// Copies the stockfish dist into public/engine/ and writes engine-manifest.json mapping
+// BOTH families x threading: { full:{single,multi}, lite:{single,multi} }. Version-agnostic
+// (classifies by filename, so a stockfish upgrade needs no code change). The `stockfish`
+// preset loads the full (~108MB) build; `stockfish_lite` loads the lite (~7MB) build. The
+// asm.js fallback and the bare stockfish.js/.wasm symlinks are NOT shipped (the webview
+// always has wasm; each loader derives its .wasm from its own .js name).
+import { readdirSync, mkdirSync, copyFileSync, writeFileSync, existsSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+/** Build the 2-axis manifest from stockfish bin filenames. Pure; throws if a build is missing. */
+export function buildManifest(files) {
+  const js = files.filter(
+    (f) => /^stockfish-\d/.test(f) && f.endsWith('.js') && !f.includes('asm') && !f.includes('.worker'),
+  );
+  const pick = (lite) => {
+    const fam = js.filter((f) => (lite ? f.includes('lite') : !f.includes('lite')));
+    const single = fam.find((f) => f.includes('single'));
+    const multi = fam.find((f) => !f.includes('single'));
+    if (!single || !multi) {
+      throw new Error(`[copy-engine] missing ${lite ? 'lite' : 'full'} build(s) in ${JSON.stringify(js)}`);
+    }
+    return { single, multi };
+  };
+  return { full: pick(false), lite: pick(true) };
+}
+
+/** The bin files we ship: versioned full+lite loaders & wasms (drops asm.js + bare symlinks). */
+export function shippedFiles(files) {
+  return files.filter((f) => /^stockfish-\d/.test(f) && !f.includes('asm'));
+}
+
+function main() {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const SRC = join(here, '..', 'node_modules', 'stockfish', 'bin');
+  const OUT = join(here, '..', 'public', 'engine');
+  if (!existsSync(SRC)) { console.error(`[copy-engine] missing ${SRC} — run npm install`); process.exit(1); }
+  mkdirSync(OUT, { recursive: true });
+  const files = readdirSync(SRC);
+  for (const f of shippedFiles(files)) copyFileSync(join(SRC, f), join(OUT, f));
+  const manifest = buildManifest(files);
+  writeFileSync(join(OUT, 'engine-manifest.json'), JSON.stringify(manifest, null, 2));
+  console.log(`[copy-engine] full={${manifest.full.single}, ${manifest.full.multi}} lite={${manifest.lite.single}, ${manifest.lite.multi}}`);
+}
+
+// Only run when invoked directly, so tests can import the helpers without side effects.
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) main();
+```
+
+- [ ] **Step 3: Teach `loadStockfish` to select a family.** In `frontend/src/engine/engine.ts`, change the signature + manifest read (default `variant='lite'` keeps current no-arg callers working until i.4b):
+```ts
+export async function loadStockfish(
+  variant: 'full' | 'lite' = 'lite',
+  base = '/engine/',
+  timeoutMs = 10_000,
+): Promise<UciEngine> {
+  const manifest: { full: { single: string; multi: string }; lite: { single: string; multi: string } } =
+    await fetch(`${base}engine-manifest.json`).then((r) => r.json());
+  const fam = manifest[variant];
+  const file = threadsAvailable() ? fam.multi : fam.single;
+  // ... rest unchanged (new Worker(`${base}${file}`), WorkerEngine, uciok/timeout) ...
+```
+Keep everything else in `loadStockfish` exactly as-is.
+
+- [ ] **Step 4: Verify the test + a real copy.**
+```bash
+cd frontend && npx vitest run src/tests/copyEngine.test.ts   # PASS
+rm -rf public/engine && npm run copy-engine
+cat public/engine/engine-manifest.json
+ls -1 public/engine
+```
+Expected: manifest is `{ full:{single:"stockfish-18-single.js",multi:"stockfish-18.js"}, lite:{single:"stockfish-18-lite-single.js",multi:"stockfish-18-lite.js"} }`; `public/engine` holds the 8 versioned `.js`/`.wasm` + `engine-manifest.json` and NO `stockfish-18-asm.js` / bare `stockfish.js` / `stockfish.wasm`.
+
+- [ ] **Step 5: Full gate (loader signature change must not break callers — engineClient still calls `loadStockfish()` no-arg → defaults to lite).**
+```bash
+cd frontend && npm run test && npx tsc -p tsconfig.app.json --noEmit
+```
+Expected: all tests pass (382+: baseline 381 + the new copyEngine test file), tsc clean.
+
+- [ ] **Step 6: Commit**
+```bash
+cd /home/buga/Dev/ChessMenthol
+git add frontend/scripts/copy-engine.mjs frontend/src/engine/engine.ts frontend/src/tests/copyEngine.test.ts
+git commit -m "feat(engine): 2-axis engine manifest (full+lite x single/multi) + loadStockfish(variant)"
+```
+
+### Task i.4b: Wire the full engine to the `stockfish` preset (reload on switch) + default to lite
+
+**Context:** With i.4a's variant-aware loader, wire `engineId → variant`, reload the worker when the variant changes (the binaries are different files — there is no in-place swap), make `LazySession` rebuild its `AnalysisSession` across the swap, and set the default engine to `stockfish_lite` (light ~7 MB first load; full strength is one dropdown click away). The orchestrator's `setEngine` already calls `engine.select(id)` then restarts — no orchestrator logic change beyond the default + label.
+
+**Files:**
+- Modify: `frontend/src/lib/engineClient.ts` (`presetFor` adds `variant`; `engineController` tracks loaded variant, disposes+reloads on change, exposes `currentEngine()`; export it for testing if not already)
+- Modify: `frontend/src/engine/session.ts` (`LazySession` rebuilds `real` when the live engine instance changes)
+- Modify: `frontend/src/core/orchestrator.ts` (default `_engineId` → `'stockfish_lite'`)
+- Modify: `frontend/src/lib/options.ts` (engine labels: `'Stockfish 16'` → `'Stockfish'`)
+- Modify/extend tests: `frontend/src/tests/orchestrator.test.ts` (default-engine assumption), `frontend/src/tests/engineClient.test.ts` or a new `frontend/src/tests/engineReload.test.ts` (the reload-on-variant-switch behavior)
+
+- [ ] **Step 1: Read the current `engineClient.ts` and `session.ts`.** Read `frontend/src/lib/engineClient.ts` (the `presetFor` fn + the `engineController` object: `select`, `configure`, `applyIfLoaded`, `ensureEngine`, `dispose`) and `frontend/src/engine/session.ts` (the `LazySession` class). You will integrate the changes below into the EXISTING structure — match its style.
+
+- [ ] **Step 2: Write the failing reload test.** Create `frontend/src/tests/engineReload.test.ts` that mocks the engine module so each variant yields a distinct fake engine, and asserts the controller disposes the old engine and loads the new variant on a cross-variant `select`, and that a `LazySession` start rebuilds onto the new engine:
+```ts
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// Distinct fake engine per load; record dispose + which variant was requested.
+const loads: Array<{ variant: string; engine: FakeEngine }> = [];
+class FakeEngine {
+  disposed = false;
+  lines: ((l: string) => void)[] = [];
+  send() {}
+  onLine(cb: (l: string) => void) { this.lines.push(cb); }
+  configure() {}
+  dispose() { this.disposed = true; }
+}
+vi.mock('../engine/engine', () => ({
+  loadStockfish: vi.fn(async (variant: 'full' | 'lite' = 'lite') => {
+    const engine = new FakeEngine();
+    loads.push({ variant, engine });
+    return engine;
+  }),
+  threadsAvailable: () => false,
+}));
+
+import { engineController } from '../lib/engineClient'; // export it if not already exported
+
+beforeEach(() => { loads.length = 0; engineController.dispose(); });
+
+describe('engine reload on variant switch', () => {
+  it('loads lite for stockfish_lite, then disposes + reloads full for stockfish', async () => {
+    engineController.select('stockfish_lite');
+    const a = await engineController.ensureEngine();
+    expect(loads.at(-1)!.variant).toBe('lite');
+
+    engineController.select('stockfish');        // cross-variant → drop the lite engine
+    expect((a as unknown as FakeEngine).disposed).toBe(true);
+    const b = await engineController.ensureEngine();
+    expect(loads.at(-1)!.variant).toBe('full');
+    expect(b).not.toBe(a);
+  });
+
+  it('same-variant select does NOT reload', async () => {
+    engineController.select('stockfish_lite');
+    const a = await engineController.ensureEngine();
+    engineController.select('stockfish_lite');   // same variant → keep engine
+    expect((a as unknown as FakeEngine).disposed).toBe(false);
+    const b = await engineController.ensureEngine();
+    expect(b).toBe(a);
+  });
+});
+```
+Run it → FAILS (no `variant` in preset / no reload / maybe `engineController` not exported).
+
+- [ ] **Step 3: Add `variant` to `presetFor`.** In `engineClient.ts`:
+```ts
+function presetFor(id: string): { threads: number | null; hash: number | null; variant: 'full' | 'lite' } {
+  if (id === 'stockfish')      return { threads: 2, hash: 256, variant: 'full' };
+  if (id === 'stockfish_lite') return { threads: 1, hash: 64,  variant: 'lite' };
+  return { threads: null, hash: null, variant: 'lite' };
+}
+```
+
+- [ ] **Step 4: Make `engineController` variant-aware (reload on change).** Integrate into the existing object:
+  - Add module state alongside `engine`/`loadPromise`/`desired`: `let loadedVariant: 'full' | 'lite' | null = null;` and `let desiredVariant: 'full' | 'lite' = 'lite';`.
+  - `select(id)`: compute `const p = presetFor(id);`; set the existing `desired` from `p.threads`/`p.hash`; then:
+    ```ts
+    if (p.variant !== desiredVariant) {
+      desiredVariant = p.variant;
+      if (engine) { engine.dispose(); engine = null; loadPromise = null; loadedVariant = null; }
+    }
+    applyIfLoaded();
+    ```
+  - `ensureEngine()`: load the desired variant and record it:
+    ```ts
+    if (!loadPromise) {
+      const v = desiredVariant;
+      loadPromise = loadStockfish(v).then((e) => { engine = e; loadedVariant = v; applyIfLoaded(); return e; });
+      loadPromise.catch(() => { loadPromise = null; });
+    }
+    return loadPromise;
+    ```
+  - `dispose()`: also reset `loadedVariant = null;`.
+  - Add a synchronous accessor used by `LazySession`: `currentEngine(): UciEngine | null { return engine; }`.
+  - Ensure `engineController` is **exported** (`export const engineController = ...`) so the test can drive it. If it was previously a private const wired only into the module-level `Orchestrator`, exporting it is fine and keeps the existing wiring.
+
+- [ ] **Step 5: Make `LazySession` rebuild across an engine swap.** In `session.ts`, the `LazySession.start(fen, opts)` currently builds `this.real = new AnalysisSession(engine, cb)` on first load and reuses it. Generalize the fast-path guard so it rebuilds when the live engine instance changes (after a variant switch the controller has disposed the old engine and `currentEngine()` returns `null`, forcing the async reload path):
+  - Track `private boundEngine: UciEngine | null = null;`.
+  - At the top of `start`, take the fast path only when the SAME engine is still live:
+    ```ts
+    const live = this.ctrl.currentEngine();
+    if (this.real && live && live === this.boundEngine) { this.real.start(fen, opts); return; }
+    ```
+  - In the async load branch (the existing `ensureEngine().then(engine => ...)`), when (re)building, set `this.boundEngine = engine;` right where it does `this.real = new AnalysisSession(engine, this.cb)`. Do NOT dispose the old `this.real`/engine here — the controller already disposed the swapped-out engine; just replace the reference.
+  - Keep the existing pending-start/replay + loading-flag logic intact. (`this.ctrl` is the engineController reference the LazySession already holds — confirm the field name when you read the file and use it.)
+
+- [ ] **Step 6: Default to lite + fix labels.**
+  - In `frontend/src/core/orchestrator.ts`, change the default engine field from `private _engineId = 'stockfish';` to `private _engineId = 'stockfish_lite';` (match the exact existing declaration syntax).
+  - In `frontend/src/lib/options.ts`, change the `ENGINES` labels: `{ id: 'stockfish', label: 'Stockfish' }` and keep `{ id: 'stockfish_lite', label: 'Stockfish Lite' }`.
+
+- [ ] **Step 7: Reconcile existing tests.** Run `cd frontend && npx vitest run src/tests/orchestrator.test.ts` and fix any assertion that assumed the default engineId was `'stockfish'` (it is now `'stockfish_lite'`). For the "set_engine restarts session" / "engine options persist across engine switch" tests, switch to a DIFFERENT engine than the default to demonstrate a real change (e.g. `set_engine 'stockfish'`), asserting `engineId` updates and the fake engine recorded `select('stockfish')`. Do not weaken what they verify.
+
+- [ ] **Step 8: Full gate.**
+```bash
+cd frontend && npx vitest run src/tests/engineReload.test.ts \
+  && npm run test \
+  && npx tsc -p tsconfig.app.json --noEmit \
+  && npx svelte-check --tsconfig ./tsconfig.app.json
+```
+Expected: the new reload test passes; full suite green; tsc clean; svelte-check 0/0.
+
+- [ ] **Step 9: Commit**
+```bash
+cd /home/buga/Dev/ChessMenthol
+git add frontend/src/lib/engineClient.ts frontend/src/engine/session.ts frontend/src/core/orchestrator.ts frontend/src/lib/options.ts frontend/src/tests
+git commit -m "feat(engine): wire full engine to the stockfish preset (reload on switch), default to lite"
+```
+
 ---
 
 ## Task Group ii — Delete all Python
