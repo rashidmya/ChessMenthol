@@ -49,4 +49,28 @@ describe('engineController loader selection', () => {
     expect(loadStockfish).toHaveBeenCalledTimes(1);
     expect(loadNativeEngine).not.toHaveBeenCalled();
   });
+
+  it('does not thread-clamp the native engine (Issue 1)', async () => {
+    // threadsAvailable() is mocked false (as on WebKitGTK); the native engine is a
+    // separate process and must still get the preset's Threads value, not clamped to 1.
+    isTauriMock.mockReturnValue(true);
+    const { engineController } = await import('../lib/engineClient');
+    engineController.select('stockfish'); // full preset → threads 2, hash 256
+    const engine = await engineController.ensureEngine();
+    expect(engine.send).toHaveBeenCalledWith('setoption name Threads value 2');
+    expect(engine.send).not.toHaveBeenCalledWith('setoption name Threads value 1');
+  });
+
+  it('does not reload or tear down the native engine on a variant switch (Issue 2)', async () => {
+    // Phase 1 uses one native binary for both variants, so a lite→full switch must keep
+    // the live engine (only re-send options) rather than dispose + respawn it.
+    isTauriMock.mockReturnValue(true);
+    const { engineController } = await import('../lib/engineClient');
+    const a = await engineController.ensureEngine(); // default desiredVariant is 'lite'
+    expect(loadNativeEngine).toHaveBeenCalledTimes(1);
+    engineController.select('stockfish'); // full preset → variant changes 'lite' → 'full'
+    expect(loadNativeEngine).toHaveBeenCalledTimes(1); // no reload
+    expect(engineController.currentEngine()).toBe(a);  // same instance, not replaced/null
+    expect(a.dispose).not.toHaveBeenCalled();
+  });
 });

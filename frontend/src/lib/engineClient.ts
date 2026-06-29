@@ -54,6 +54,9 @@ function presetFor(id: string): { threads: number | null; hash: number | null; v
 
 function clampThreads(desired: number | null): number | undefined {
   if (desired === null) return undefined;
+  // The native engine (Tauri) is a separate process that always supports threads; the
+  // "single-threaded wasm" clamp only applies to the in-webview wasm/asm.js build.
+  if (isTauri()) return desired;
   if (!threadsAvailable()) return 1; // single-threaded wasm: never set Threads > 1
   return desired;
 }
@@ -96,7 +99,10 @@ export const engineController: OrchestratorEngine & {
     // everywhere. Plain browser: the wasm/asm.js WorkerEngine.
     const loader = isTauri() ? loadNativeEngine(engineId(v)) : loadStockfish(v);
     return loader.then((e) => {
-      if (v !== desiredVariant) {
+      // wasm: if the desired variant changed mid-load, the loaded binary is the wrong one —
+      // drop it and reload the current variant. Native: engineId(v) is variant-independent
+      // (Phase 1), so the loaded engine is already correct; just adopt + (re)configure it.
+      if (v !== desiredVariant && !isTauri()) {
         e.dispose();
         return load(desiredVariant);
       }
@@ -111,14 +117,18 @@ export const engineController: OrchestratorEngine & {
       const p = presetFor(id);
       desired = { threads: p.threads, hash: p.hash };
       if (p.variant !== desiredVariant) {
-        // Cross-family switch: abandon the live worker AND any in-flight load
-        // (clear unconditionally — the in-flight case is exactly the race the
-        // re-chaining load() guards against). LazySession sees currentEngine()
-        // === null and rebuilds on the reloaded binary.
         desiredVariant = p.variant;
-        engine?.dispose();
-        engine = null;
-        loadPromise = null;
+        // Native (Tauri): Phase 1 uses ONE binary/net for both variants, so a full↔lite
+        // switch only re-sends Threads/Hash to the live engine — tearing it down would
+        // respawn the identical engine and risk a stop/start race. wasm: full and lite are
+        // DIFFERENT binaries, so a cross-family switch must drop the live worker AND any
+        // in-flight load (the re-chaining load() guards the in-flight race); LazySession
+        // then sees currentEngine() === null and rebuilds on the reloaded binary.
+        if (!isTauri()) {
+          engine?.dispose();
+          engine = null;
+          loadPromise = null;
+        }
       }
       applyIfLoaded();
     },
