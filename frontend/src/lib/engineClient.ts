@@ -17,6 +17,8 @@ import { writable } from 'svelte/store';
 import type { Command, ServerFrame, StateFrame, RegionShotFrame } from './types';
 import { loadStockfish, configure as configureEngine, threadsAvailable } from '../engine/engine';
 import type { UciEngine } from '../engine/engine';
+import { loadNativeEngine } from '../engine/nativeEngine';
+import { isTauri } from '@tauri-apps/api/core';
 import { AnalysisSession, type SessionCallbacks, type StartOptions } from '../engine/session';
 import { Orchestrator } from '../core/orchestrator';
 import type { OrchestratorEngine, SessionLike } from '../core/orchestrator';
@@ -79,12 +81,21 @@ export const engineController: OrchestratorEngine & {
     }
   }
 
+  // Phase 1 ships a single native engine, so every wasm variant maps to 'stockfish'.
+  // Phase 2 will map 'full'/'lite' to distinct native binaries/nets.
+  function engineId(_v: 'full' | 'lite'): string {
+    return 'stockfish';
+  }
+
   // Load `v`, but if the desired variant changed WHILE the binary was loading,
   // drop the now-stale binary and re-chain a load of the currently-desired one.
   // The promise a caller awaits therefore self-heals to the final variant — so a
   // cross-variant select() mid-load can never commit the wrong engine.
   function load(v: 'full' | 'lite'): Promise<UciEngine> {
-    return loadStockfish(v).then((e) => {
+    // Desktop (Tauri): native Stockfish sidecar — wasm crashes WebKitGTK and is slower
+    // everywhere. Plain browser: the wasm/asm.js WorkerEngine.
+    const loader = isTauri() ? loadNativeEngine(engineId(v)) : loadStockfish(v);
+    return loader.then((e) => {
       if (v !== desiredVariant) {
         e.dispose();
         return load(desiredVariant);
