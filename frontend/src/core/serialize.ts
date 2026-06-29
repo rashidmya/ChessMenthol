@@ -1,5 +1,5 @@
 /**
- * core/serialize.ts — TypeScript port of chessmenthol/server/serialize.py.
+ * core/serialize.ts — Ported from the original Python chessmenthol/server/serialize.py (removed in the Svelte+Tauri migration).
  *
  * The Python source is the line-by-line spec.  Output DTO shapes match
  * frontend/src/lib/types.ts exactly (the UI consumes them).

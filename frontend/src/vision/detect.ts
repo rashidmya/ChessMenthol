@@ -1,5 +1,5 @@
 // frontend/src/vision/detect.ts
-// Faithful TS port of chessmenthol/vision/detect.py — axis-aligned chessboard
+// Faithful TS port of the original Python chessmenthol/vision/detect.py (removed in the Svelte+Tauri migration) — axis-aligned chessboard
 // detection via grayscale + Sobel edge profiles + autocorrelation period finding
 // + brute-force phase + checker confidence/orientation/highlights. Pure array math
 // over an RgbaImage (no OpenCV). See the Python file for the line-by-line spec.

@@ -1,5 +1,5 @@
 /**
- * core/orchestrator.ts — TypeScript port of chessmenthol/server/orchestrator.py.
+ * core/orchestrator.ts — Ported from the original Python chessmenthol/server/orchestrator.py (removed in the Svelte+Tauri migration).
  *
  * The committed Python is the line-by-line parity spec. This module owns the
  * working board + settings + analysis session and turns commands into state

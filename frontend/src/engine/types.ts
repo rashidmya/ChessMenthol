@@ -1,5 +1,5 @@
 // frontend/src/engine/types.ts
-// White's-point-of-view analysis types. Port of chessmenthol/engine/types.py.
+// White's-point-of-view analysis types. Ported from the original Python chessmenthol/engine/types.py (removed in the Svelte+Tauri migration).
 // Plain data (no classes) so values survive structured clone / Svelte stores.
 
 export interface Eval {

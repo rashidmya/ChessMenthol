@@ -1,5 +1,5 @@
 /**
- * core/classify.ts — TypeScript port of chessmenthol/analysis/classify.py.
+ * core/classify.ts — Ported from the original Python chessmenthol/analysis/classify.py (removed in the Svelte+Tauri migration).
  *
  * Faithful line-by-line port; the Python source is the spec.  See the
  * "Preserve these faithful quirks" note in the task brief for intentional

@@ -1,5 +1,5 @@
 // frontend/src/vision/pieces.ts
-// Port of chessmenthol/vision/pieces.py — the piece classifier.
+// Ported from the original Python chessmenthol/vision/pieces.py — the piece classifier (removed in the Svelte+Tauri migration).
 //
 // Reproduces cv2.dnn.blobFromImages with a hand-rolled OpenCV INTER_LINEAR
 // bilinear resize (cross-platform determinism: the same crop classifies

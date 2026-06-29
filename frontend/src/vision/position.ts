@@ -2,7 +2,7 @@
  * vision/position.ts — assemble an 8x8 grid of classified squares into a
  * concrete chess position, plus orientation / side-to-move / last-move inference.
  *
- * Faithful TS port of `chessmenthol/position.py`. Built entirely on the
+ * Faithful TS port of the original Python chessmenthol/position.py (removed in the Svelte+Tauri migration). Built entirely on the
  * `core/chess.ts` wrapper layer — this module NEVER imports chessops directly.
  *
  * `AssembledPosition` is PLAIN DATA (no chessops object held) so it can be
