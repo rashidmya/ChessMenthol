@@ -3,10 +3,19 @@ use std::process::Command;
 
 use xcap::Monitor;
 
+mod engine;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![capture_frame])
+        .plugin(tauri_plugin_shell::init())
+        .manage(engine::EngineState::default())
+        .invoke_handler(tauri::generate_handler![
+            capture_frame,
+            engine::engine_start,
+            engine::engine_send,
+            engine::engine_stop
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
