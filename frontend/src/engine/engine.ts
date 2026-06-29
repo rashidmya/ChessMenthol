@@ -33,6 +33,11 @@ export class WorkerEngine implements UciEngine {
 
 export interface EngineConfig { threads?: number; hash?: number; }
 
+export interface EngineManifest {
+  full: { single: string; multi: string };
+  lite: { single: string; multi: string };
+}
+
 /** Send Threads/Hash setoptions (presets / user options). */
 export function configure(engine: UciEngine, cfg: EngineConfig): void {
   if (cfg.threads != null) engine.send(`setoption name Threads value ${cfg.threads}`);
@@ -51,10 +56,14 @@ export function threadsAvailable(): boolean {
  * it does not initialize within `timeoutMs`, so a failed load surfaces an error
  * instead of hanging the UI.
  */
-export async function loadStockfish(base = '/engine/', timeoutMs = 10_000): Promise<UciEngine> {
-  const manifest: { single: string; multi: string } =
-    await fetch(`${base}engine-manifest.json`).then((r) => r.json());
-  const file = threadsAvailable() ? manifest.multi : manifest.single;
+export async function loadStockfish(
+  variant: 'full' | 'lite' = 'lite',
+  base = '/engine/',
+  timeoutMs = 10_000,
+): Promise<UciEngine> {
+  const manifest: EngineManifest = await fetch(`${base}engine-manifest.json`).then((r) => r.json());
+  const fam = manifest[variant];
+  const file = threadsAvailable() ? fam.multi : fam.single;
   const worker = new Worker(`${base}${file}`);
   const engine = new WorkerEngine(worker);
   await new Promise<void>((resolve, reject) => {
