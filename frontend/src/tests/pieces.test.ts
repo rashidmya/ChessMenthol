@@ -50,7 +50,7 @@ describe('pieces — pure', () => {
   });
 });
 
-const MODEL = fileURLToPath(new URL('../../../chessmenthol/models/pieces.onnx', import.meta.url));
+const MODEL = fileURLToPath(new URL('../../models/pieces.onnx', import.meta.url));
 const FIX = fileURLToPath(new URL('./fixtures/vision/pieces', import.meta.url));
 const maybe = existsSync(MODEL) ? describe : describe.skip;
 

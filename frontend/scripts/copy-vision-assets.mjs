@@ -8,8 +8,8 @@ import { fileURLToPath } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
 const PUB = join(here, '..', 'public');
 
-// 1. Model: chessmenthol/models/pieces.onnx -> public/models/pieces.onnx
-const MODEL_SRC = join(here, '..', '..', 'chessmenthol', 'models', 'pieces.onnx');
+// 1. Model: frontend/models/pieces.onnx -> public/models/pieces.onnx
+const MODEL_SRC = join(here, '..', 'models', 'pieces.onnx');
 if (!existsSync(MODEL_SRC)) { console.error(`[copy-vision-assets] missing ${MODEL_SRC}`); process.exit(1); }
 mkdirSync(join(PUB, 'models'), { recursive: true });
 copyFileSync(MODEL_SRC, join(PUB, 'models', 'pieces.onnx'));
