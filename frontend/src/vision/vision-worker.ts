@@ -9,13 +9,29 @@
 // exercised end-to-end only in Group vi (manual, in `tauri dev`) — there is no
 // unit test for this file (jsdom can't run a real Worker or ort-web); the
 // FakeWorker test in visionClient.test.ts covers the protocol on the client side.
-import * as ort from 'onnxruntime-web';
+// Import the WASM-ONLY, *bundle* build (not the default multi-backend one):
+//  - `/wasm`   → no WebGPU/jsep, so it loads the 13.5MB plain wasm, not the 26MB
+//                jsep variant (smaller bundle).
+//  - `bundle`  → the JS glue is EMBEDDED, so ort never does a separate dynamic
+//                import() of `…jsep.mjs`. That import is what Vite's dev server
+//                rejects ("file is in /public … should not be imported from
+//                source code"); the bundle build only *fetches* the .wasm
+//                binary, which IS allowed from /public in dev.
+import * as ort from 'onnxruntime-web/wasm';
 import { Tracker } from './tracker';
 import { PieceClassifier, ortRunner, type InferenceLike } from './pieces';
 import type { RgbaImage } from '../lib/capture';
 import type { Orientation } from './types';
 
-ort.env.wasm.wasmPaths = '/ort/';
+// Override ONLY the .wasm URL (object form), NOT a string prefix. The `/wasm`
+// *bundle* build embeds its JS glue, and ort uses that embedded glue as long as
+// neither a `.mjs` override nor a string `wasmPaths` PREFIX is set (see ort's
+// wasm-utils-import `useEmbeddedModule`). A string prefix ('/ort/') would DISABLE
+// the embedded glue and make ort dynamically import() `…mjs` from /public — which
+// Vite's dev server refuses ("should not be imported from source code"). With the
+// object form, ort imports nothing and merely FETCHES the .wasm (allowed for
+// /public files in dev). The binary is copied to public/ort by copy-vision-assets.
+ort.env.wasm.wasmPaths = { wasm: '/ort/ort-wasm-simd-threaded.wasm' };
 ort.env.wasm.numThreads = 1; // tiny CNN; no SAB dependency
 
 let trackerPromise: Promise<Tracker> | null = null;
