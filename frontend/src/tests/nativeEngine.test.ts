@@ -55,4 +55,17 @@ describe('loadNativeEngine', () => {
     engine.dispose();
     expect(invokeMock).toHaveBeenCalledWith('engine_stop');
   });
+
+  it('rejects after timeoutMs if uciok never arrives, and stops the engine', async () => {
+    vi.useFakeTimers();
+    invokeMock.mockResolvedValue(undefined); // engine_start resolves but no uciok ever comes
+    const p = loadNativeEngine('sf18', 500);
+    // Attach the rejection handler BEFORE advancing timers so the timeout's
+    // rejection is never momentarily unhandled (avoids a PromiseRejectionHandled warning).
+    const assertion = expect(p).rejects.toThrow('native engine failed to initialize within 500ms');
+    await vi.advanceTimersByTimeAsync(500);
+    await assertion;
+    expect(invokeMock).toHaveBeenCalledWith('engine_stop');
+    vi.useRealTimers();
+  });
 });

@@ -26,14 +26,14 @@ export async function loadNativeEngine(engineId: string, timeoutMs = 10_000): Pr
   await invoke('engine_start', { engineId, onLine: channel });
 
   const engine: UciEngine = {
-    send: (cmd: string) => { void invoke('engine_send', { line: cmd }); },
+    send: (cmd: string) => { invoke('engine_send', { line: cmd }).catch(() => {}); },
     onLine: (cb: (line: string) => void) => {
       listener = cb;
       // Flush lines that arrived before the listener was registered.
       for (const line of lineBuffer) cb(line);
       lineBuffer.length = 0;
     },
-    dispose: () => { void invoke('engine_stop'); },
+    dispose: () => { invoke('engine_stop').catch(() => {}); },
   };
 
   // Handshake: send `uci`, resolve on `uciok`, reject if the engine never initializes.
@@ -46,5 +46,8 @@ export async function loadNativeEngine(engineId: string, timeoutMs = 10_000): Pr
     engine.send('uci');
   });
 
+  // Lines arriving before the caller registers onLine() are buffered above; lines
+  // arriving AFTER the handshake but before that first onLine() hit the (now inert)
+  // handshake listener and are dropped — same post-handshake contract as WorkerEngine.
   return engine;
 }
