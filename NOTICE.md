@@ -21,11 +21,24 @@ included in the [`LICENSE`](LICENSE) file at the root of this repository.
 This project bundles and/or links third-party components, each under its own
 license. The notable copyleft components requiring compliance are:
 
-- **Stockfish** — GNU General Public License v3.0 or later.
-  A chess engine bundled as a separate executable and driven over the UCI
-  protocol.
+- **Stockfish (WASM build)** — GNU General Public License v3.0 or later.
+  The chess engine, compiled to WebAssembly and run in a Web Worker via the
+  `stockfish` npm package; driven over the UCI protocol in TypeScript.
   Corresponding source: <https://github.com/official-stockfish/Stockfish>
 
 - **chessground** (`@lichess-org/chessground`) — GNU General Public License
-  v3.0 or later. A board UI library linked into the web frontend.
+  v3.0 or later. The board UI library linked into the web frontend.
   Corresponding source: <https://github.com/lichess-org/chessground>
+
+- **chessops** (`chessops`) — GNU General Public License v3.0 or later.
+  Chess move generation, SAN/FEN, and game-outcome logic.
+  Corresponding source: <https://github.com/niklasf/chessops>
+
+Permissively-licensed components (informational):
+
+- **Tauri** (`tauri`, `@tauri-apps/api`) — Apache-2.0 OR MIT. The desktop shell.
+- **xcap** — Apache-2.0. Screen capture in the Rust shell.
+- **onnxruntime-web** — MIT. Runs the bundled `pieces.onnx` piece classifier.
+
+The `pieces.onnx` model (`frontend/models/pieces.onnx`) is a project artifact
+bundled as-is.
