@@ -3,5 +3,12 @@
   "identifier": "default",
   "description": "default capability for the main window",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": [
+    "core:default",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [{ "name": "stockfish", "sidecar": true, "args": true }]
+    },
+    "shell:allow-spawn"
+  ]
 }

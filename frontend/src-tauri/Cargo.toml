@@ -18,3 +18,4 @@ xcap = "0.9"
 # PNG decode for the Wayland screenshot-CLI fallback. Unifies with xcap's image
 # 0.25; we only need the `png` feature added on top.
 image = { version = "0.25", default-features = false, features = ["png"] }
+tauri-plugin-shell = "2"
