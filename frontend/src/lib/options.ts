@@ -13,7 +13,7 @@ export const memoryLabel = (i: number) => `${MEMORY_MB[i]}MB`;
 
 export interface EngineOption { id: string; label: string; }
 export const ENGINES: EngineOption[] = [
-  { id: 'stockfish', label: 'Stockfish 16' },
+  { id: 'stockfish', label: 'Stockfish' },
   { id: 'stockfish_lite', label: 'Stockfish Lite' },
 ];
 export const engineLabel = (id: string) => ENGINES.find((e) => e.id === id)?.label ?? id;

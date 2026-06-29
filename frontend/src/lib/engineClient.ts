@@ -44,10 +44,10 @@ export function applyFrame(frame: ServerFrame): void {
 
 // ─── engine controller (lazy loader) ──────────────────────────────────────
 
-function presetFor(id: string): { threads: number | null; hash: number | null } {
-  if (id === 'stockfish') return { threads: 2, hash: 256 };
-  if (id === 'stockfish_lite') return { threads: 1, hash: 64 };
-  return { threads: null, hash: null };
+function presetFor(id: string): { threads: number | null; hash: number | null; variant: 'full' | 'lite' } {
+  if (id === 'stockfish')      return { threads: 2, hash: 256, variant: 'full' };
+  if (id === 'stockfish_lite') return { threads: 1, hash: 64,  variant: 'lite' };
+  return { threads: null, hash: null, variant: 'lite' };
 }
 
 function clampThreads(desired: number | null): number | undefined {
@@ -56,13 +56,19 @@ function clampThreads(desired: number | null): number | undefined {
   return desired;
 }
 
-const engineController: OrchestratorEngine & {
+export const engineController: OrchestratorEngine & {
+  select(id: string): void;
   ensureEngine(): Promise<UciEngine>;
+  currentEngine(): UciEngine | null;
   dispose(): void;
 } = (() => {
   let engine: UciEngine | null = null;
   let loadPromise: Promise<UciEngine> | null = null;
   let desired = { threads: null as number | null, hash: null as number | null };
+  // The full and lite builds are DIFFERENT binaries, so a cross-family switch
+  // can't swap in place — it disposes the worker and reloads. `desiredVariant`
+  // is the variant the next load() will commit.
+  let desiredVariant: 'full' | 'lite' = 'lite';
 
   function applyIfLoaded(): void {
     if (engine) {
@@ -73,9 +79,36 @@ const engineController: OrchestratorEngine & {
     }
   }
 
+  // Load `v`, but if the desired variant changed WHILE the binary was loading,
+  // drop the now-stale binary and re-chain a load of the currently-desired one.
+  // The promise a caller awaits therefore self-heals to the final variant — so a
+  // cross-variant select() mid-load can never commit the wrong engine.
+  function load(v: 'full' | 'lite'): Promise<UciEngine> {
+    return loadStockfish(v).then((e) => {
+      if (v !== desiredVariant) {
+        e.dispose();
+        return load(desiredVariant);
+      }
+      engine = e;
+      applyIfLoaded();
+      return e;
+    });
+  }
+
   return {
     select(id: string): void {
-      desired = presetFor(id);
+      const p = presetFor(id);
+      desired = { threads: p.threads, hash: p.hash };
+      if (p.variant !== desiredVariant) {
+        // Cross-family switch: abandon the live worker AND any in-flight load
+        // (clear unconditionally — the in-flight case is exactly the race the
+        // re-chaining load() guards against). LazySession sees currentEngine()
+        // === null and rebuilds on the reloaded binary.
+        desiredVariant = p.variant;
+        engine?.dispose();
+        engine = null;
+        loadPromise = null;
+      }
       applyIfLoaded();
     },
 
@@ -88,24 +121,25 @@ const engineController: OrchestratorEngine & {
 
     ensureEngine(): Promise<UciEngine> {
       if (!loadPromise) {
-        loadPromise = loadStockfish().then((e) => {
-          engine = e;
-          applyIfLoaded();
-          return e;
-        });
-        // Don't cache a failed load — clear it so a later start() can retry
-        // loadStockfish() instead of resolving the stale rejected promise.
-        loadPromise.catch(() => {
-          loadPromise = null;
-        });
+        const p = load(desiredVariant);
+        loadPromise = p;
+        // Don't cache a failed load — clear it so a later start() can retry.
+        // Identity-guarded so a late rejection from a superseded load can't null
+        // a newer loadPromise.
+        p.catch(() => { if (loadPromise === p) loadPromise = null; });
       }
       return loadPromise;
+    },
+
+    currentEngine(): UciEngine | null {
+      return engine;
     },
 
     dispose(): void {
       engine?.dispose();
       engine = null;
       loadPromise = null;
+      desiredVariant = 'lite';
     },
   };
 })();
@@ -116,6 +150,7 @@ const engineController: OrchestratorEngine & {
 
 class LazySession implements SessionLike {
   private real: AnalysisSession | null = null;
+  private boundEngine: UciEngine | null = null;
   private pendingStart: { fen: string; opts: StartOptions } | null = null;
   private loading = false;
 
@@ -125,7 +160,11 @@ class LazySession implements SessionLike {
   ) {}
 
   start(fen: string, opts: StartOptions): void {
-    if (this.real) {
+    // Fast path only while the SAME engine is still live. After a cross-variant
+    // switch the controller disposed it (currentEngine() === null), so we fall
+    // through to the async reload path and rebuild `this.real` on the new binary.
+    const live = this.ctrl.currentEngine();
+    if (this.real && live && live === this.boundEngine) {
       this.real.start(fen, opts);
       return;
     }
@@ -135,7 +174,9 @@ class LazySession implements SessionLike {
       this.ctrl
         .ensureEngine()
         .then((engine) => {
+          // The controller already disposed any swapped-out engine; just rebind.
           this.real = new AnalysisSession(engine, this.cb);
+          this.boundEngine = engine;
           this.loading = false;
           const p = this.pendingStart;
           this.pendingStart = null;

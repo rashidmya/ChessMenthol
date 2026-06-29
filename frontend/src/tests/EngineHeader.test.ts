@@ -25,7 +25,7 @@ it('toggling Analysis switch emits set_analysis_enabled with enabled:false when 
 it('tag shows depth and engine name', () => {
   const { container } = render(EngineHeader, { props: defaultProps });
   expect(container.querySelector('.tag')?.textContent).toContain('depth 24');
-  expect(container.querySelector('.eng')?.textContent).toBe('Stockfish 16');
+  expect(container.querySelector('.eng')?.textContent).toBe('Stockfish');
 });
 
 it('hides the View options button when analysis is disabled (cog + Analysis switch stay)', () => {
