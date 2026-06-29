@@ -27,15 +27,22 @@ export function buildManifest(files) {
     }
     return { single, multi };
   };
-  return { full: pick(false), lite: pick(true) };
+  /** @type {{full:{single:string,multi:string}, lite:{single:string,multi:string}, asm?:string}} */
+  const manifest = { full: pick(false), lite: pick(true) };
+  // The pure-JS asm.js build: the WebKitGTK-safe fallback (it SIGSEGVs on the wasm
+  // engine). Optional — only emitted when the dist ships one.
+  const asm = files.find((/** @type {string} */ f) => /^stockfish-\d/.test(f) && f.endsWith('-asm.js'));
+  if (asm) manifest.asm = asm;
+  return manifest;
 }
 
 /**
- * The bin files we ship: versioned full+lite loaders & wasms (drops asm.js + bare symlinks).
+ * The bin files we ship: versioned full+lite loaders & wasms + the asm.js fallback
+ * (drops the bare stockfish.js/.wasm symlinks).
  * @param {string[]} files
  */
 export function shippedFiles(files) {
-  return files.filter((/** @type {string} */ f) => /^stockfish-\d/.test(f) && !f.endsWith('-asm.js'));
+  return files.filter((/** @type {string} */ f) => /^stockfish-\d/.test(f));
 }
 
 function main() {
