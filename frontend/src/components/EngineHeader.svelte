@@ -3,7 +3,7 @@
   import Switch from './Switch.svelte';
   import EngineSettings from './EngineSettings.svelte';
   import ViewMenu from './ViewMenu.svelte';
-  import { engineLabel } from '../lib/options';
+  import { engineName } from '../lib/engineRegistry';
   import type { Command } from '../lib/types';
 
   export let analysisEnabled: boolean = false;
@@ -41,7 +41,7 @@
       onToggle={() => onCommand({ type: 'set_analysis_enabled', enabled: !analysisEnabled })}
     />
   </div>
-  <span class="tag">depth {depth}<span class="bar">|</span><span class="eng">{engineLabel(engineId)}</span></span>
+  <span class="tag">depth {depth}<span class="bar">|</span><span class="eng">{engineName(engineId)}</span></span>
   <button
     class="cog"
     class:on={open === 'cog'}

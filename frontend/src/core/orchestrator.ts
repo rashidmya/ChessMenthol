@@ -136,7 +136,7 @@ export class Orchestrator {
 
   // ---- working board + settings ----
   _board: Chess = posFromFen(START_FEN);
-  _engineId = 'stockfish_lite';
+  _engineId = 'stockfish';
   _depth: number | null = null;
   _multipv = 3;
   _threads: number | null = null;

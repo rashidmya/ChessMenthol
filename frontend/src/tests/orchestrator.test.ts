@@ -173,7 +173,7 @@ describe('Orchestrator parity', () => {
   it('set_engine restarts session', () => {
     const { orch, frames, session } = makeOrchestrator();
     const before = session.started;
-    // Switch AWAY from the default (stockfish_lite) so the change is observable.
+    // set_engine always restarts the session, even when the id is unchanged.
     orch.handle({ type: 'set_engine', id: 'stockfish' });
     const state = lastState(frames);
     expect(state.engineId).toBe('stockfish');
@@ -243,7 +243,7 @@ describe('Orchestrator parity', () => {
     };
     const orch = new Orchestrator(() => {}, { engine, sessionFactory: factory, analysisEnabled: true });
     orch.handle({ type: 'set_options', threads: 4, hash: 128 });
-    // Switch AWAY from the default (stockfish_lite) so the select is observable.
+    // set_engine after set_options re-applies the user's Threads/Hash to the new engine.
     orch.handle({ type: 'set_engine', id: 'stockfish' });
     expect(engine.selected.at(-1)).toBe('stockfish');
     expect(engine.configured.at(-1)).toEqual([4, 128]); // user options re-applied
