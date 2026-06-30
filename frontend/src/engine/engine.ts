@@ -1,6 +1,7 @@
 // frontend/src/engine/engine.ts
 // UciEngine: a minimal text-in / line-out seam over a UCI engine.
 // Implementations: WorkerEngine (real wasm, later task) and FakeEngine (tests, later task).
+import { parseOptions, formatSetOption, type UciOption } from './uciOptions';
 
 export interface UciEngine {
   /** Send a single UCI command line (no trailing newline needed). */
@@ -9,12 +10,15 @@ export interface UciEngine {
   onLine(cb: (line: string) => void): void;
   /** Quit + release resources. Idempotent. */
   dispose(): void;
+  /** Options the engine advertised during the `uci` handshake (when captured). */
+  options?: UciOption[];
 }
 
 /** Wraps a Web Worker that speaks UCI text. */
 export class WorkerEngine implements UciEngine {
   private readonly worker: Worker;
   private listener: ((line: string) => void) | null = null;
+  options?: UciOption[];
   constructor(worker: Worker) {
     this.worker = worker;
     this.worker.onmessage = (e: MessageEvent) => {
@@ -31,8 +35,6 @@ export class WorkerEngine implements UciEngine {
   dispose(): void { try { this.worker.postMessage('quit'); } catch { /* ignore */ } this.worker.terminate(); }
 }
 
-export interface EngineConfig { threads?: number; hash?: number; }
-
 export interface EngineManifest {
   full: { single: string; multi: string };
   lite: { single: string; multi: string };
@@ -40,10 +42,19 @@ export interface EngineManifest {
   asm?: string;
 }
 
-/** Send Threads/Hash setoptions (presets / user options). */
-export function configure(engine: UciEngine, cfg: EngineConfig): void {
-  if (cfg.threads != null) engine.send(`setoption name Threads value ${cfg.threads}`);
-  if (cfg.hash != null) engine.send(`setoption name Hash value ${cfg.hash}`);
+/** Send `setoption` for each value (skips buttons). `schema` gives each option's type
+ *  so booleans/values format correctly; unknown names are skipped. */
+export function applyOptions(
+  engine: UciEngine,
+  values: Record<string, string>,
+  schema: UciOption[],
+): void {
+  const byName = new Map(schema.map((o) => [o.name, o] as const));
+  for (const [name, value] of Object.entries(values)) {
+    const opt = byName.get(name);
+    if (!opt || opt.type === 'button') continue;
+    engine.send(formatSetOption(name, value));
+  }
 }
 
 /**
@@ -96,13 +107,18 @@ export async function loadStockfish(
   }
   const worker = new Worker(`${base}${file}`);
   const engine = new WorkerEngine(worker);
+  const optionLines: string[] = [];
   await new Promise<void>((resolve, reject) => {
     const timer = setTimeout(() => {
       engine.dispose();
       reject(new Error(`stockfish failed to initialize within ${timeoutMs}ms`));
     }, timeoutMs);
-    engine.onLine((line: string) => { if (line === 'uciok') { clearTimeout(timer); resolve(); } });
+    engine.onLine((line: string) => {
+      if (line.startsWith('option name ')) optionLines.push(line);
+      else if (line === 'uciok') { clearTimeout(timer); resolve(); }
+    });
     engine.send('uci');
   });
+  engine.options = parseOptions(optionLines);
   return engine;
 }

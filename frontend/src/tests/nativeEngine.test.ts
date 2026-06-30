@@ -67,6 +67,18 @@ describe('loadNativeEngine', () => {
     expect(invokeMock).toHaveBeenCalledWith('engine_stop');
   });
 
+  it('captures advertised options during the handshake', async () => {
+    invokeMock.mockImplementation(async (...a: unknown[]) => {
+      const cmd = a[0] as string;
+      const args = a[1] as { onLine?: { onmessage?: (m: string) => void } } | undefined;
+      if (cmd === 'engine_start') queueMicrotask(() => {
+        args?.onLine?.onmessage?.('option name Threads type spin default 1 min 1 max 8\nuciok');
+      });
+    });
+    const engine = await loadNativeEngine({ kind: 'bundled' });
+    expect(engine.options).toEqual([{ name: 'Threads', type: 'spin', default: '1', min: 1, max: 8 }]);
+  });
+
   it('rejects after timeoutMs if uciok never arrives, and stops the engine', async () => {
     vi.useFakeTimers();
     invokeMock.mockResolvedValue(undefined); // engine_start resolves but no uciok ever comes

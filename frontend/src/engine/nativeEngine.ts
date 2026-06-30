@@ -5,6 +5,7 @@
 // batched output into trimmed lines, and routes them to the registered listener.
 import { invoke, Channel } from '@tauri-apps/api/core';
 import type { UciEngine } from './engine';
+import { parseOptions } from './uciOptions';
 
 /** Which native engine to spawn: the bundled Stockfish sidecar or an external binary. */
 export type EngineSpec = { kind: 'bundled' } | { kind: 'external'; path: string };
@@ -41,14 +42,19 @@ export async function loadNativeEngine(spec: EngineSpec, timeoutMs = 10_000): Pr
   };
 
   // Handshake: send `uci`, resolve on `uciok`, reject if the engine never initializes.
+  const optionLines: string[] = [];
   await new Promise<void>((resolve, reject) => {
     const timer = setTimeout(() => {
       engine.dispose();
       reject(new Error(`native engine failed to initialize within ${timeoutMs}ms`));
     }, timeoutMs);
-    engine.onLine((line: string) => { if (line === 'uciok') { clearTimeout(timer); resolve(); } });
+    engine.onLine((line: string) => {
+      if (line.startsWith('option name ')) optionLines.push(line);
+      else if (line === 'uciok') { clearTimeout(timer); resolve(); }
+    });
     engine.send('uci');
   });
+  engine.options = parseOptions(optionLines);
 
   // After uciok, `listener` is still the inert handshake handler until the caller
   // registers their own via onLine() — lines arriving in that window are dropped,
