@@ -127,6 +127,9 @@
   $: if (cg) cg.setAutoShapes(linesToShapes(lines, showArrows && !editing, turnColor(fen)) as any);
   // Movable: legal-only for the side to move in normal play; free placement while editing.
   $: if (cg) cg.set({ movable: movableConfig(fen, editing) });
+  // Drawing: in the editor right-click deletes pieces and clicks place them, so
+  // turn chessground's shape drawing (arrows/circles) off; re-enable in play.
+  $: if (cg) cg.set({ drawable: { enabled: !editing } });
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
