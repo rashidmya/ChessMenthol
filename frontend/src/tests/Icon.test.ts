@@ -20,4 +20,10 @@ describe('Icon', () => {
     expect(span?.getAttribute('aria-label')).toBe('Engine settings');
     expect(span?.getAttribute('aria-hidden')).toBeNull();
   });
+
+  it('applies a size override via inline style', () => {
+    const { container } = render(Icon, { props: { name: 'Gear', size: '24px' } });
+    const span = container.querySelector('span.icon') as HTMLElement;
+    expect(span.style.fontSize).toBe('24px');
+  });
 });
