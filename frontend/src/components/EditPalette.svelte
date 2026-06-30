@@ -13,6 +13,7 @@
   import bR from '../assets/pieces/cburnett/bR.svg';
   import bQ from '../assets/pieces/cburnett/bQ.svg';
   import bK from '../assets/pieces/cburnett/bK.svg';
+  import Icon from './Icon.svelte';
 
   export let selected: string | null = 'P';
   export let onSelect: (tok: string) => void = () => {};
@@ -39,7 +40,7 @@
   </div>
   <button type="button" data-testid="pal-trash" class="eraser" class:on={selected === 'trash'}
     on:click={() => onSelect('trash')} title="Erase squares" aria-label="Erase squares">
-    <span class="eico">🗑</span> Erase
+    <span class="eico"><Icon name="Trash" /></span> Erase
   </button>
 </div>
 
