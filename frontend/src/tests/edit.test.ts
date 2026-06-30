@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildFen, kingCountOk, pieceFromToken, coordsToKey } from '../lib/edit';
+import { buildFen, kingCountOk, pieceFromToken, coordsToKey, castleFromFen } from '../lib/edit';
 
 const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
 
@@ -68,5 +68,43 @@ describe('coordsToKey', () => {
   });
   it('flips for black orientation', () => {
     expect(coordsToKey(0, 0, 400, 400, 'black')).toBe('h1');
+  });
+});
+
+describe('buildFen with explicit castling rights', () => {
+  it('honors an explicit castling object over inference', () => {
+    // start placement infers KQkq, but we force only white kingside
+    expect(buildFen(START, 'white', { K: true, Q: false, k: false, q: false }))
+      .toBe(`${START} w K - 0 1`);
+  });
+  it('emits - when all rights are false', () => {
+    expect(buildFen(START, 'black', { K: false, Q: false, k: false, q: false }))
+      .toBe(`${START} b - - 0 1`);
+  });
+  it('orders rights KQkq', () => {
+    expect(buildFen(START, 'white', { K: true, Q: true, k: true, q: true }))
+      .toBe(`${START} w KQkq - 0 1`);
+  });
+  it('still infers castling when no rights object is passed', () => {
+    expect(buildFen(START, 'white')).toBe(`${START} w KQkq - 0 1`);
+  });
+});
+
+describe('castleFromFen', () => {
+  it('parses a full castling field', () => {
+    expect(castleFromFen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'))
+      .toEqual({ K: true, Q: true, k: true, q: true });
+  });
+  it('parses a partial field', () => {
+    expect(castleFromFen('r3k2r/8/8/8/8/8/8/R3K2R w Kq - 0 1'))
+      .toEqual({ K: true, Q: false, k: false, q: true });
+  });
+  it('parses a dash as no rights', () => {
+    expect(castleFromFen('4k3/8/8/8/8/8/8/4K3 w - - 0 1'))
+      .toEqual({ K: false, Q: false, k: false, q: false });
+  });
+  it('defaults to no rights when the field is missing', () => {
+    expect(castleFromFen('4k3/8/8/8/8/8/8/4K3'))
+      .toEqual({ K: false, Q: false, k: false, q: false });
   });
 });

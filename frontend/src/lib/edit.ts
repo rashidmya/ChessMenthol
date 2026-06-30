@@ -24,25 +24,47 @@ function parsePlacement(placement: string): (string | null)[][] {
   });
 }
 
+export interface CastlingRights { K: boolean; Q: boolean; k: boolean; q: boolean; }
+
+/** Read the castling field (3rd token) of a FEN into explicit booleans. */
+export function castleFromFen(fen: string): CastlingRights {
+  const field = fen.split(' ')[2] ?? '-';
+  return {
+    K: field.includes('K'), Q: field.includes('Q'),
+    k: field.includes('k'), q: field.includes('q'),
+  };
+}
+
 export function kingCountOk(placement: string): boolean {
   const w = (placement.match(/K/g) || []).length;
   const b = (placement.match(/k/g) || []).length;
   return w === 1 && b === 1;
 }
 
-/** Assemble a full FEN: side from the argument, castling inferred from king/rook
- *  home squares, en-passant '-', counters '0 1'. */
-export function buildFen(placement: string, sideToMove: 'white' | 'black'): string {
+/** Assemble a full FEN: side from the argument, en-passant '-', counters '0 1'.
+ *  Castling is taken from `rights` when given, else inferred from king/rook home squares. */
+export function buildFen(
+  placement: string,
+  sideToMove: 'white' | 'black',
+  rights?: CastlingRights,
+): string {
   const g = parsePlacement(placement);
   const at = (row: number, col: number): string | null => g[row]?.[col] ?? null;
-  // rank 1 row = g[7], rank 8 row = g[0]; files a..h = cols 0..7.
-  const wK = at(7, 4) === 'K';
-  const bK = at(0, 4) === 'k';
   let castle = '';
-  if (wK && at(7, 7) === 'R') castle += 'K';
-  if (wK && at(7, 0) === 'R') castle += 'Q';
-  if (bK && at(0, 7) === 'r') castle += 'k';
-  if (bK && at(0, 0) === 'r') castle += 'q';
+  if (rights) {
+    if (rights.K) castle += 'K';
+    if (rights.Q) castle += 'Q';
+    if (rights.k) castle += 'k';
+    if (rights.q) castle += 'q';
+  } else {
+    // rank 1 row = g[7], rank 8 row = g[0]; files a..h = cols 0..7.
+    const wK = at(7, 4) === 'K';
+    const bK = at(0, 4) === 'k';
+    if (wK && at(7, 7) === 'R') castle += 'K';
+    if (wK && at(7, 0) === 'R') castle += 'Q';
+    if (bK && at(0, 7) === 'r') castle += 'k';
+    if (bK && at(0, 0) === 'r') castle += 'q';
+  }
   if (castle === '') castle = '-';
   const turn = sideToMove === 'white' ? 'w' : 'b';
   return `${placement} ${turn} ${castle} - 0 1`;
