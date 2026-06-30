@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from './Icon.svelte';
   export let hasCapture = false;
   export let onSetUp: () => void = () => {};
   export let onExplore: () => void = () => {};
@@ -10,10 +11,10 @@
 <div class="home" data-testid="home-panel">
   <div class="pbar"><span class="ptitle">Start</span></div>
   <div class="body">
-    <button type="button" class="hbtn" on:click={onSetUp}><span class="ic">♟</span>Set Up Position</button>
-    <button type="button" class="hbtn" on:click={onExplore}><span class="ic">🧭</span>Explore</button>
+    <button type="button" class="hbtn" on:click={onSetUp}><span class="ic"><Icon name="Pencil" /></span>Set Up Position</button>
+    <button type="button" class="hbtn" on:click={onExplore}><span class="ic"><Icon name="Microscope" /></span>Explore</button>
     {#if hasCapture}
-      <button type="button" class="hbtn cap" on:click={onCapture}><span class="ic">📷</span>Capture Board</button>
+      <button type="button" class="hbtn cap" on:click={onCapture}><span class="ic"><Icon name="ScreenDesktop" /></span>Capture Board</button>
     {/if}
     <textarea class="area" bind:value={input}
       placeholder="Paste your FEN, PGN(s), or drag & drop a PGN file here."></textarea>
