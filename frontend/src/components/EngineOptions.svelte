@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
+  import Icon from './Icon.svelte';
   import type { Command } from '../lib/types';
   import type { UciOption } from '../engine/uciOptions';
   import { ensureSchema, getSchema, effectiveValues, setOption, resetOption, resetAll, onSchemaChange } from '../lib/engineOptions';
@@ -97,7 +98,7 @@
           <button type="button" class="btn" on:click={() => press(o)}>{o.name}</button>
         {/if}
         {#if o.type !== 'button'}
-          <button type="button" class="rst" aria-label={`Reset ${o.name}`} on:click={() => reset(o)}>↺</button>
+          <button type="button" class="rst" aria-label={`Reset ${o.name}`} on:click={() => reset(o)}><Icon name="Reload" /></button>
         {/if}
       </div>
     {/each}
