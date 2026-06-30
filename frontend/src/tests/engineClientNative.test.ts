@@ -101,9 +101,9 @@ describe('engineController loader selection', () => {
 
     const bundledEngine = { send: vi.fn(), onLine: vi.fn(), dispose: vi.fn() };
     const externalEngine = { send: vi.fn(), onLine: vi.fn(), dispose: vi.fn() };
-    let resolveFirst!: (e: unknown) => void;
+    let resolveFirst!: (e: typeof bundledEngine) => void;
     loadNativeEngine
-      .mockImplementationOnce(() => new Promise((res) => { resolveFirst = res; })) // bundled load, deferred
+      .mockImplementationOnce(() => new Promise<typeof bundledEngine>((res) => { resolveFirst = res; })) // bundled load, deferred
       .mockImplementationOnce(async () => externalEngine); // ext1 load, immediate
 
     const p = engineController.ensureEngine();   // starts load('stockfish'), in flight

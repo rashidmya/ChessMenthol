@@ -58,6 +58,9 @@ function clampThreads(desired: number | null): number | undefined {
 
 export const engineController: OrchestratorEngine & {
   select(id: string): void;
+  // configure is required here (it's always implemented below); OrchestratorEngine
+  // declares it optional so minimal test stubs can omit it.
+  configure(opts: { threads: number | null; hash: number | null }): void;
   ensureEngine(): Promise<UciEngine>;
   currentEngine(): UciEngine | null;
   dispose(): void;
