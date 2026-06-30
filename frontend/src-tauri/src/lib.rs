@@ -17,7 +17,7 @@ pub fn run() {
             engine::engine_start,
             engine::engine_send,
             engine::engine_stop,
-            engine::engine_validate
+            engine::engine_probe
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

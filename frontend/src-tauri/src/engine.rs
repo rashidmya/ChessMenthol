@@ -118,23 +118,62 @@ pub fn engine_stop(state: State<'_, EngineState>) -> Result<(), String> {
     Ok(())
 }
 
-/// The engine's reported `id name …`, returned to JS by `engine_validate`.
-#[derive(serde::Serialize)]
-pub struct EngineName {
+/// What `engine_probe` returns: the engine's `id name` and its raw `option …` lines
+/// (parsed on the JS side by uciOptions.ts — Rust does not parse options).
+#[derive(Debug, serde::Serialize)]
+pub struct EngineProbe {
     pub name: String,
+    pub option_lines: Vec<String>,
 }
 
-/// Validate a UCI engine binary: spawn it, send `uci`, and read stdout until
-/// `uciok` (or timeout). Returns the engine's reported `id name …` so the
-/// frontend can label it in the registry. Used by "+ Add engine" before adding.
+/// Probe a UCI engine described by `spec` (bundled sidecar OR external path): spawn it
+/// in ISOLATION from the live analysis engine (EngineState), send `uci`, collect the
+/// `id name` line and all `option …` lines until `uciok` (or timeout), then kill it.
+/// Used by "+ Add engine" (validation) and on-demand schema fetch for the options form.
 #[tauri::command]
-pub fn engine_validate(path: String) -> Result<EngineName, String> {
-    validate_engine(&path, Duration::from_secs(10)).map(|name| EngineName { name })
+pub fn engine_probe(app: AppHandle, spec: EngineSpec) -> Result<EngineProbe, String> {
+    match spec {
+        EngineSpec::External { path } => probe_path(&path, Duration::from_secs(10)),
+        EngineSpec::Bundled => {
+            // Resolve the bundled sidecar's on-disk path so we can probe it with the
+            // same sync std::process helper (isolated from EngineState).
+            let path = bundled_sidecar_path(&app)?;
+            probe_path(&path, Duration::from_secs(10))
+        }
+    }
 }
 
-/// Core of `engine_validate`, timeout-parameterized so unit tests can exercise
-/// the timeout branch quickly. Returns the `id name` text on success.
-fn validate_engine(path: &str, timeout: Duration) -> Result<String, String> {
+/// Best-effort path to the bundled `stockfish` sidecar for the host. In a packaged
+/// build it sits next to the main executable; under `tauri dev` it's in
+/// `src-tauri/binaries/stockfish-<triple>`. Tries the packaged location first.
+/// `_app` is currently unused but kept for future resource-based resolution.
+fn bundled_sidecar_path(_app: &AppHandle) -> Result<String, String> {
+    use std::path::PathBuf;
+    // Packaged: next to the current exe (Tauri installs the sidecar there, name `stockfish`).
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            let p = dir.join(if cfg!(windows) { "stockfish.exe" } else { "stockfish" });
+            if p.is_file() { return Ok(p.to_string_lossy().into_owned()); }
+        }
+    }
+    // Dev: src-tauri/binaries/stockfish-<triple>
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("binaries");
+    if let Ok(entries) = std::fs::read_dir(&dir) {
+        for e in entries.flatten() {
+            let p = e.path();
+            if p.file_name().and_then(|n| n.to_str()).map(|n| n.starts_with("stockfish")).unwrap_or(false)
+                && p.is_file()
+            {
+                return Ok(p.to_string_lossy().into_owned());
+            }
+        }
+    }
+    Err("bundled stockfish sidecar not found".to_string())
+}
+
+/// Spawn `path`, send `uci`, collect `id name` + `option …` lines until `uciok`/timeout,
+/// kill. Timeout-parameterized for fast unit tests. (Same shape as the old validate_engine.)
+fn probe_path(path: &str, timeout: Duration) -> Result<EngineProbe, String> {
     let mut child = Command::new(path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -142,35 +181,29 @@ fn validate_engine(path: &str, timeout: Duration) -> Result<String, String> {
         .spawn()
         .map_err(|e| format!("spawn {path}: {e}"))?;
 
-    child
-        .stdin
-        .as_mut()
-        .ok_or("no stdin")?
-        .write_all(b"uci\n")
-        .map_err(|e| format!("write: {e}"))?;
+    // Infallible in practice: both stdin and stdout are always Some because we set
+    // Stdio::piped() above. These ? are purely defensive (no zombie risk in real use).
+    child.stdin.as_mut().ok_or("no stdin")?.write_all(b"uci\n").map_err(|e| format!("write: {e}"))?;
 
-    // Read stdout on a worker thread and report over a channel, so the caller can
-    // enforce a timeout: an engine that never handshakes must not hang us. After
-    // we kill the child below its stdout closes, the BufReader hits EOF, and the
-    // detached thread exits.
     let stdout = child.stdout.take().ok_or("no stdout")?;
-    let (tx, rx) = mpsc::channel::<Result<String, String>>();
+    let (tx, rx) = mpsc::channel::<Result<EngineProbe, String>>();
     std::thread::spawn(move || {
         let mut name: Option<String> = None;
+        let mut options: Vec<String> = Vec::new();
         for line in BufReader::new(stdout).lines() {
-            let line = match line {
-                Ok(l) => l,
-                Err(_) => break,
-            };
+            let line = match line { Ok(l) => l, Err(_) => break };
             let line = line.trim();
             if let Some(rest) = line.strip_prefix("id name ") {
-                let trimmed = rest.trim();
-                if !trimmed.is_empty() {
-                    name = Some(trimmed.to_string());
-                }
+                let n = rest.trim();
+                if !n.is_empty() { name = Some(n.to_string()); }
+            } else if line.starts_with("option name ") {
+                options.push(line.to_string());
             }
             if line == "uciok" {
-                let _ = tx.send(Ok(name.unwrap_or_else(|| "UCI engine".to_string())));
+                let _ = tx.send(Ok(EngineProbe {
+                    name: name.unwrap_or_else(|| "UCI engine".to_string()),
+                    option_lines: options,
+                }));
                 return;
             }
         }
@@ -191,54 +224,39 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
-    /// The bundled Stockfish sidecar binary for the host target, if present.
-    /// (`src-tauri/binaries/stockfish-<triple>`.) Returns None on a fresh
-    /// checkout that hasn't fetched the binary, so the happy-path test skips.
     fn bundled_stockfish() -> Option<PathBuf> {
         let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("binaries");
         std::fs::read_dir(dir).ok()?.flatten().map(|e| e.path()).find(|p| {
-            p.file_name()
-                .and_then(|n| n.to_str())
-                .map(|n| n.starts_with("stockfish"))
-                .unwrap_or(false)
+            p.file_name().and_then(|n| n.to_str()).map(|n| n.starts_with("stockfish")).unwrap_or(false)
         })
     }
 
     #[test]
-    fn validate_reports_name_for_a_real_uci_engine() {
-        let Some(sf) = bundled_stockfish() else {
-            eprintln!("skip: no bundled stockfish binary in src-tauri/binaries");
-            return;
-        };
-        let name = validate_engine(&sf.to_string_lossy(), Duration::from_secs(10))
-            .expect("bundled stockfish should validate");
-        assert!(
-            name.to_lowercase().contains("stockfish"),
-            "expected a Stockfish id name, got {name:?}"
-        );
+    fn probe_reports_name_and_options_for_a_real_engine() {
+        let Some(sf) = bundled_stockfish() else { eprintln!("skip: no bundled stockfish"); return; };
+        let probe = probe_path(&sf.to_string_lossy(), Duration::from_secs(10)).expect("should probe");
+        assert!(probe.name.to_lowercase().contains("stockfish"), "got {:?}", probe.name);
+        assert!(probe.option_lines.iter().any(|l| l.contains("MultiPV")), "expected MultiPV option line");
+        assert!(probe.option_lines.iter().all(|l| l.starts_with("option name ")));
     }
 
     #[test]
-    fn validate_errors_on_a_missing_binary() {
-        let err = validate_engine("/nonexistent/engine/binary", Duration::from_secs(1))
-            .unwrap_err();
+    fn probe_errors_on_a_missing_binary() {
+        let err = probe_path("/nonexistent/engine/binary", Duration::from_secs(1)).unwrap_err();
         assert!(err.contains("spawn"), "got {err:?}");
     }
 
     #[cfg(unix)]
     #[test]
-    fn validate_rejects_a_binary_that_exits_without_uciok() {
-        // /bin/true exits immediately and never prints `uciok`.
-        let err = validate_engine("/bin/true", Duration::from_secs(5)).unwrap_err();
+    fn probe_rejects_a_binary_that_exits_without_uciok() {
+        let err = probe_path("/bin/true", Duration::from_secs(5)).unwrap_err();
         assert!(err.contains("uciok") || err.contains("exited"), "got {err:?}");
     }
 
     #[cfg(unix)]
     #[test]
-    fn validate_times_out_on_a_binary_that_never_handshakes() {
-        // /bin/cat echoes our `uci` but never prints `uciok` and never exits, so the
-        // read must hit the timeout. A short timeout keeps the test fast.
-        let err = validate_engine("/bin/cat", Duration::from_millis(300)).unwrap_err();
-        assert!(err.contains("in time"), "expected a timeout error, got {err:?}");
+    fn probe_times_out_on_a_binary_that_never_handshakes() {
+        let err = probe_path("/bin/cat", Duration::from_millis(300)).unwrap_err();
+        assert!(err.contains("in time"), "got {err:?}");
     }
 }
