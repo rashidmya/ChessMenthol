@@ -18,6 +18,7 @@ import type { Command, ServerFrame, StateFrame, RegionShotFrame } from './types'
 import { loadStockfish, configure as configureEngine, threadsAvailable } from '../engine/engine';
 import type { UciEngine } from '../engine/engine';
 import { loadNativeEngine } from '../engine/nativeEngine';
+import { get as getEngine, type EngineRecord } from './engineRegistry';
 import { isTauri } from '@tauri-apps/api/core';
 import { AnalysisSession, type SessionCallbacks, type StartOptions } from '../engine/session';
 import { Orchestrator } from '../core/orchestrator';
@@ -46,12 +47,6 @@ export function applyFrame(frame: ServerFrame): void {
 
 // ─── engine controller (lazy loader) ──────────────────────────────────────
 
-function presetFor(id: string): { threads: number | null; hash: number | null; variant: 'full' | 'lite' } {
-  if (id === 'stockfish')      return { threads: 2, hash: 256, variant: 'full' };
-  if (id === 'stockfish_lite') return { threads: 1, hash: 64,  variant: 'lite' };
-  return { threads: null, hash: null, variant: 'lite' };
-}
-
 function clampThreads(desired: number | null): number | undefined {
   if (desired === null) return undefined;
   // The native engine (Tauri) is a separate process that always supports threads; the
@@ -70,10 +65,9 @@ export const engineController: OrchestratorEngine & {
   let engine: UciEngine | null = null;
   let loadPromise: Promise<UciEngine> | null = null;
   let desired = { threads: null as number | null, hash: null as number | null };
-  // The full and lite builds are DIFFERENT binaries, so a cross-family switch
-  // can't swap in place — it disposes the worker and reloads. `desiredVariant`
-  // is the variant the next load() will commit.
-  let desiredVariant: 'full' | 'lite' = 'lite';
+  // The engine id the next load() will commit. select() updates it; a cross-id
+  // switch mid-load self-heals to this value (see load()).
+  let desiredId = 'stockfish';
 
   function applyIfLoaded(): void {
     if (engine) {
@@ -84,27 +78,39 @@ export const engineController: OrchestratorEngine & {
     }
   }
 
-  // Phase 1 ships a single native engine, so every wasm variant maps to 'stockfish'.
-  // Phase 2 will map 'full'/'lite' to distinct native binaries/nets.
-  function engineId(_v: 'full' | 'lite'): string {
-    return 'stockfish';
+  // Resolve a registry record for `id`, falling back to the bundled Stockfish for
+  // an unknown/stale id (e.g. a removed external engine) so analysis keeps working.
+  function recordFor(id: string): EngineRecord {
+    return getEngine(id) ?? getEngine('stockfish')!;
   }
 
-  // Load `v`, but if the desired variant changed WHILE the binary was loading,
-  // drop the now-stale binary and re-chain a load of the currently-desired one.
-  // The promise a caller awaits therefore self-heals to the final variant — so a
-  // cross-variant select() mid-load can never commit the wrong engine.
-  function load(v: 'full' | 'lite'): Promise<UciEngine> {
-    // Desktop (Tauri): native Stockfish sidecar — wasm crashes WebKitGTK and is slower
-    // everywhere. Plain browser: the wasm/asm.js WorkerEngine.
-    const loader = isTauri() ? loadNativeEngine(engineId(v)) : loadStockfish(v);
+  // Build an engine for `id`. Desktop (Tauri): the native sidecar (bundled) or the
+  // user's external binary. Plain browser: only the bundled wasm/asm.js engine
+  // exists (external engines are Tauri-only), so any id loads via loadStockfish().
+  function load(id: string): Promise<UciEngine> {
+    const rec = recordFor(id);
+    const loader = isTauri()
+      ? loadNativeEngine(
+          rec.kind === 'external' && rec.path
+            ? { kind: 'external', path: rec.path }
+            : { kind: 'bundled' },
+        )
+      // Plain browser: only the bundled wasm/asm.js engine exists, so loadStockfish() uses
+      // its own default build regardless of the selected id (external engines are Tauri-only).
+      : loadStockfish();
     return loader.then((e) => {
-      // wasm: if the desired variant changed mid-load, the loaded binary is the wrong one —
-      // drop it and reload the current variant. Native: engineId(v) is variant-independent
-      // (Phase 1), so the loaded engine is already correct; just adopt + (re)configure it.
-      if (v !== desiredVariant && !isTauri()) {
+      // If the desired engine changed while this one was loading, it's the wrong
+      // engine — drop it and reload the currently-desired one. The awaited promise
+      // therefore self-heals to the final selection.
+      if (id !== desiredId) {
+        // The desired engine changed mid-load — drop this one and load the current
+        // selection. Re-establish loadPromise tracking (a prior select() nulled it) so a
+        // concurrent ensureEngine() can't kick off a second redundant load. Guard with
+        // `!loadPromise` so we never clobber a loadPromise a newer call already set.
         e.dispose();
-        return load(desiredVariant);
+        const healed = load(desiredId);
+        if (!loadPromise) loadPromise = healed;
+        return healed;
       }
       engine = e;
       applyIfLoaded();
@@ -114,21 +120,14 @@ export const engineController: OrchestratorEngine & {
 
   return {
     select(id: string): void {
-      const p = presetFor(id);
-      desired = { threads: p.threads, hash: p.hash };
-      if (p.variant !== desiredVariant) {
-        desiredVariant = p.variant;
-        // Native (Tauri): Phase 1 uses ONE binary/net for both variants, so a full↔lite
-        // switch only re-sends Threads/Hash to the live engine — tearing it down would
-        // respawn the identical engine and risk a stop/start race. wasm: full and lite are
-        // DIFFERENT binaries, so a cross-family switch must drop the live worker AND any
-        // in-flight load (the re-chaining load() guards the in-flight race); LazySession
-        // then sees currentEngine() === null and rebuilds on the reloaded binary.
-        if (!isTauri()) {
-          engine?.dispose();
-          engine = null;
-          loadPromise = null;
-        }
+      if (id !== desiredId) {
+        desiredId = id;
+        // A different engine is a different process/binary, so the live engine can't
+        // be reused: drop it AND any in-flight load. LazySession then sees
+        // currentEngine() === null and rebuilds on the newly-loaded engine.
+        engine?.dispose();
+        engine = null;
+        loadPromise = null;
       }
       applyIfLoaded();
     },
@@ -142,7 +141,7 @@ export const engineController: OrchestratorEngine & {
 
     ensureEngine(): Promise<UciEngine> {
       if (!loadPromise) {
-        const p = load(desiredVariant);
+        const p = load(desiredId);
         loadPromise = p;
         // Don't cache a failed load — clear it so a later start() can retry.
         // Identity-guarded so a late rejection from a superseded load can't null
@@ -160,7 +159,7 @@ export const engineController: OrchestratorEngine & {
       engine?.dispose();
       engine = null;
       loadPromise = null;
-      desiredVariant = 'lite';
+      desiredId = 'stockfish';
     },
   };
 })();
@@ -181,7 +180,7 @@ class LazySession implements SessionLike {
   ) {}
 
   start(fen: string, opts: StartOptions): void {
-    // Fast path only while the SAME engine is still live. After a cross-variant
+    // Fast path only while the SAME engine is still live. After an engine
     // switch the controller disposed it (currentEngine() === null), so we fall
     // through to the async reload path and rebuild `this.real` on the new binary.
     const live = this.ctrl.currentEngine();
