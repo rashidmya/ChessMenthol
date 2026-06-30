@@ -117,6 +117,9 @@
   // suggestion arrows, move feedback) and the View-options menu are hidden entirely,
   // regardless of the view-toggle prefs; they return (per the prefs) when re-enabled.
   $: analysisEnabled = s?.analysisEnabled ?? false;  // off until the first frame (analysis is off by default)
+  // The engine lines block (and the header divider above it) only appear when analysis
+  // is on and there are lines to show — otherwise the header divider would dangle.
+  $: showLines = viewPrefs.lines && analysisEnabled && (s?.lines?.length ?? 0) > 0;
   $: fen = s?.fen ?? 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
   // The board's yellow last-move highlight is driven from authoritative state
   // (the move at the current ply), so it follows navigation and clears on
@@ -166,6 +169,7 @@
           <div class="sec">
             <EngineHeader
               {analysisEnabled}
+              divider={showLines}
               analyzing={s?.analyzing ?? false}
               depth={s?.depth ?? 0}
               engineId={s?.engineId ?? 'stockfish'}
@@ -173,7 +177,7 @@
               onSetEngine={(id) => send({ type: 'set_engine', id })}
               prefs={viewPrefs}
               onToggle={onToggleView} />
-            {#if viewPrefs.lines && analysisEnabled && (s?.lines?.length ?? 0) > 0}
+            {#if showLines}
               <div class="bd">
                 {#key s?.fen}
                   <Lines lines={s?.lines ?? []} />

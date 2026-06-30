@@ -31,8 +31,9 @@ function stateFrame(overrides: Record<string, unknown> = {}) {
 
 /** Render App and click Explore to reach the Analysis screen. */
 async function renderAnalysis() {
-  render(App);
+  const utils = render(App);
   await fireEvent.click(screen.getByText('Explore'));
+  return utils;
 }
 
 describe('App shell', () => {
@@ -90,6 +91,27 @@ describe('analysis-disabled gating', () => {
     expect(screen.queryByRole('button', { name: 'View options' })).toBeNull();
     expect(screen.getByText('Analysis')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Engine settings' })).toBeTruthy();
+  });
+
+  it('drops the engine-header divider when analysis is disabled (no stray line under the header)', async () => {
+    const { container } = await renderAnalysis();
+    state.set(stateFrame({ analysisEnabled: false }) as never);
+    await tick();
+    expect(container.querySelector('.hd')?.classList.contains('divider')).toBe(false);
+  });
+
+  it('keeps the engine-header divider when analysis is enabled with lines below it', async () => {
+    const { container } = await renderAnalysis();
+    state.set(stateFrame({ analysisEnabled: true }) as never);
+    await tick();
+    expect(container.querySelector('.hd')?.classList.contains('divider')).toBe(true);
+  });
+
+  it('drops the engine-header divider when analysis is on but no lines are shown', async () => {
+    const { container } = await renderAnalysis();
+    state.set(stateFrame({ analysisEnabled: true, lines: [] }) as never);
+    await tick();
+    expect(container.querySelector('.hd')?.classList.contains('divider')).toBe(false);
   });
 });
 

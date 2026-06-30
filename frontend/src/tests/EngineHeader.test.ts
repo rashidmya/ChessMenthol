@@ -42,6 +42,16 @@ it('shows the View options button when analysis is enabled', () => {
   expect(getByRole('button', { name: 'View options' })).toBeTruthy();
 });
 
+it('renders the header divider only when divider=true (lines shown below the header)', () => {
+  const { container } = render(EngineHeader, { props: { ...defaultProps, divider: true } });
+  expect(container.querySelector('.hd')?.classList.contains('divider')).toBe(true);
+});
+
+it('omits the header divider when divider=false (nothing below the header, e.g. analysis off)', () => {
+  const { container } = render(EngineHeader, { props: { ...defaultProps, divider: false } });
+  expect(container.querySelector('.hd')?.classList.contains('divider')).toBe(false);
+});
+
 it('cog click opens settings popover; menu click swaps to view menu; body click closes both', async () => {
   const { container, getByRole } = render(EngineHeader, { props: defaultProps });
   const cogBtn = getByRole('button', { name: 'Engine settings' });

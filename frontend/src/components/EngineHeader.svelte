@@ -7,6 +7,10 @@
   import type { Command } from '../lib/types';
 
   export let analysisEnabled: boolean = false;
+  // Draw the header's bottom divider only when there are engine lines directly
+  // below it inside the same card section; otherwise it dangles as a stray line
+  // (e.g. when analysis is off, the lines block is gone).
+  export let divider: boolean = false;
   export let analyzing: boolean = false;
   export let depth: number = 0;
   export let engineId: string = 'stockfish';
@@ -32,7 +36,7 @@
   $: void analyzing;
 </script>
 
-<div class="hd">
+<div class="hd" class:divider>
   <div class="swwrap">
     <span class="txt">Analysis</span>
     <Switch
@@ -70,7 +74,8 @@
 
 <style>
   .hd { display: flex; align-items: center; gap: 8px; padding: 9px 14px 9px 16px;
-    border-bottom: 1px solid var(--keyline); position: relative; }
+    position: relative; }
+  .hd.divider { border-bottom: 1px solid var(--keyline); }
   .hd .tag { margin-left: auto; font-family: var(--mono); font-size: 9.5px;
     letter-spacing: .06em; color: var(--ink-3); text-transform: uppercase; white-space: nowrap; }
   .hd .tag .bar { color: var(--keyline-2); margin: 0 3px; }
