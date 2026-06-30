@@ -1,7 +1,8 @@
-//! Native Stockfish process bridge. Spawns the bundled `stockfish` sidecar, sets
-//! its working directory to the bundled net's folder so Stockfish auto-loads the
-//! default net from CWD, writes UCI lines to its stdin, and streams stdout lines
-//! to the frontend over an ipc::Channel. One engine at a time (held in EngineState).
+//! Native UCI engine bridge. Spawns either the bundled Stockfish sidecar (with CWD
+//! set to the bundled net folder so Stockfish auto-loads the default net) or a
+//! user-provided external binary, writes UCI lines to its stdin, and streams stdout
+//! lines to the frontend over an ipc::Channel. One engine at a time (held in
+//! EngineState).
 use std::sync::Mutex;
 
 use tauri::ipc::Channel;
@@ -14,38 +15,59 @@ use tauri_plugin_shell::ShellExt;
 #[derive(Default)]
 pub struct EngineState(pub Mutex<Option<CommandChild>>);
 
-/// Spawn the bundled Stockfish sidecar and stream its stdout lines to `on_line`.
-/// `engine_id` is accepted for forward-compatibility (Phase 2 selects nets/binaries);
-/// Phase 1 always launches the bundled engine.
+/// Which native engine `engine_start` should spawn. Sent from JS as
+/// `{ kind: "bundled" }` or `{ kind: "external", path: "/abs/path" }`.
+#[derive(serde::Deserialize)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum EngineSpec {
+    /// The app's bundled Stockfish sidecar.
+    Bundled,
+    /// A user-provided UCI binary referenced by absolute path.
+    External { path: String },
+}
+
+/// Spawn a native UCI engine — the bundled Stockfish sidecar or a user-provided
+/// external binary — and stream its stdout lines to `on_line`. One engine at a
+/// time (held in EngineState); any previous engine is killed first.
 #[tauri::command]
 pub fn engine_start(
     app: AppHandle,
     state: State<'_, EngineState>,
-    engine_id: String,
+    spec: EngineSpec,
     on_line: Channel<String>,
 ) -> Result<(), String> {
-    let _ = engine_id; // Phase 1: single bundled engine.
-
     // Kill any previous engine first.
     if let Some(child) = state.0.lock().unwrap().take() {
         let _ = child.kill();
     }
 
-    // The net is bundled under resources/engine/; run Stockfish with that folder as
-    // CWD so it auto-loads its default net without an explicit EvalFile.
-    let net_dir = app
-        .path()
-        .resolve("resources/engine", tauri::path::BaseDirectory::Resource)
-        .map_err(|e| format!("resolve net dir: {e}"))?;
+    let cmd = match spec {
+        EngineSpec::Bundled => {
+            // The net is bundled under resources/engine/; run Stockfish with that
+            // folder as CWD so it auto-loads its default net without an explicit
+            // EvalFile.
+            let net_dir = app
+                .path()
+                .resolve("resources/engine", tauri::path::BaseDirectory::Resource)
+                .map_err(|e| format!("resolve net dir: {e}"))?;
+            let cmd = app
+                .shell()
+                .sidecar("stockfish")
+                .map_err(|e| format!("sidecar: {e}"))?;
+            // Packaged build: the bundled net is here and Stockfish auto-loads it
+            // from CWD. `tauri dev` doesn't copy resources next to the dev binary,
+            // so fall back to the engine's embedded net instead of failing spawn
+            // with ENOENT.
+            if net_dir.is_dir() { cmd.current_dir(net_dir) } else { cmd }
+        }
+        EngineSpec::External { path } => {
+            // The user explicitly picked this binary (exactly like any desktop
+            // chess GUI), so it runs Rust-side and is NOT gated by the JS shell
+            // ACL. Its own net handling is the engine's concern (no CWD set).
+            app.shell().command(path)
+        }
+    };
 
-    let cmd = app
-        .shell()
-        .sidecar("stockfish")
-        .map_err(|e| format!("sidecar: {e}"))?;
-    // Packaged build: the bundled net is here and Stockfish auto-loads it from CWD.
-    // `tauri dev` doesn't copy resources next to the dev binary, so fall back to the
-    // engine's embedded net instead of failing spawn with ENOENT.
-    let cmd = if net_dir.is_dir() { cmd.current_dir(net_dir) } else { cmd };
     let (mut rx, child) = cmd.spawn().map_err(|e| format!("spawn: {e}"))?;
 
     *state.0.lock().unwrap() = Some(child);
@@ -59,10 +81,10 @@ pub fn engine_start(
                     let _ = on_line.send(line);
                 }
                 CommandEvent::Stderr(bytes) => {
-                    eprintln!("[stockfish stderr] {}", String::from_utf8_lossy(&bytes).trim_end());
+                    eprintln!("[engine stderr] {}", String::from_utf8_lossy(&bytes).trim_end());
                 }
                 CommandEvent::Error(err) => {
-                    eprintln!("[stockfish error] {err}");
+                    eprintln!("[engine error] {err}");
                 }
                 CommandEvent::Terminated(_) => break,
                 _ => {}
