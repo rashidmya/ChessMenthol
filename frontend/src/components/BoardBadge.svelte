@@ -24,6 +24,18 @@
 </div>
 
 <style>
-  .board-badge-layer { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+  /* Square overlay locked to the board itself — NOT inset:0 of .board-wrap.
+     The wrap is taller than the board (BoardControls sits below it in the
+     analysis screen), so inset:0 would make top% reference that too-tall
+     height and drift badges downward in proportion to their rank. */
+  .board-badge-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    pointer-events: none;
+    z-index: 3;
+  }
   .anchor { position: absolute; transform: translate(-50%, -50%); }
 </style>
