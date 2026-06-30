@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { LineDto } from '../lib/types';
-  import { toFigurine } from '../lib/figurine';
   export let lines: LineDto[] = [];
   // Per-multipv expand state. Resetting expansion across positions is the
   // parent's job, not ours: F10 keys <Lines> by FEN so a new position remounts
@@ -20,7 +19,7 @@
       data-testid="line-row"
     >
       <span class="sc">{l.scoreText}</span>
-      <span class="pv">{toFigurine(l.san)}</span>
+      <span class="pv">{l.san}</span>
       <button
         class="lexp"
         title={open.has(l.multipv) ? 'Collapse line' : 'Show full line'}
@@ -41,7 +40,8 @@
   .line .sc { justify-self: start; font-weight: 700; font-size: 11.5px;
     font-variant-numeric: tabular-nums; padding: 3px 7px; border-radius: 5px;
     min-width: 52px; text-align: center; }
-  .line .pv { color: #a8a193; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .line .pv { font-family: var(--figurine), monospace; color: #a8a193;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .line.open .pv { white-space: normal; overflow: visible; text-overflow: clip; }
   .lexp { display: grid; place-items: center; width: 22px; height: 22px; padding: 0;
     border: none; background: transparent; cursor: pointer; color: #a8a193; transition: .14s; }

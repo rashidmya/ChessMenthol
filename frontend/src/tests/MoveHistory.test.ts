@@ -12,7 +12,7 @@ describe('MoveHistory', () => {
   it('renders columns, figurines, highlights current, navigates on click', async () => {
     const onNavigate = vi.fn();
     const { getByText, getAllByTestId } = render(MoveHistory, { props: { moveList: ml, currentPly: 3, onNavigate } });
-    expect(getByText('♞f6')).toBeTruthy();              // toFigurine('Nf6')
+    expect(getByText('Nf6')).toBeTruthy();              // raw SAN (figurine glyph drawn by the CSS font)
     const cur = getAllByTestId('mh-mv').find((b) => b.classList.contains('current'))!;
     expect(cur.textContent).toContain('c4');
     await fireEvent.click(getByText('d4'));
@@ -22,8 +22,15 @@ describe('MoveHistory', () => {
     const { getByText } = render(MoveHistory, { props: { moveList: [ml[0]], currentPly: 1, onNavigate: vi.fn() } });
     expect(getByText('…')).toBeTruthy();                 // black cell placeholder (U+2026)
   });
-  it('applies the classification class to a move', () => {
-    const { getByText } = render(MoveHistory, { props: { moveList: ml, currentPly: 0, onNavigate: vi.fn() } });
-    expect(getByText('c4').className).toContain('mist'); // mistake -> mist
+  it('colors notable moves but leaves best/ordinary moves neutral', () => {
+    const list = [
+      { ply: 1, san: 'e4', uci: 'e2e4', classification: { label: 'best', cpl: 0, isBest: true } },
+      { ply: 2, san: 'Nf6', uci: 'g8f6', classification: { label: 'mistake', cpl: 0, isBest: false } },
+      { ply: 3, san: 'Bc4', uci: 'f1c4', classification: { label: 'brilliant', cpl: 0, isBest: false } },
+    ];
+    const { getByText } = render(MoveHistory, { props: { moveList: list, currentPly: 0, onNavigate: vi.fn() } });
+    expect((getByText('e4') as HTMLElement).style.color).toBe('');      // best -> neutral, no green
+    expect((getByText('Nf6') as HTMLElement).style.color).not.toBe(''); // mistake -> colored
+    expect((getByText('Bc4') as HTMLElement).style.color).not.toBe(''); // brilliant -> colored
   });
 });

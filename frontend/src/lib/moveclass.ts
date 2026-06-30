@@ -1,14 +1,16 @@
 import type { ClassificationDto } from './types';
+import { glyphFor } from './glyphs';
 
-// 'inacc' (inaccuracy) and 'brill' (brilliant) intentionally have no CSS color
-// rule in MoveHistory.svelte — the mockup leaves those move classes uncolored,
-// so a future reader shouldn't go hunting for missing styles.
-const MAP: Record<string, string> = {
-  blunder: 'blun', mistake: 'mist', inaccuracy: 'inacc',
-  good: 'good', excellent: 'good', best: 'best', great: 'best',
-  brilliant: 'brill', book: '', miss: 'mist',
-};
+// The move-history list highlights only "notable" moves, matching Lichess's
+// approach of never tinting a move just for being the engine's best/ordinary
+// choice. We color the bad moves (inaccuracy/mistake/miss/blunder) and the two
+// exceptional good ones (great/brilliant); best/good/excellent/book stay
+// neutral. Colors come from glyphs.ts (the single source of truth) so the list
+// matches the board badges.
+const COLORED = new Set(['brilliant', 'great', 'inaccuracy', 'mistake', 'miss', 'blunder']);
 
-export function moveClass(c: ClassificationDto | null): string {
-  return c ? (MAP[c.label] ?? '') : '';
+/** Inline text color for a move-list entry, or null when the move should stay
+ *  neutral (no classification, or an ordinary/best move we don't highlight). */
+export function moveColor(c: ClassificationDto | null): string | null {
+  return c && COLORED.has(c.label) ? glyphFor(c.label).color : null;
 }

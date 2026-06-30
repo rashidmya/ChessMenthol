@@ -34,6 +34,12 @@ license. The notable copyleft components requiring compliance are:
   Chess move generation, SAN/FEN, and game-outcome logic.
   Corresponding source: <https://github.com/niklasf/chessops>
 
+- **Chess Figurine font** (`frontend/src/assets/fonts/chess-figurine.woff2`) —
+  GNU General Public License v2.0 or later. The figurine-notation webfont by the
+  pgn4web authors (the same font Lichess ships as `lichess-chess.woff2`); it
+  renders piece letters as chess glyphs in move lists. Corresponding source
+  (FontForge `.sfd`): <https://github.com/lichess-org/lila/tree/master/public/font>
+
 Permissively-licensed components (informational):
 
 - **Tauri** (`tauri`, `@tauri-apps/api`) — Apache-2.0 OR MIT. The desktop shell.

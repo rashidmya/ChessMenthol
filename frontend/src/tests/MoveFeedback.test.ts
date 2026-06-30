@@ -68,10 +68,10 @@ describe('MoveFeedback', () => {
     expect(badges[1].classList.contains('wadv')).toBe(true); // '+0.00'
   });
 
-  it('shows continuation PV via figurine conversion', () => {
+  it('shows continuation PV as raw SAN (figurine glyphs are drawn by the CSS font)', () => {
     const { getByTestId } = render(MoveFeedback, { lastMove: dto, onPlayBest: () => {} });
-    // '16. Nxc3' → '16. ♞xc3'
-    expect(getByTestId('row-played').textContent).toContain('♞xc3');
+    expect(getByTestId('row-played').textContent).toContain('Nxc3'); // raw letters
+    expect(getByTestId('row-played').textContent).not.toContain('♞'); // no Unicode glyph
   });
 
   it('game-over: shows result badge, move san, no play-best button', () => {

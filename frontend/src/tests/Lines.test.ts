@@ -29,8 +29,10 @@ describe('Lines', () => {
     expect(queryAllByTestId('line-row')).toHaveLength(0);
   });
 
-  it('applies figurine conversion to PV text', () => {
+  it('renders raw SAN in the PV (figurine glyphs are drawn by the CSS font, not a text swap)', () => {
     const { getByTestId } = render(Lines, { lines: [mk(1, 50, '1.Nf3 Nc6')] });
-    expect(getByTestId('line-row').textContent).toContain('♞f3');
+    const row = getByTestId('line-row');
+    expect(row.textContent).toContain('Nf3');  // raw piece letter
+    expect(row.textContent).not.toContain('♞'); // no Unicode chess glyph
   });
 });

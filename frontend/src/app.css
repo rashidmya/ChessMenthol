@@ -1,3 +1,15 @@
+/* Figurine notation font (pgn4web "Noto Chess", the same one Lichess uses).
+   Sparse: it only carries glyphs for SAN characters — the uppercase piece
+   letters K/Q/R/B/N render as figurines, files/ranks/symbols render as normal
+   text, and anything else (x, spaces, move-number 0/9) falls back to the next
+   family in the stack. Monochrome, so the glyph inherits currentColor (move
+   classification colors carry through). Apply it as the FIRST family on move
+   text and append the element's regular font as fallback. */
+@font-face{
+  font-family:'Chess Figurine';
+  src:url('./assets/fonts/chess-figurine.woff2') format('woff2');
+  font-display:block;
+}
 :root{
   --paper:#f1ede3; --paper-2:#faf7f0; --card:#fdfbf6; --ink:#1b1916; --ink-2:#46423a;
   --ink-3:#7d776b; --ink-faint:#a8a193; --keyline:#e0dacb; --keyline-2:#cfc7b3;
@@ -6,6 +18,7 @@
   --sq-d:#b58863; --sq-l:#f0d9b5; --sq-hl:rgba(244,201,74,.50);
   --serif:'Fraunces',Georgia,serif; --sans:'Hanken Grotesk',sans-serif; --mono:'Space Mono',monospace;
   --sym:'Segoe UI Symbol','Apple Symbols','Noto Sans Symbols2','Noto Sans Symbols',sans-serif;
+  --figurine:'Chess Figurine';
   --bsize:clamp(300px, min(78vh, 100vw - 500px), 880px);
 }
 *{box-sizing:border-box}

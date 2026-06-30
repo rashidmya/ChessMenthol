@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { MoveEntryDto } from '../lib/types';
-  import { toFigurine } from '../lib/figurine';
-  import { moveClass } from '../lib/moveclass';
+  import { moveColor } from '../lib/moveclass';
   import { tick } from 'svelte';
 
   export let moveList: MoveEntryDto[] = [];
@@ -49,24 +48,26 @@
         {#if row.white}
           <button
             type="button"
-            class="mh-mv {moveClass(row.white.classification)}"
+            class="mh-mv"
             class:current={row.white.ply === currentPly}
+            style:color={moveColor(row.white.classification)}
             aria-current={row.white.ply === currentPly ? 'true' : undefined}
             data-testid="mh-mv"
             on:click={() => onNavigate(row.white!.ply)}
-          >{toFigurine(row.white.san)}</button>
+          >{row.white.san}</button>
         {:else}
           <span class="mh-mv mh-empty">…</span>
         {/if}
         {#if row.black}
           <button
             type="button"
-            class="mh-mv {moveClass(row.black.classification)}"
+            class="mh-mv"
             class:current={row.black.ply === currentPly}
+            style:color={moveColor(row.black.classification)}
             aria-current={row.black.ply === currentPly ? 'true' : undefined}
             data-testid="mh-mv"
             on:click={() => onNavigate(row.black!.ply)}
-          >{toFigurine(row.black.san)}</button>
+          >{row.black.san}</button>
         {:else}
           <span class="mh-mv mh-empty">…</span>
         {/if}
@@ -83,15 +84,14 @@
   .mh-row:nth-child(odd) { background: rgba(40,30,15,.022); }
   .mh-no { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); text-align: center; user-select: none; }
   .mh-mv { display: flex; align-items: center; gap: 3px;
-    font-family: 'Hanken Grotesk', 'Noto Sans Symbols2', 'Segoe UI Symbol', sans-serif;
+    font-family: var(--figurine), 'Hanken Grotesk', sans-serif;
     font-weight: 600; font-size: 12.5px; color: var(--ink); background: transparent; border: none;
     text-align: left; padding: 5px 7px; border-radius: 5px; cursor: pointer; transition: .12s; }
   .mh-mv:hover { background: var(--paper); }
   .mh-mv.current { background: var(--keyline); font-weight: 800; }
-  .mh-mv.blun { color: var(--blun); }
-  .mh-mv.mist { color: var(--mist); }
-  .mh-mv.good { color: #2f6fb0; }
-  .mh-mv.best { color: var(--best); }
+  /* Quality color is applied inline via `style:color` (moveColor), sourced from
+     glyphs.ts so the list matches the board badges. Only notable moves are
+     tinted — ordinary/best moves stay neutral (--ink). */
   .mh-empty { color: var(--ink-faint); cursor: default; }
   .mh-empty:hover { background: transparent; }
 </style>

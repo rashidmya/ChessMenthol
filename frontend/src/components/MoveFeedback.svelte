@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { LastMoveDto } from '../lib/types';
-  import { toFigurine } from '../lib/figurine';
   import MoveBadge from './MoveBadge.svelte';
 
   export let lastMove: LastMoveDto | null = null;
@@ -46,7 +45,7 @@
         <MoveBadge label={lastMove.classification.isBest ? 'best' : lastMove.classification.label} size={20} />
         <span class="mtext">
           <span class="mname {lastMove.classification.isBest ? 'best' : 'mist'}">
-            {lastMove.played.san} <span class="desc">{lastMove.classification.isBest ? 'is best' : 'is ' + phraseFor(lastMove.classification.label)}</span>
+            <span class="san">{lastMove.played.san}</span> <span class="desc">{lastMove.classification.isBest ? 'is best' : 'is ' + phraseFor(lastMove.classification.label)}</span>
           </span>
         </span>
       </div>
@@ -58,8 +57,8 @@
           <span class="badge {evalClass(lastMove.best.evalText)}">{lastMove.best.evalText}</span>
           <MoveBadge label="best" size={20} />
           <span class="mtext">
-            <span class="mname best">{lastMove.best.san} <span class="desc">is best</span></span>
-            {#if lastMove.best.pv}<span class="cont">{toFigurine(lastMove.best.pv)}</span>{/if}
+            <span class="mname best"><span class="san">{lastMove.best.san}</span> <span class="desc">is best</span></span>
+            {#if lastMove.best.pv}<span class="cont">{lastMove.best.pv}</span>{/if}
           </span>
         </div>
       {:else}
@@ -67,8 +66,8 @@
           <span class="badge {evalClass(lastMove.played.evalText)}">{lastMove.played.evalText}</span>
           <MoveBadge label={lastMove.classification.label} size={20} />
           <span class="mtext">
-            <span class="mname mist">{lastMove.played.san} <span class="desc">is {phraseFor(lastMove.classification.label)}</span></span>
-            {#if lastMove.played.pv}<span class="cont">{toFigurine(lastMove.played.pv)}</span>{/if}
+            <span class="mname mist"><span class="san">{lastMove.played.san}</span> <span class="desc">is {phraseFor(lastMove.classification.label)}</span></span>
+            {#if lastMove.played.pv}<span class="cont">{lastMove.played.pv}</span>{/if}
           </span>
         </div>
         <button class="mrow" data-testid="play-best"
@@ -78,8 +77,8 @@
           <span class="badge {evalClass(lastMove.best.evalText)}">{lastMove.best.evalText}</span>
           <MoveBadge label="best" size={20} />
           <span class="mtext">
-            <span class="mname best">{lastMove.best.san} <span class="desc">is best</span></span>
-            {#if lastMove.best.pv}<span class="cont">{toFigurine(lastMove.best.pv)}</span>{/if}
+            <span class="mname best"><span class="san">{lastMove.best.san}</span> <span class="desc">is best</span></span>
+            {#if lastMove.best.pv}<span class="cont">{lastMove.best.pv}</span>{/if}
           </span>
         </button>
       {/if}
@@ -102,9 +101,10 @@
   .badge.draw { background: var(--keyline); color: var(--ink-2); }
   .mtext { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 6px; overflow: hidden; }
   .mname { flex: none; font-weight: 700; font-size: 13px; letter-spacing: -.01em; }
+  .mname .san { font-family: var(--figurine), 'Hanken Grotesk', sans-serif; }
   .mname .desc { font-weight: 600; }
   .mname.mist .desc { color: #cf7a1e; }
   .mname.best .desc { color: #5b8a3c; }
-  .cont { flex: 1; min-width: 0; font-family: monospace; font-size: 11px;
+  .cont { flex: 1; min-width: 0; font-family: var(--figurine), monospace; font-size: 11px;
     color: #a8a193; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 </style>
