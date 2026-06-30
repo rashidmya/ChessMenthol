@@ -121,8 +121,10 @@
   function forceSync(_signal: number): void {
     if (cg && !editing) cg.set({ fen, turnColor: turnColor(fen), lastMove: lastMoveSquares(lastMove) as any });
   }
-  // Arrows: recompute on lines / toggle / mode change. Suppressed while editing.
-  $: if (cg) cg.setAutoShapes(linesToShapes(lines, showArrows && !editing) as any);
+  // Arrows: recompute on lines / toggle / mode / turn change. Suppressed while
+  // editing. turnColor(fen) gives the mover's POV so weaker-line widths read
+  // White-POV evals correctly (Lichess parity).
+  $: if (cg) cg.setAutoShapes(linesToShapes(lines, showArrows && !editing, turnColor(fen)) as any);
   // Movable: legal-only for the side to move in normal play; free placement while editing.
   $: if (cg) cg.set({ movable: movableConfig(fen, editing) });
 </script>
