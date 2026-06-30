@@ -29,23 +29,31 @@ function autoUciok() {
 }
 
 describe('loadNativeEngine', () => {
-  it('starts the engine, resolves on uciok, and routes lines to onLine', async () => {
+  it('starts the bundled engine, resolves on uciok, and routes lines to onLine', async () => {
     autoUciok();
-    const engine = await loadNativeEngine('sf18');
-    expect(invokeMock).toHaveBeenCalledWith('engine_start', expect.objectContaining({ engineId: 'sf18' }));
+    const engine = await loadNativeEngine({ kind: 'bundled' });
+    expect(invokeMock).toHaveBeenCalledWith('engine_start', expect.objectContaining({ spec: { kind: 'bundled' } }));
 
     const lines: string[] = [];
     engine.onLine((l) => lines.push(l));
-    // Grab the channel passed to engine_start and push a batched message.
     const startArgs = invokeMock.mock.calls.find((c) => c[0] === 'engine_start')![1] as { onLine: InstanceType<typeof Channel> & { onmessage: (m: string) => void } };
     const ch = startArgs.onLine;
     ch.onmessage('info depth 1 score cp 20\nbestmove e2e4');
     expect(lines).toEqual(['info depth 1 score cp 20', 'bestmove e2e4']);
   });
 
+  it('forwards an external engine spec to engine_start', async () => {
+    autoUciok();
+    await loadNativeEngine({ kind: 'external', path: '/opt/engines/foo' });
+    expect(invokeMock).toHaveBeenCalledWith(
+      'engine_start',
+      expect.objectContaining({ spec: { kind: 'external', path: '/opt/engines/foo' } }),
+    );
+  });
+
   it('send() forwards a UCI line via engine_send', async () => {
     autoUciok();
-    const engine = await loadNativeEngine('sf18');
+    const engine = await loadNativeEngine({ kind: 'bundled' });
     invokeMock.mockClear();
     engine.send('go depth 12');
     expect(invokeMock).toHaveBeenCalledWith('engine_send', { line: 'go depth 12' });
@@ -53,7 +61,7 @@ describe('loadNativeEngine', () => {
 
   it('dispose() calls engine_stop', async () => {
     autoUciok();
-    const engine = await loadNativeEngine('sf18');
+    const engine = await loadNativeEngine({ kind: 'bundled' });
     invokeMock.mockClear();
     engine.dispose();
     expect(invokeMock).toHaveBeenCalledWith('engine_stop');
@@ -62,9 +70,8 @@ describe('loadNativeEngine', () => {
   it('rejects after timeoutMs if uciok never arrives, and stops the engine', async () => {
     vi.useFakeTimers();
     invokeMock.mockResolvedValue(undefined); // engine_start resolves but no uciok ever comes
-    const p = loadNativeEngine('sf18', 500);
-    // Attach the rejection handler BEFORE advancing timers so the timeout's
-    // rejection is never momentarily unhandled (avoids a PromiseRejectionHandled warning).
+    const p = loadNativeEngine({ kind: 'bundled' }, 500);
+    // Register the rejection handler BEFORE advancing timers to avoid a momentary unhandled-rejection warning.
     const assertion = expect(p).rejects.toThrow('native engine failed to initialize within 500ms');
     await vi.advanceTimersByTimeAsync(500);
     await assertion;

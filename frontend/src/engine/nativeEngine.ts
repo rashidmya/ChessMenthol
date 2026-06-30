@@ -1,11 +1,15 @@
 // frontend/src/engine/nativeEngine.ts
-// UciEngine implementation backed by the native Stockfish sidecar (Tauri only).
-// Mirrors WorkerEngine's contract: resolves once the engine answers `uciok`, splits
+// UciEngine implementation backed by a native UCI engine process (Tauri only):
+// the bundled Stockfish sidecar OR a user-provided external binary. Mirrors
+// WorkerEngine's contract: resolves once the engine answers `uciok`, splits
 // batched output into trimmed lines, and routes them to the registered listener.
 import { invoke, Channel } from '@tauri-apps/api/core';
 import type { UciEngine } from './engine';
 
-export async function loadNativeEngine(engineId: string, timeoutMs = 10_000): Promise<UciEngine> {
+/** Which native engine to spawn: the bundled Stockfish sidecar or an external binary. */
+export type EngineSpec = { kind: 'bundled' } | { kind: 'external'; path: string };
+
+export async function loadNativeEngine(spec: EngineSpec, timeoutMs = 10_000): Promise<UciEngine> {
   let listener: ((line: string) => void) | null = null;
   // Buffer lines that arrive before onLine() is called (e.g. uciok from engine_start).
   const lineBuffer: string[] = [];
@@ -23,7 +27,7 @@ export async function loadNativeEngine(engineId: string, timeoutMs = 10_000): Pr
     }
   };
 
-  await invoke('engine_start', { engineId, onLine: channel });
+  await invoke('engine_start', { spec, onLine: channel });
 
   const engine: UciEngine = {
     send: (cmd: string) => { invoke('engine_send', { line: cmd }).catch(() => {}); },
@@ -46,8 +50,8 @@ export async function loadNativeEngine(engineId: string, timeoutMs = 10_000): Pr
     engine.send('uci');
   });
 
-  // Lines arriving before the caller registers onLine() are buffered above; lines
-  // arriving AFTER the handshake but before that first onLine() hit the (now inert)
-  // handshake listener and are dropped — same post-handshake contract as WorkerEngine.
+  // After uciok, `listener` is still the inert handshake handler until the caller
+  // registers their own via onLine() — lines arriving in that window are dropped,
+  // matching WorkerEngine's contract.
   return engine;
 }
