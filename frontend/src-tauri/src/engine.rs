@@ -185,3 +185,60 @@ fn validate_engine(path: &str, timeout: Duration) -> Result<String, String> {
         Err(_) => Err("engine did not respond to `uci` in time".to_string()),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    /// The bundled Stockfish sidecar binary for the host target, if present.
+    /// (`src-tauri/binaries/stockfish-<triple>`.) Returns None on a fresh
+    /// checkout that hasn't fetched the binary, so the happy-path test skips.
+    fn bundled_stockfish() -> Option<PathBuf> {
+        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("binaries");
+        std::fs::read_dir(dir).ok()?.flatten().map(|e| e.path()).find(|p| {
+            p.file_name()
+                .and_then(|n| n.to_str())
+                .map(|n| n.starts_with("stockfish"))
+                .unwrap_or(false)
+        })
+    }
+
+    #[test]
+    fn validate_reports_name_for_a_real_uci_engine() {
+        let Some(sf) = bundled_stockfish() else {
+            eprintln!("skip: no bundled stockfish binary in src-tauri/binaries");
+            return;
+        };
+        let name = validate_engine(&sf.to_string_lossy(), Duration::from_secs(10))
+            .expect("bundled stockfish should validate");
+        assert!(
+            name.to_lowercase().contains("stockfish"),
+            "expected a Stockfish id name, got {name:?}"
+        );
+    }
+
+    #[test]
+    fn validate_errors_on_a_missing_binary() {
+        let err = validate_engine("/nonexistent/engine/binary", Duration::from_secs(1))
+            .unwrap_err();
+        assert!(err.contains("spawn"), "got {err:?}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn validate_rejects_a_binary_that_exits_without_uciok() {
+        // /bin/true exits immediately and never prints `uciok`.
+        let err = validate_engine("/bin/true", Duration::from_secs(5)).unwrap_err();
+        assert!(err.contains("uciok") || err.contains("exited"), "got {err:?}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn validate_times_out_on_a_binary_that_never_handshakes() {
+        // /bin/cat echoes our `uci` but never prints `uciok` and never exits, so the
+        // read must hit the timeout. A short timeout keeps the test fast.
+        let err = validate_engine("/bin/cat", Duration::from_millis(300)).unwrap_err();
+        assert!(err.contains("in time"), "expected a timeout error, got {err:?}");
+    }
+}
