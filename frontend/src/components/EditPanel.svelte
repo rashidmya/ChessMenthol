@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from './Icon.svelte';
   import EditPalette from './EditPalette.svelte';
   import type { CastlingRights } from '../lib/edit';
 
@@ -21,7 +22,7 @@
 
 <div class="edit" data-testid="edit-panel">
   <div class="pbar">
-    <button type="button" class="back" data-testid="edit-back" aria-label="Back" on:click={onBack}>←</button>
+    <button type="button" class="back" data-testid="edit-back" aria-label="Back" on:click={onBack}><Icon name="Back" /></button>
     <span class="ptitle">Set Up Position</span>
   </div>
   <div class="body">
@@ -33,9 +34,9 @@
         <option value="white">White to move</option>
         <option value="black">Black to move</option>
       </select>
-      <button type="button" class="ico" data-testid="edit-flip" title="Flip board" on:click={onFlip}>⇄</button>
-      <button type="button" class="ico" data-testid="edit-reset" title="Start position" on:click={onReset}>↺</button>
-      <button type="button" class="ico" data-testid="edit-clear" title="Clear board" on:click={onClear}>🗑</button>
+      <button type="button" class="ico" data-testid="edit-flip" title="Flip board" on:click={onFlip}><Icon name="ChasingArrows" /></button>
+      <button type="button" class="ico" data-testid="edit-reset" title="Start position" on:click={onReset}><Icon name="Reload" /></button>
+      <button type="button" class="ico" data-testid="edit-clear" title="Clear board" on:click={onClear}><Icon name="Trash" /></button>
     </div>
 
     <div class="castle">
