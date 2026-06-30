@@ -15,10 +15,12 @@
 
 import { writable } from 'svelte/store';
 import type { Command, ServerFrame, StateFrame, RegionShotFrame } from './types';
-import { loadStockfish, configure as configureEngine, threadsAvailable } from '../engine/engine';
+import { loadStockfish, applyOptions, threadsAvailable } from '../engine/engine';
 import type { UciEngine } from '../engine/engine';
 import { loadNativeEngine } from '../engine/nativeEngine';
 import { get as getEngine, type EngineRecord } from './engineRegistry';
+import { getSchema, setSchema, getOverrides } from './engineOptions';
+import { formatSetOption } from '../engine/uciOptions';
 import { isTauri } from '@tauri-apps/api/core';
 import { AnalysisSession, type SessionCallbacks, type StartOptions } from '../engine/session';
 import { Orchestrator } from '../core/orchestrator';
@@ -47,76 +49,51 @@ export function applyFrame(frame: ServerFrame): void {
 
 // ─── engine controller (lazy loader) ──────────────────────────────────────
 
-function clampThreads(desired: number | null): number | undefined {
-  if (desired === null) return undefined;
-  // The native engine (Tauri) is a separate process that always supports threads; the
-  // "single-threaded wasm" clamp only applies to the in-webview wasm/asm.js build.
-  if (isTauri()) return desired;
-  if (!threadsAvailable()) return 1; // single-threaded wasm: never set Threads > 1
-  return desired;
+// Single-threaded wasm (WebKitGTK asm.js) cannot honor Threads > 1, so clamp that
+// one option there. Native engines + threaded wasm pass through unchanged.
+function clampValue(name: string, value: string): string {
+  if (name === 'Threads' && !isTauri() && !threadsAvailable()) return '1';
+  return value;
 }
 
 export const engineController: OrchestratorEngine & {
   select(id: string): void;
-  // configure is required here (it's always implemented below); OrchestratorEngine
-  // declares it optional so minimal test stubs can omit it.
-  configure(opts: { threads: number | null; hash: number | null }): void;
+  setOption(name: string, value?: string): void;
   ensureEngine(): Promise<UciEngine>;
   currentEngine(): UciEngine | null;
   dispose(): void;
 } = (() => {
   let engine: UciEngine | null = null;
   let loadPromise: Promise<UciEngine> | null = null;
-  let desired = { threads: null as number | null, hash: null as number | null };
-  // The engine id the next load() will commit. select() updates it; a cross-id
-  // switch mid-load self-heals to this value (see load()).
   let desiredId = 'stockfish';
 
-  function applyIfLoaded(): void {
-    if (engine) {
-      configureEngine(engine, {
-        threads: clampThreads(desired.threads),
-        hash: desired.hash ?? undefined,
-      });
-    }
-  }
-
-  // Resolve a registry record for `id`, falling back to the bundled Stockfish for
-  // an unknown/stale id (e.g. a removed external engine) so analysis keeps working.
   function recordFor(id: string): EngineRecord {
     return getEngine(id) ?? getEngine('stockfish')!;
   }
 
-  // Build an engine for `id`. Desktop (Tauri): the native sidecar (bundled) or the
-  // user's external binary. Plain browser: only the bundled wasm/asm.js engine
-  // exists (external engines are Tauri-only), so any id loads via loadStockfish().
+  // Send this engine's stored overrides to the live engine (engine is idle here).
+  function applyStored(): void {
+    if (!engine) return;
+    const schema = getSchema(desiredId) ?? engine.options ?? [];
+    const overrides = getOverrides(desiredId);
+    const clamped: Record<string, string> = {};
+    for (const [n, v] of Object.entries(overrides)) clamped[n] = clampValue(n, v);
+    applyOptions(engine, clamped, schema);
+  }
+
   function load(id: string): Promise<UciEngine> {
     const rec = recordFor(id);
     const loader = isTauri()
       ? loadNativeEngine(
-          rec.kind === 'external' && rec.path
-            ? { kind: 'external', path: rec.path }
-            : { kind: 'bundled' },
+          rec.kind === 'external' && rec.path ? { kind: 'external', path: rec.path } : { kind: 'bundled' },
         )
-      // Plain browser: only the bundled wasm/asm.js engine exists, so loadStockfish() uses
-      // its own default build regardless of the selected id (external engines are Tauri-only).
       : loadStockfish();
     return loader.then((e) => {
-      // If the desired engine changed while this one was loading, it's the wrong
-      // engine — drop it and reload the currently-desired one. The awaited promise
-      // therefore self-heals to the final selection.
-      if (id !== desiredId) {
-        // The desired engine changed mid-load — drop this one and load the current
-        // selection. Re-establish loadPromise tracking (a prior select() nulled it) so a
-        // concurrent ensureEngine() can't kick off a second redundant load. Guard with
-        // `!loadPromise` so we never clobber a loadPromise a newer call already set.
-        e.dispose();
-        const healed = load(desiredId);
-        if (!loadPromise) loadPromise = healed;
-        return healed;
-      }
+      if (id !== desiredId) { e.dispose(); return load(desiredId); }
       engine = e;
-      applyIfLoaded();
+      // Cache the freshly-advertised schema, then apply the user's overrides.
+      if (e.options && e.options.length) setSchema(id, e.options);
+      applyStored();
       return e;
     });
   }
@@ -125,38 +102,30 @@ export const engineController: OrchestratorEngine & {
     select(id: string): void {
       if (id !== desiredId) {
         desiredId = id;
-        // A different engine is a different process/binary, so the live engine can't
-        // be reused: drop it AND any in-flight load. LazySession then sees
-        // currentEngine() === null and rebuilds on the newly-loaded engine.
         engine?.dispose();
         engine = null;
         loadPromise = null;
       }
-      applyIfLoaded();
     },
 
-    configure(opts: { threads: number | null; hash: number | null }): void {
-      // Override desired, but only for non-null values (preserve existing entries).
-      if (opts.threads !== null) desired = { ...desired, threads: opts.threads };
-      if (opts.hash !== null) desired = { ...desired, hash: opts.hash };
-      applyIfLoaded();
+    // Push a single option change to the live engine (engine is idle: the orchestrator
+    // stops the search before calling this and restarts after). No-op if not loaded.
+    // `value === undefined` is a button press → `setoption name X` (no value).
+    setOption(name: string, value?: string): void {
+      if (!engine) return;
+      engine.send(formatSetOption(name, value === undefined ? undefined : clampValue(name, value)));
     },
 
     ensureEngine(): Promise<UciEngine> {
       if (!loadPromise) {
         const p = load(desiredId);
         loadPromise = p;
-        // Don't cache a failed load — clear it so a later start() can retry.
-        // Identity-guarded so a late rejection from a superseded load can't null
-        // a newer loadPromise.
         p.catch(() => { if (loadPromise === p) loadPromise = null; });
       }
       return loadPromise;
     },
 
-    currentEngine(): UciEngine | null {
-      return engine;
-    },
+    currentEngine(): UciEngine | null { return engine; },
 
     dispose(): void {
       engine?.dispose();
