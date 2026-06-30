@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 
 const { invokeMock, isTauriMock } = vi.hoisted(() => ({
-  invokeMock: vi.fn(async () => ({ name: 'X', option_lines: [] as string[] })),
+  invokeMock: vi.fn(async (..._a: unknown[]) => ({ name: 'X', option_lines: [] as string[] })),
   isTauriMock: vi.fn(() => true),
 }));
 vi.mock('@tauri-apps/api/core', () => ({ invoke: (...a: unknown[]) => invokeMock(...a), isTauri: () => isTauriMock() }));

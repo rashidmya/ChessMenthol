@@ -3,7 +3,7 @@ import { render, fireEvent } from '@testing-library/svelte';
 import { tick } from 'svelte';
 
 const { invokeMock, openMock, isTauriMock } = vi.hoisted(() => ({
-  invokeMock: vi.fn(async (..._a: unknown[]) => ({ name: 'Komodo 14' })),
+  invokeMock: vi.fn(async (..._a: unknown[]) => ({ name: 'Komodo 14', option_lines: [] as string[] })),
   openMock: vi.fn(async (..._a: unknown[]) => '/opt/engines/komodo' as string | null),
   isTauriMock: vi.fn(() => true),
 }));
