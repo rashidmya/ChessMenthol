@@ -132,9 +132,10 @@
           lines={s?.lines ?? []} showArrows={viewPrefs.arrows && analysisEnabled}
           {editing} {selectedEditPiece} onEdit={onBoardEdit} />
         {#if !editing}<BoardBadge lastMove={s?.lastMove ?? null} {orientation} />{/if}
-        <!-- Hidden during edit: EditPanel owns the side-to-move dropdown + its own flip,
-             so the board-column turn/flip control would only duplicate them (mockup v3). -->
-        {#if !editing}
+        <!-- Analysis-only: Home is a clean start screen, and in Edit the EditPanel owns
+             the side-to-move dropdown + its own flip, so the board-column turn/flip
+             control would only duplicate them (mockup v3). -->
+        {#if screen === 'analysis'}
           <BoardControls sideToMove={s?.sideToMove ?? 'white'}
             onSetTurn={(white) => send({ type: 'set_turn', white })} onFlip={onFlip} />
         {/if}
