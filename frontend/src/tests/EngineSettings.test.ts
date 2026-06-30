@@ -2,6 +2,7 @@ import { it, expect, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import EngineSettings from '../components/EngineSettings.svelte';
 
+// TODO Task 10: replace with set_engine_option (these multipv/threads/hash fields now no-op)
 it('emits set_options for lines / search-time / threads / memory and set_engine', async () => {
   const onCommand = vi.fn(); const onSetEngine = vi.fn();
   const { getAllByRole } = render(EngineSettings, { props: { engineId: 'stockfish', onCommand, onSetEngine } });

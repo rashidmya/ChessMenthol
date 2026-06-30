@@ -13,7 +13,7 @@
  * The doubles below mirror the Python FakeSession / OrderSession / RecordingEngine.
  */
 
-import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from 'vitest';
 import {
   Orchestrator,
   START_FEN,
@@ -24,6 +24,7 @@ import {
   type VisionTrackerLike,
 } from '../core/orchestrator';
 import { posFromFen, fenOf } from '../core/chess';
+import { getOverrides } from '../lib/engineOptions';
 import type { AnalysisInfo } from '../engine/types';
 import type { StartOptions, SessionCallbacks } from '../engine/session';
 import type { ServerFrame, StateFrame } from '../lib/types';
@@ -104,6 +105,8 @@ const CLASS_LABELS = new Set([
 // ─── core command behaviour ─────────────────────────────────────────────────────
 
 describe('Orchestrator parity', () => {
+  beforeEach(() => localStorage.clear());
+
   it('set_fen updates board and emits state', () => {
     const { orch, frames, session } = makeOrchestrator();
     const fen = AFTER_E4;
@@ -229,24 +232,56 @@ describe('Orchestrator parity', () => {
     expect(lastState(frames).fen).toBe(START_FEN); // board unchanged
   });
 
-  it('engine options persist across engine switch', () => {
-    const factory: SessionFactory = (engine, cb) => new FakeSession(engine, cb);
-    const engine = {
-      selected: [] as string[],
-      configured: [] as Array<[number | null, number | null]>,
-      select(id: string) {
-        this.selected.push(id);
-      },
-      configure(o: { threads: number | null; hash: number | null }) {
-        this.configured.push([o.threads, o.hash]);
-      },
-    };
+  it('set_engine_option stores override and forwards to started engine', () => {
+    let fakeSession!: FakeSession;
+    const setOptionSpy = vi.fn();
+    const engine: OrchestratorEngine = { select: vi.fn(), setOption: setOptionSpy };
+    const factory: SessionFactory = (e, cb) => { fakeSession = new FakeSession(e, cb); return fakeSession; };
     const orch = new Orchestrator(() => {}, { engine, sessionFactory: factory, analysisEnabled: true });
-    orch.handle({ type: 'set_options', threads: 4, hash: 128 });
-    // set_engine after set_options re-applies the user's Threads/Hash to the new engine.
-    orch.handle({ type: 'set_engine', id: 'stockfish' });
-    expect(engine.selected.at(-1)).toBe('stockfish');
-    expect(engine.configured.at(-1)).toEqual([4, 128]); // user options re-applied
+    // Mark engine as started so setOption is forwarded to the engine immediately.
+    orch._engineStarted = true;
+    const engineId = orch._engineId;
+    const startsBefore = fakeSession.started;
+    orch.handle({ type: 'set_engine_option', name: 'MultiPV', value: '3' });
+    expect(setOptionSpy).toHaveBeenCalledWith('MultiPV', '3');
+    expect(getOverrides(engineId)).toMatchObject({ MultiPV: '3' });
+    expect(fakeSession.started).toBeGreaterThan(startsBefore); // analysis restarted
+  });
+
+  it('reset_engine_options clears stored overrides and restarts analysis', () => {
+    const { orch, session } = makeOrchestrator();
+    const engineId = orch._engineId;
+    // Store an override first.
+    orch.handle({ type: 'set_engine_option', name: 'MultiPV', value: '3' });
+    expect(getOverrides(engineId)).toMatchObject({ MultiPV: '3' });
+    const startsBefore = session.started;
+    orch.handle({ type: 'reset_engine_options' });
+    expect(getOverrides(engineId)).toEqual({});
+    expect(session.started).toBeGreaterThan(startsBefore); // restarted
+  });
+
+  it('reset_engine_option clears a single override and restarts', () => {
+    const { orch, session } = makeOrchestrator();
+    const engineId = orch._engineId;
+    orch.handle({ type: 'set_engine_option', name: 'MultiPV', value: '3' });
+    orch.handle({ type: 'set_engine_option', name: 'Threads', value: '4' });
+    const startsBefore = session.started;
+    orch.handle({ type: 'reset_engine_option', name: 'MultiPV' });
+    expect(getOverrides(engineId)).toEqual({ Threads: '4' }); // MultiPV gone, Threads kept
+    expect(session.started).toBeGreaterThan(startsBefore); // restarted
+  });
+
+  it('set_engine_option button (no value) forwards to engine but is NOT persisted', () => {
+    let fakeSession!: FakeSession;
+    const setOptionSpy = vi.fn();
+    const engine: OrchestratorEngine = { select: vi.fn(), setOption: setOptionSpy };
+    const factory: SessionFactory = (e, cb) => { fakeSession = new FakeSession(e, cb); return fakeSession; };
+    const orch = new Orchestrator(() => {}, { engine, sessionFactory: factory, analysisEnabled: true });
+    orch._engineStarted = true; // so the button press is forwarded to the engine
+    const engineId = orch._engineId;
+    orch.handle({ type: 'set_engine_option', name: 'Clear Hash' }); // button: no value
+    expect(setOptionSpy).toHaveBeenCalledWith('Clear Hash', undefined);
+    expect(getOverrides(engineId)).toEqual({}); // buttons fire once, never stored
   });
 
   // ─── play_best ────────────────────────────────────────────────────────────

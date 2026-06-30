@@ -51,6 +51,7 @@ import type {
   EvalDto,
   LineDto,
 } from '../lib/types';
+import { setOption as storeSetOption, resetOption as storeResetOption, resetAll as storeResetAll } from '../lib/engineOptions';
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
@@ -64,7 +65,7 @@ export const DEFAULT_MOVETIME_MS = 10000; // ms; null == infinite
 export type SendCallback = (frame: ServerFrame) => void;
 
 /**
- * Duck-typed engine the orchestrator drives. `select`/`configure` are OPTIONAL
+ * Duck-typed engine the orchestrator drives. `select`/`setOption` are OPTIONAL
  * (mirrors Python's `hasattr(self._engine, "select")`). A real engine also
  * implements the UciEngine seam (`send`/`onLine`/`dispose`) so the default
  * session factory can build an `AnalysisSession`; both are optional here so
@@ -72,7 +73,7 @@ export type SendCallback = (frame: ServerFrame) => void;
  */
 export interface OrchestratorEngine extends Partial<UciEngine> {
   select?(id: string): void;
-  configure?(opts: { threads: number | null; hash: number | null }): void;
+  setOption?(name: string, value?: string): void;
 }
 
 /** What the orchestrator needs from a session (AnalysisSession satisfies this). */
@@ -89,7 +90,7 @@ export type SessionFactory = (
 ) => SessionLike;
 
 const defaultSessionFactory: SessionFactory = (engine, callbacks) =>
-  // The real engine is a full UciEngine that also exposes select/configure.
+  // The real engine is a full UciEngine that also exposes select/setOption.
   new AnalysisSession(engine as unknown as UciEngine, callbacks);
 
 /**
@@ -138,9 +139,6 @@ export class Orchestrator {
   _board: Chess = posFromFen(START_FEN);
   _engineId = 'stockfish';
   _depth: number | null = null;
-  _multipv = 3;
-  _threads: number | null = null;
-  _hash: number | null = null;
   _engineStarted = false;
   _movetimeMs: number | null = DEFAULT_MOVETIME_MS; // ms; null == infinite
 
@@ -205,6 +203,9 @@ export class Orchestrator {
         case 'play_best': this.playBest(cmd.uci); break;
         case 'set_engine': this.setEngine(cmd.id); break;
         case 'set_options': this.setOptions(cmd); break;
+        case 'set_engine_option': this.setEngineOption(cmd.name, cmd.value); break;
+        case 'reset_engine_option': this.resetEngineOption(cmd.name); break;
+        case 'reset_engine_options': this.resetEngineOptions(); break;
         case 'stop': this.stopAnalysis(); break;
         default: this._error(`unknown command: ${(cmd as { type: string }).type}`);
       }
@@ -343,31 +344,35 @@ export class Orchestrator {
     this._restart();
   }
 
-  setOptions(cmd: {
-    depth?: number;
-    multipv?: number;
-    threads?: number;
-    hash?: number;
-    movetime?: number | null;
-  }): void {
+  setOptions(cmd: { depth?: number; movetime?: number | null }): void {
     let depth = this._depth;
-    let multipv = this._multipv;
     if (cmd.depth != null) depth = cmd.depth;
-    if (cmd.multipv != null) multipv = cmd.multipv;
-    const threads = cmd.threads;
-    const hash = cmd.hash;
-    this._session.stop(); // join the prior worker before mutating shared state
+    this._session.stop();
     this._depth = depth;
-    this._multipv = multipv;
     if ('movetime' in cmd) {
       const mt = cmd.movetime;
       this._movetimeMs = mt === null || mt === 0 || mt === undefined ? null : mt;
     }
-    if (threads != null) this._threads = threads;
-    if (hash != null) this._hash = hash;
-    if ((threads != null || hash != null) && this._engineStarted) {
-      this._engine.configure?.({ threads: this._threads, hash: this._hash });
-    }
+    this._restart();
+  }
+
+  setEngineOption(name: string, value?: string): void {
+    this._session.stop();
+    // Buttons (value === undefined) fire once and are NOT stored; valued options persist.
+    if (value !== undefined) storeSetOption(this._engineId, name, value);
+    if (this._engineStarted) this._engine.setOption?.(name, value);
+    this._restart();
+  }
+
+  resetEngineOption(name: string): void {
+    this._session.stop();
+    storeResetOption(this._engineId, name);
+    this._restart(); // engine default re-applies on the next engine load
+  }
+
+  resetEngineOptions(): void {
+    this._session.stop();
+    storeResetAll(this._engineId);
     this._restart();
   }
 
@@ -552,9 +557,6 @@ export class Orchestrator {
     if (!this._engineStarted && this._engine.select) {
       this._engine.select(this._engineId);
       this._engineStarted = true;
-      if (this._threads !== null || this._hash !== null) {
-        this._engine.configure?.({ threads: this._threads, hash: this._hash });
-      }
     }
     this._session.start(fenOf(this._board), {
       depth: this._depth,

@@ -36,8 +36,10 @@ export type Command =
   | { type: 'make_move'; uci: string }
   | { type: 'undo' }
   | { type: 'set_engine'; id: string }
-  | { type: 'set_options'; depth?: number; multipv?: number; threads?: number;
-      hash?: number; movetime?: number | null }
+  | { type: 'set_options'; depth?: number; movetime?: number | null }
+  | { type: 'set_engine_option'; name: string; value?: string }
+  | { type: 'reset_engine_option'; name: string }
+  | { type: 'reset_engine_options' }
   | { type: 'stop' }
   | { type: 'capture_now' }
   | { type: 'request_region_shot' }
