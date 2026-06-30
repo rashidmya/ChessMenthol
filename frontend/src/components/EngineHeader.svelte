@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import Icon from './Icon.svelte';
   import Switch from './Switch.svelte';
   import EngineSettings from './EngineSettings.svelte';
   import ViewMenu from './ViewMenu.svelte';
@@ -51,14 +52,14 @@
     class:on={open === 'cog'}
     aria-label="Engine settings"
     on:click|stopPropagation={() => (open = open === 'cog' ? null : 'cog')}
-  >&#9881;</button>
+  ><Icon name="Gear" /></button>
   {#if analysisEnabled}
     <button
       class="cog"
       class:on={open === 'menu'}
       aria-label="View options"
       on:click|stopPropagation={() => (open = open === 'menu' ? null : 'menu')}
-    >&#9776;</button>
+    ><Icon name="Hamburger" /></button>
   {/if}
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
   <div class="settings" class:open={open === 'cog'} on:click|stopPropagation on:keydown|stopPropagation>
