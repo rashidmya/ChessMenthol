@@ -22,6 +22,25 @@ export function promotionPiece(fen: string, orig: string, dest: string): 'q' | u
   }
 }
 
+/** The UCI of the move that led to the current position, or null at the start.
+ *  `currentPly` is the cursor into `moveList` (1-based: ply N is moveList[N-1]);
+ *  0 means "before any move" — used to clear the last-move highlight on
+ *  reset/New and when navigated back to the initial position. Out-of-range
+ *  cursors yield null rather than throwing. */
+export function currentLastMoveUci(moveList: { uci: string }[], currentPly: number): string | null {
+  if (currentPly <= 0 || currentPly > moveList.length) return null;
+  return moveList[currentPly - 1]?.uci ?? null;
+}
+
+/** A UCI move as chessground's [orig, dest] square keys, or undefined when there
+ *  is no last move. The promotion suffix is dropped (chessground highlights the
+ *  two squares, not the piece). undefined (not omission) is what clears
+ *  chessground's lastMove — see Board.svelte. */
+export function lastMoveSquares(uci: string | null): [string, string] | undefined {
+  if (!uci) return undefined;
+  return [uci.slice(0, 2), uci.slice(2, 4)];
+}
+
 /** Side to move from a FEN's turn field ('w'/'b'); defaults to white if absent. */
 export function turnColor(fen: string): 'white' | 'black' {
   return fen.split(' ')[1] === 'b' ? 'black' : 'white';

@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { state, errorSeq, regionShot, connect, send } from './lib/engineClient';
   import { buildFen, kingCountOk, castleFromFen } from './lib/edit';
+  import { currentLastMoveUci } from './lib/board';
   import type { CastlingRights } from './lib/edit';
   import { loadViewPrefs, saveViewPrefs } from './lib/viewprefs';
   import type { ViewPrefs } from './lib/viewprefs';
@@ -117,6 +118,10 @@
   // regardless of the view-toggle prefs; they return (per the prefs) when re-enabled.
   $: analysisEnabled = s?.analysisEnabled ?? false;  // off until the first frame (analysis is off by default)
   $: fen = s?.fen ?? 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  // The board's yellow last-move highlight is driven from authoritative state
+  // (the move at the current ply), so it follows navigation and clears on
+  // reset/New — null at the start of a game means "no highlight".
+  $: lastMoveUci = currentLastMoveUci(s?.moveList ?? [], s?.currentPly ?? 0);
   $: if (s?.detectedOrientation && !manualFlip) {
     orientation = s.detectedOrientation as 'white' | 'black';
   }
@@ -129,6 +134,7 @@
       {#if viewPrefs.evalBar && analysisEnabled}<EvalBar evalDto={s?.eval ?? null} {orientation} gameOver={s?.gameOver ?? null} />{/if}
       <div class="board-wrap">
         <Board bind:this={boardComp} {fen} {orientation} {onMove} revertSignal={$errorSeq}
+          lastMove={lastMoveUci}
           lines={s?.lines ?? []} showArrows={viewPrefs.arrows && analysisEnabled}
           {editing} {selectedEditPiece} onEdit={onBoardEdit} />
         {#if !editing}<BoardBadge lastMove={s?.lastMove ?? null} {orientation} />{/if}

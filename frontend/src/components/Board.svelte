@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { Chessground } from '@lichess-org/chessground';
-  import { moveToUci, turnColor, legalDests, promotionPiece } from '../lib/board';
+  import { moveToUci, turnColor, legalDests, promotionPiece, lastMoveSquares } from '../lib/board';
   import { linesToShapes } from '../lib/arrows';
   import { coordsToKey, pieceFromToken } from '../lib/edit';
   import type { LineDto } from '../lib/types';
@@ -15,6 +15,12 @@
   export let onMove: (uci: string) => void = () => {};
   /** Bump this (e.g. on a rejected-move error) to force a re-sync to `fen`. */
   export let revertSignal = 0;
+  /** UCI of the move that led to the current position (or null at the start).
+   *  Drives chessground's yellow last-move highlight from authoritative app
+   *  state, so it follows navigation and clears on reset/New — chessground's own
+   *  internal tracking only updates on a user drag and would otherwise leave a
+   *  stale highlight after an external position change. */
+  export let lastMove: string | null = null;
   export let lines: LineDto[] = [];
   export let showArrows = true;
   export let editing = false;
@@ -66,6 +72,7 @@
       cg = Chessground(el, {
         fen,
         turnColor: turnColor(fen),
+        lastMove: lastMoveSquares(lastMove) as any,
         orientation,
         movable: {
           ...movableConfig(fen, editing),
@@ -98,10 +105,21 @@
   // but not via a drag) leaves turnColor stuck on the wrong side -> the board freezes,
   // because chessground gates dragging on `turnColor === piece.color`.
   $: if (cg) cg.set({ orientation });
-  $: if (cg && !editing) cg.set({ fen, turnColor: turnColor(fen) });
+  // Sync the position AND the last-move highlight together: chessground only
+  // clears its yellow last-move squares when `lastMove` is present in the
+  // config, so `lastMove` must ride along with every fen sync (else a reset /
+  // navigation leaves the previous move highlighted). lastMoveSquares(null)
+  // returns undefined, which chessground reads as "clear it". Kept inline (not
+  // extracted to a helper) so `cg`/`editing` stay syntactic deps of the legacy
+  // `$:` statement — a re-sync must still fire when `editing` flips back off.
+  $: if (cg && !editing) cg.set({ fen, turnColor: turnColor(fen), lastMove: lastMoveSquares(lastMove) as any });
+  // The board editor has no "last move" — clear the highlight on entering edit
+  // so a prior game's yellow squares don't bleed into the setup board. The fen
+  // sync above is `!editing`-gated and so can't do this itself.
+  $: if (cg && editing) cg.set({ lastMove: undefined as any });
   $: forceSync(revertSignal);
   function forceSync(_signal: number): void {
-    if (cg && !editing) cg.set({ fen, turnColor: turnColor(fen) });
+    if (cg && !editing) cg.set({ fen, turnColor: turnColor(fen), lastMove: lastMoveSquares(lastMove) as any });
   }
   // Arrows: recompute on lines / toggle / mode change. Suppressed while editing.
   $: if (cg) cg.setAutoShapes(linesToShapes(lines, showArrows && !editing) as any);
