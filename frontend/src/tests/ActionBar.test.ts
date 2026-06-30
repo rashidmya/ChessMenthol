@@ -10,4 +10,11 @@ describe('ActionBar', () => {
     await fireEvent.click(getByTitle('Next move')); expect(onNavigate).toHaveBeenCalledWith(4);
     await fireEvent.click(getByTitle('Last move')); expect(onNavigate).toHaveBeenCalledWith(5);
   });
+
+  it('emits onNew when the New action is clicked', async () => {
+    const onNew = vi.fn();
+    const { getByText } = render(ActionBar, { props: { currentPly: 0, total: 0, onNavigate: vi.fn(), onNew } });
+    await fireEvent.click(getByText('New'));
+    expect(onNew).toHaveBeenCalled();
+  });
 });
