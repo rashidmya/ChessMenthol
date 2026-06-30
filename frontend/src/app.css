@@ -10,6 +10,26 @@
   src:url('./assets/fonts/chess-figurine.woff2') format('woff2');
   font-display:block;
 }
+/* Lichess UI icon webfont (vendored from lila public/font/lichess.woff2).
+   Glyphs live in the Unicode Private Use Area; names → codepoints in src/lib/licon.ts.
+   Rendered via the [data-icon] rule below (see Icon.svelte). font-display:block so the
+   raw PUA char never flashes before the font loads. */
+@font-face{
+  font-family:'lichess';
+  src:url('./assets/fonts/lichess.woff2') format('woff2');
+  font-display:block;
+}
+[data-icon]::before{
+  font-family:'lichess';
+  content:attr(data-icon);
+  line-height:1;
+  font-weight:normal;
+  font-style:normal;
+  font-variant:normal;
+  text-transform:none;
+  speak:none;
+  -webkit-font-smoothing:antialiased;
+}
 :root{
   --paper:#f1ede3; --paper-2:#faf7f0; --card:#fdfbf6; --ink:#1b1916; --ink-2:#46423a;
   --ink-3:#7d776b; --ink-faint:#a8a193; --keyline:#e0dacb; --keyline-2:#cfc7b3;
