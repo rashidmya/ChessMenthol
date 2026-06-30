@@ -3,6 +3,8 @@
   import { invoke, isTauri } from '@tauri-apps/api/core';
   import { open } from '@tauri-apps/plugin-dialog';
   import { list, add, remove, type EngineRecord } from '../lib/engineRegistry';
+  import { setSchema, clear as clearOptions } from '../lib/engineOptions';
+  import { parseOptions } from '../engine/uciOptions';
 
   export let engineId: string = 'stockfish';
   export let onSetEngine: (id: string) => void = () => {};
@@ -38,6 +40,7 @@
 
   function removeEngine(id: string): void {
     remove(id);
+    clearOptions(id);
     refresh();
     if (id === engineId) onSetEngine('stockfish'); // fall back to bundled
   }
@@ -55,9 +58,12 @@
     if (!path) return; // user cancelled
     validating = true;
     try {
-      const { name } = await invoke<{ name: string }>('engine_validate', { path });
+      const { name, option_lines } = await invoke<{ name: string; option_lines: string[] }>(
+        'engine_probe', { spec: { kind: 'external', path } },
+      );
       const record: EngineRecord = { id: crypto.randomUUID(), name, kind: 'external', path };
       add(record);
+      setSchema(record.id, parseOptions(option_lines));
       refresh();
       onSetEngine(record.id);
     } catch (e) {

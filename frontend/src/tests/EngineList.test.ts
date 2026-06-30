@@ -18,7 +18,7 @@ beforeEach(() => {
   invokeMock.mockReset();
   openMock.mockReset();
   isTauriMock.mockReturnValue(true);
-  invokeMock.mockResolvedValue({ name: 'Komodo 14' });
+  invokeMock.mockResolvedValue({ name: 'Komodo 14', option_lines: ['option name Threads type spin default 1 min 1 max 8'] });
   openMock.mockResolvedValue('/opt/engines/komodo');
 });
 
@@ -48,11 +48,15 @@ describe('EngineList', () => {
     const onSetEngine = vi.fn();
     const { getByText } = render(EngineList, { props: { engineId: 'stockfish', onSetEngine } });
     await fireEvent.click(getByText('+ Add engine'));
-    await vi.waitFor(() => expect(invokeMock).toHaveBeenCalledWith('engine_validate', { path: '/opt/engines/komodo' }));
+    await vi.waitFor(() => expect(invokeMock).toHaveBeenCalledWith(
+      'engine_probe', { spec: { kind: 'external', path: '/opt/engines/komodo' } },
+    ));
     await vi.waitFor(() => expect(onSetEngine).toHaveBeenCalledTimes(1));
     expect(list().some((e) => e.name === 'Komodo 14' && e.path === '/opt/engines/komodo')).toBe(true);
     const newId = onSetEngine.mock.calls[0][0];
     expect(newId).not.toBe('stockfish');
+    const { getSchema } = await import('../lib/engineOptions');
+    expect(getSchema(newId)?.some((o) => o.name === 'Threads')).toBe(true);
   });
 
   it('add failure surfaces an error and adds nothing', async () => {
@@ -97,11 +101,14 @@ describe('EngineList', () => {
 
   it('removing the selected external engine falls back to bundled', async () => {
     const { add } = await import('../lib/engineRegistry');
+    const { setSchema, getSchema } = await import('../lib/engineOptions');
     add({ id: 'ext1', name: 'My Engine', kind: 'external', path: '/opt/x' });
+    setSchema('ext1', [{ name: 'Threads', type: 'spin', default: '1' }] as import('../engine/uciOptions').UciOption[]);
     const onSetEngine = vi.fn();
     const { getByLabelText } = render(EngineList, { props: { engineId: 'ext1', onSetEngine } });
     await fireEvent.click(getByLabelText('Remove My Engine'));
     expect(onSetEngine).toHaveBeenCalledWith('stockfish');
     expect(list().some((e) => e.id === 'ext1')).toBe(false);
+    expect(getSchema('ext1')).toBeNull();
   });
 });
