@@ -9,6 +9,7 @@
       "identifier": "shell:allow-execute",
       "allow": [{ "name": "stockfish", "sidecar": true, "args": true }]
     },
-    "shell:allow-spawn"
+    "shell:allow-spawn",
+    "dialog:allow-open"
   ]
 }
