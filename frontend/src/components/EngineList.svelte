@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
+  import Icon from './Icon.svelte';
   import { invoke, isTauri } from '@tauri-apps/api/core';
   import { open } from '@tauri-apps/plugin-dialog';
   import { list, add, remove, type EngineRecord } from '../lib/engineRegistry';
@@ -84,13 +85,13 @@
         class="pick"
         on:click={() => select(eng.id)}
       >
-        <span class="dot">{eng.id === engineId ? '●' : '○'}</span>
+        <span class="dot"><Icon name={eng.id === engineId ? 'Disc' : 'DiscOutline'} /></span>
         <span class="name">{eng.name}</span>
         {#if eng.kind === 'external'}<span class="path">{eng.path}</span>{/if}
       </button>
       {#if eng.kind === 'external'}
         <button type="button" class="rm" aria-label={`Remove ${eng.name}`} on:click={() => removeEngine(eng.id)}>
-          {'✕'}
+          <Icon name="X" />
         </button>
       {/if}
     </div>
