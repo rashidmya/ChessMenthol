@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from './Icon.svelte';
   export let currentPly: number = 0;
   export let total: number = 0;
   export let onNavigate: (ply: number) => void = () => {};
@@ -7,16 +8,16 @@
 
 <div class="nav">
   <button type="button" class="navbtn" title="First move"
-    on:click={() => onNavigate(0)}>«</button>
+    on:click={() => onNavigate(0)}><Icon name="JumpFirst" /></button>
   <button type="button" class="navbtn" title="Previous move"
-    on:click={() => onNavigate(currentPly - 1)}>‹</button>
+    on:click={() => onNavigate(currentPly - 1)}><Icon name="JumpPrev" /></button>
   <button type="button" class="navbtn" title="Next move"
-    on:click={() => onNavigate(currentPly + 1)}>›</button>
+    on:click={() => onNavigate(currentPly + 1)}><Icon name="JumpNext" /></button>
   <button type="button" class="navbtn" title="Last move"
-    on:click={() => onNavigate(total)}>»</button>
+    on:click={() => onNavigate(total)}><Icon name="JumpLast" /></button>
 </div>
 <div class="acts">
-  <button type="button" class="act" on:click={onNew}><span class="ic">↩</span>New</button>
+  <button type="button" class="act" on:click={onNew}><span class="ic"><Icon name="Reload" /></span>New</button>
 </div>
 
 <style>
