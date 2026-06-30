@@ -1,6 +1,12 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/svelte';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, fireEvent, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
+
+vi.mock('../lib/engineClient', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../lib/engineClient')>();
+  return { ...real, send: vi.fn() };
+});
+
 import App from '../App.svelte';
 import { state } from '../lib/engineClient';
 
@@ -23,30 +29,39 @@ function stateFrame(overrides: Record<string, unknown> = {}) {
   };
 }
 
+/** Render App and click Explore to reach the Analysis screen. */
+async function renderAnalysis() {
+  render(App);
+  await fireEvent.click(screen.getByText('Explore'));
+}
+
 describe('App shell', () => {
   it('mounts without throwing and renders the board', () => {
     render(App);
     expect(screen.getByTestId('board')).toBeTruthy();
   });
 
-  it('renders the analysis card with EngineHeader', () => {
+  it('shows the Home panel at startup', () => {
     render(App);
-    // EngineHeader renders <span class="txt">Analysis</span> unconditionally
+    expect(screen.getByTestId('home-panel')).toBeTruthy();
+  });
+
+  it('renders the analysis card with EngineHeader after Explore', async () => {
+    await renderAnalysis();
     expect(screen.getByText('Analysis')).toBeTruthy();
   });
 
   it('renders the ChessMenthol brand from Header', () => {
     render(App);
-    // Header renders <h1>Chess<i>Menthol</i></h1>; h1 textContent is "ChessMenthol"
     expect(screen.getByRole('heading', { name: /chessMenthol/i })).toBeTruthy();
   });
 });
 
 describe('analysis-disabled gating', () => {
-  beforeEach(() => { localStorage.clear(); state.set(null); });
+  beforeEach(() => { localStorage.clear(); });
 
   it('shows eval bar, engine lines, and move feedback when analysis is enabled and populated', async () => {
-    render(App);
+    await renderAnalysis();
     state.set(stateFrame({ analysisEnabled: true }) as never);
     await tick();
     expect(screen.getByTestId('evalbar')).toBeTruthy();
@@ -57,32 +72,27 @@ describe('analysis-disabled gating', () => {
   });
 
   it('hides the empty engine-lines and move-feedback sections (no empty dividers)', async () => {
-    render(App);
-    // analysis on, but no lines computed yet and no move played yet
+    await renderAnalysis();
     state.set(stateFrame({ analysisEnabled: true, lines: [], lastMove: null }) as never);
     await tick();
     expect(screen.queryByTestId('lines')).toBeNull();
     expect(screen.queryByTestId('feedback-section')).toBeNull();
-    // the eval bar and the move-history section still render
     expect(screen.getByTestId('evalbar')).toBeTruthy();
   });
 
   it('hides eval bar, engine lines, move feedback, and View options when analysis is disabled', async () => {
-    render(App);
+    await renderAnalysis();
     state.set(stateFrame({ analysisEnabled: false }) as never);
     await tick();
     expect(screen.queryByTestId('evalbar')).toBeNull();
     expect(screen.queryByTestId('lines')).toBeNull();
     expect(screen.queryByTestId('movefeedback')).toBeNull();
     expect(screen.queryByRole('button', { name: 'View options' })).toBeNull();
-    // The Analysis switch (to re-enable) and the move history remain.
     expect(screen.getByText('Analysis')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Engine settings' })).toBeTruthy();
   });
 });
 
 describe('toolchain', () => {
-  it('runs vitest', () => {
-    expect(1 + 1).toBe(2);
-  });
+  it('runs vitest', () => { expect(1 + 1).toBe(2); });
 });

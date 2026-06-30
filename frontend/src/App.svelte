@@ -1,13 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { state, lastError, errorSeq, regionShot, connect, send } from './lib/engineClient';
-  import { buildFen, kingCountOk } from './lib/edit';
+  import { state, errorSeq, regionShot, connect, send } from './lib/engineClient';
+  import { buildFen, kingCountOk, castleFromFen } from './lib/edit';
+  import type { CastlingRights } from './lib/edit';
   import { loadViewPrefs, saveViewPrefs } from './lib/viewprefs';
   import type { ViewPrefs } from './lib/viewprefs';
   import Board from './components/Board.svelte';
   import BoardBadge from './components/BoardBadge.svelte';
   import EvalBar from './components/EvalBar.svelte';
-  import EditPalette from './components/EditPalette.svelte';
   import RegionOverlay from './components/RegionOverlay.svelte';
   import Header from './components/Header.svelte';
   import BoardControls from './components/BoardControls.svelte';
@@ -15,21 +15,23 @@
   import Lines from './components/Lines.svelte';
   import MoveFeedback from './components/MoveFeedback.svelte';
   import MoveHistory from './components/MoveHistory.svelte';
-  import SourceControls from './components/SourceControls.svelte';
-  import PositionControls from './components/PositionControls.svelte';
+  import HomePanel from './components/HomePanel.svelte';
+  import EditPanel from './components/EditPanel.svelte';
   import ActionBar from './components/ActionBar.svelte';
   import type { Region } from './lib/region';
   import { hasNativeCapture } from './lib/capture';
 
   let orientation: 'white' | 'black' = 'white';
   let manualFlip = false;
-  let editing = false;
   let selectedEditPiece: string | null = 'P';
+  type Screen = 'home' | 'analysis' | 'edit';
+  let screen: Screen = 'home';
+  // Editor form state (initialized when entering the editor)
+  let editSide: 'white' | 'black' = 'white';
+  let editCastle: CastlingRights = { K: true, Q: true, k: true, q: true };
+  let editFen = '';
   let viewPrefs: ViewPrefs = loadViewPrefs();
   let editError: string | null = null;
-  let committing = false;
-  let lastSeq = 0;
-  let committedPlacement: string | null = null;
   let boardComp: Board;
   const hasCapture = hasNativeCapture(); // true inside Tauri; false in a plain browser
   let pickingRegion = false;
@@ -45,30 +47,67 @@
   onMount(() => { connect(); });
 
   function onFlip() { manualFlip = true; orientation = orientation === 'white' ? 'black' : 'white'; }
-  function onMove(uci: string) { send({ type: 'make_move', uci }); }
+  function onMove(uci: string) {
+    if (screen === 'home') enterAnalysis();
+    send({ type: 'make_move', uci });
+  }
   function onNavigate(i: number) { send({ type: 'navigate', index: i }); }
 
-  function onToggleEdit() {
-    if (!editing) {
-      editError = null;
-      editing = true;
-      return;
-    }
-    const placement = boardComp.getPlacement();
-    if (!kingCountOk(placement)) {
-      editError = 'Need exactly one white and one black king.';
-      return; // stay in edit mode
-    }
+  // ===== Navigation =====
+  function enterAnalysis(): void {
+    screen = 'analysis';
+    send({ type: 'set_analysis_enabled', enabled: true });
+  }
+  function onExplore(): void { enterAnalysis(); }
+  function onStart(text: string): void {
+    const fen = text.trim();
+    if (fen) send({ type: 'set_fen', fen });   // PGN parsing deferred; treated as FEN for now
+    enterAnalysis();
+  }
+  function onNew(): void {
+    screen = 'home';
+    manualFlip = false;
+    send({ type: 'set_analysis_enabled', enabled: false });
+    send({ type: 'reset' });
+  }
+  function onSetUp(): void {
     editError = null;
-    lastSeq = $errorSeq;
-    committedPlacement = placement;
-    committing = true;
-    send({ type: 'set_fen', fen: buildFen(placement, s?.sideToMove ?? 'white') });
-    // Stay in edit mode until the server accepts (placement matches) or rejects.
+    const f = s?.fen ?? 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+    editSide = (s?.sideToMove ?? 'white') as 'white' | 'black';
+    editCastle = castleFromFen(f);
+    editFen = f;
+    selectedEditPiece = 'P';
+    screen = 'edit';
+  }
+  function onEditBack(): void { screen = 'home'; editError = null; }
+
+  // ===== Editor form handlers =====
+  function rebuildEditFen(): void {
+    editFen = buildFen(boardComp.getPlacement(), editSide, editCastle);
+  }
+  function onEditSide(white: boolean): void { editSide = white ? 'white' : 'black'; rebuildEditFen(); }
+  function onToggleCastle(key: keyof CastlingRights): void {
+    editCastle = { ...editCastle, [key]: !editCastle[key] };
+    rebuildEditFen();
+  }
+  function onBoardEdit(_placement: string): void { rebuildEditFen(); }
+  function onEditFenInput(text: string): void { editFen = text; }
+  function onEditReset(): void {
+    boardComp.setPlacement('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR');
+    rebuildEditFen();
+  }
+  function onEditClear(): void { boardComp.setPlacement('8/8/8/8/8/8/8/8'); rebuildEditFen(); }
+  function onEditLoad(): void {
+    const placement = boardComp.getPlacement();
+    if (!kingCountOk(placement)) { editError = 'Need exactly one white and one black king.'; return; }
+    editError = null;
+    send({ type: 'set_fen', fen: editFen });
+    enterAnalysis();
   }
   function onSelectPiece(tok: string) { selectedEditPiece = tok; }
 
   $: s = $state;
+  $: editing = screen === 'edit';
   // When analysis is off, the analysis-derived surfaces (eval bar, engine lines,
   // suggestion arrows, move feedback) and the View-options menu are hidden entirely,
   // regardless of the view-toggle prefs; they return (per the prefs) when re-enabled.
@@ -76,14 +115,6 @@
   $: fen = s?.fen ?? 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
   $: if (s?.detectedOrientation && !manualFlip) {
     orientation = s.detectedOrientation as 'white' | 'black';
-  }
-  // Server rejected the commit -> stay in edit mode so the fix isn't lost.
-  $: if (committing && $errorSeq !== lastSeq) {
-    committing = false; editing = true; editError = $lastError; committedPlacement = null;
-  }
-  // Server accepted -> a state frame whose placement matches our committed placement.
-  $: if (committing && s && s.fen.split(' ')[0] === committedPlacement) {
-    committing = false; editing = false; committedPlacement = null;
   }
 </script>
 
@@ -94,78 +125,73 @@
       {#if viewPrefs.evalBar && analysisEnabled}<EvalBar evalDto={s?.eval ?? null} {orientation} gameOver={s?.gameOver ?? null} />{/if}
       <div class="board-wrap">
         <Board bind:this={boardComp} {fen} {orientation} {onMove} revertSignal={$errorSeq}
-          lines={s?.lines ?? []} showArrows={viewPrefs.arrows && analysisEnabled} {editing} {selectedEditPiece} />
+          lines={s?.lines ?? []} showArrows={viewPrefs.arrows && analysisEnabled}
+          {editing} {selectedEditPiece} onEdit={onBoardEdit} />
         {#if !editing}<BoardBadge lastMove={s?.lastMove ?? null} {orientation} />{/if}
         <BoardControls sideToMove={s?.sideToMove ?? 'white'}
           onSetTurn={(white) => send({ type: 'set_turn', white })} onFlip={onFlip} />
       </div>
-      {#if editing}<EditPalette selected={selectedEditPiece} onSelect={onSelectPiece} />{/if}
-      {#if editError}<div class="err" role="alert" data-testid="edit-error">{editError}</div>{/if}
     </div>
     <div class="panel">
-      <section class="card">
-        <!-- 1. Engine header + engine lines (one section) -->
-        <!-- NOTE: EngineSettings search-time slider defaults to index 2 (10s), which already
-             matches the backend default movetime (10s). Initializing the slider from s.movetime
-             is deliberately deferred — defaults align and no prop plumbing is needed yet. -->
-        <div class="sec">
-          <EngineHeader
-            {analysisEnabled}
-            analyzing={s?.analyzing ?? false}
-            depth={s?.depth ?? 0}
-            engineId={s?.engineId ?? 'stockfish'}
-            onCommand={send}
-            onSetEngine={(id) => send({ type: 'set_engine', id })}
-            prefs={viewPrefs}
-            onToggle={onToggleView} />
-          {#if viewPrefs.lines && analysisEnabled && (s?.lines?.length ?? 0) > 0}
-            <div class="bd">
-              {#key s?.fen}
-                <Lines lines={s?.lines ?? []} />
-              {/key}
+      {#if screen === 'home'}
+        <HomePanel hasCapture={hasCapture} onSetUp={onSetUp} onExplore={onExplore}
+          onCapture={onPickRegion} onStart={onStart} />
+      {:else if screen === 'edit'}
+        <EditPanel fen={editFen} side={editSide} castle={editCastle} selected={selectedEditPiece}
+          editError={editError}
+          onSelect={onSelectPiece} onSide={onEditSide} onToggleCastle={onToggleCastle}
+          onFlip={onFlip} onReset={onEditReset} onClear={onEditClear}
+          onFenInput={onEditFenInput} onLoad={onEditLoad} onBack={onEditBack} />
+      {:else}
+        <section class="card" data-testid="analysis-card">
+          <!-- 1. Engine header + engine lines (one section) -->
+          <!-- NOTE: EngineSettings search-time slider defaults to index 2 (10s), which already
+               matches the backend default movetime (10s). Initializing the slider from s.movetime
+               is deliberately deferred — defaults align and no prop plumbing is needed yet. -->
+          <div class="sec">
+            <EngineHeader
+              {analysisEnabled}
+              analyzing={s?.analyzing ?? false}
+              depth={s?.depth ?? 0}
+              engineId={s?.engineId ?? 'stockfish'}
+              onCommand={send}
+              onSetEngine={(id) => send({ type: 'set_engine', id })}
+              prefs={viewPrefs}
+              onToggle={onToggleView} />
+            {#if viewPrefs.lines && analysisEnabled && (s?.lines?.length ?? 0) > 0}
+              <div class="bd">
+                {#key s?.fen}
+                  <Lines lines={s?.lines ?? []} />
+                {/key}
+              </div>
+            {/if}
+          </div>
+
+          <!-- 2. Move feedback — hidden until there's a move to describe, so no empty divider -->
+          {#if viewPrefs.feedback && analysisEnabled && s?.lastMove}
+            <div class="sec" data-testid="feedback-section">
+              <div class="bd">
+                <MoveFeedback lastMove={s?.lastMove ?? null}
+                  onPlayBest={(uci) => send({ type: 'play_best', uci })}
+                  gameOver={s?.gameOver ?? null} />
+              </div>
             </div>
           {/if}
-        </div>
 
-        <!-- 2. Move feedback — hidden until there's a move to describe, so no empty divider -->
-        {#if viewPrefs.feedback && analysisEnabled && s?.lastMove}
-          <div class="sec" data-testid="feedback-section">
-            <div class="bd">
-              <MoveFeedback lastMove={s?.lastMove ?? null}
-                onPlayBest={(uci) => send({ type: 'play_best', uci })}
-                gameOver={s?.gameOver ?? null} />
-            </div>
+          <!-- 3. Move history (renders its own .movehist-sec; wrap in a growing .sec
+               so the history list absorbs the card's remaining height and scrolls) -->
+          <div class="sec grow">
+            <MoveHistory moveList={s?.moveList ?? []} currentPly={s?.currentPly ?? 0}
+              {onNavigate} />
           </div>
-        {/if}
 
-        <!-- 3. Move history (renders its own .movehist-sec; wrap in a growing .sec
-             so the history list absorbs the card's remaining height and scrolls) -->
-        <div class="sec grow">
-          <MoveHistory moveList={s?.moveList ?? []} currentPly={s?.currentPly ?? 0}
-            {onNavigate} />
-        </div>
-
-        <!-- 4. Source controls (Phase 2 / Tauri only — hidden in Phase 1b pure-web) -->
-        {#if hasCapture}
-        <div class="sec">
-          <SourceControls region={s?.region ?? null}
-            visionStatus={s?.visionStatus ?? 'idle'}
-            lowConfidence={s?.lowConfidence ?? []}
-            onCommand={send} onPickRegion={onPickRegion} />
-        </div>
-        {/if}
-
-        <!-- 5. Position controls -->
-        <div class="sec">
-          <PositionControls editing={editing} onCommand={send} onToggleEdit={onToggleEdit} />
-        </div>
-
-        <!-- 6. Action bar -->
-        <div class="sec">
-          <ActionBar currentPly={s?.currentPly ?? 0} total={s?.moveList?.length ?? 0}
-            {onNavigate} />
-        </div>
-      </section>
+          <!-- 4. Action bar -->
+          <div class="sec">
+            <ActionBar currentPly={s?.currentPly ?? 0} total={s?.moveList?.length ?? 0}
+              {onNavigate} onNew={onNew} />
+          </div>
+        </section>
+      {/if}
     </div>
   </main>
   {#if pickingRegion && hasCapture}
@@ -231,11 +257,6 @@
   /* Only the move-history section grows to absorb the card's remaining height,
      letting its inner .movehist-sec (flex:1) and .movehist (overflow-y:auto) scroll. */
   .grow { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-
-  .err {
-    color: var(--blun);
-    font-size: 12px;
-  }
 
   @keyframes rise {
     from { opacity: 0; transform: translateY(9px); }
