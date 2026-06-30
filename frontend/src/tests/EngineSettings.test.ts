@@ -16,11 +16,3 @@ it('emits set_options for lines / search-time / threads / memory and set_engine'
   expect(onCommand).toHaveBeenCalledWith({ type: 'set_options', hash: 512 });
 });
 
-it('changing the engine select calls onSetEngine', async () => {
-  const onCommand = vi.fn(); const onSetEngine = vi.fn();
-  const { getByRole } = render(EngineSettings, { props: { engineId: 'stockfish', onCommand, onSetEngine } });
-  const select = getByRole('combobox') as HTMLSelectElement;
-  select.value = 'stockfish_lite';
-  await fireEvent.change(select);
-  expect(onSetEngine).toHaveBeenCalledWith('stockfish_lite');
-});

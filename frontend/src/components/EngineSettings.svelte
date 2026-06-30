@@ -1,7 +1,8 @@
 <script lang="ts">
   import RangeSlider from './RangeSlider.svelte';
+  import EngineList from './EngineList.svelte';
   import {
-    ENGINES, MEMORY_MB, SEARCH_TIMES,
+    MEMORY_MB, SEARCH_TIMES,
     DEFAULT_LINES, DEFAULT_SEARCH_INDEX, DEFAULT_THREADS, DEFAULT_MEMORY_INDEX,
   } from '../lib/options';
   import type { Command } from '../lib/types';
@@ -18,13 +19,9 @@
   let mem = DEFAULT_MEMORY_INDEX;
 </script>
 
-<div class="set-row">
+<div class="set-col">
   <span class="k">Engine</span>
-  <select class="sel" on:change={(e) => onSetEngine((e.target as HTMLSelectElement).value)}>
-    {#each ENGINES as eng}
-      <option value={eng.id} selected={eng.id === engineId}>{eng.label}</option>
-    {/each}
-  </select>
+  <EngineList {engineId} {onSetEngine} />
 </div>
 <div class="set-row">
   <span class="k">Lines</span>
@@ -61,7 +58,9 @@
   .set-row { display: flex; align-items: center; gap: 10px; }
   .set-row .k { flex: none; width: 60px; font-family: var(--mono); font-size: 9.5px;
     letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); line-height: 1.25; }
-  .set-row .sel { flex: 1; font-family: var(--sans); font-weight: 600; font-size: 12px;
-    color: var(--ink); background: var(--paper-2); border: 1px solid var(--keyline-2);
-    border-radius: 6px; padding: 8px 11px; cursor: pointer; }
+  .set-col { display: flex; flex-direction: column; gap: 8px; }
+  /* Column-layout label: same type treatment as .set-row .k, minus the fixed
+     width/flex used for the horizontal row alignment. */
+  .set-col .k { font-family: var(--mono); font-size: 9.5px;
+    letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); line-height: 1.25; }
 </style>
