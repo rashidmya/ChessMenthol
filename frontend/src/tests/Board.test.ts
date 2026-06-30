@@ -16,4 +16,15 @@ describe('Board', () => {
     } as any);
     expect(screen.getByTestId('board')).toBeTruthy();
   });
+
+  it('exposes setPlacement and accepts an onEdit prop without throwing', () => {
+    const onEdit = () => {};
+    const { component } = render(Board, {
+      fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      orientation: 'white', editing: true, selectedEditPiece: 'P', onEdit,
+    } as any);
+    // setPlacement is a no-op when chessground failed to init (jsdom), but must exist and not throw.
+    expect(typeof (component as any).setPlacement).toBe('function');
+    (component as any).setPlacement('8/8/8/8/8/8/8/8');
+  });
 });

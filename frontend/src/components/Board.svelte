@@ -19,6 +19,8 @@
   export let showArrows = true;
   export let editing = false;
   export let selectedEditPiece: string | null = 'P';
+  /** Called with the new placement field after each free edit (palette/right-click). */
+  export let onEdit: (placement: string) => void = () => {};
 
   type CgApi = ReturnType<typeof Chessground>;
   let el: HTMLDivElement;
@@ -27,6 +29,11 @@
   /** Current placement field, for committing an edit. */
   export function getPlacement(): string {
     return cg ? cg.getFen() : fen.split(' ')[0];
+  }
+
+  /** Force the board to a placement even while editing (used by reset/clear). */
+  export function setPlacement(placement: string): void {
+    cg?.set({ fen: placement });
   }
 
   /** chessground movable config: legal-only for the side to move in normal play
@@ -42,6 +49,7 @@
     if (!cg || !editing || !selectedEditPiece) return;
     const piece = selectedEditPiece === 'trash' ? undefined : pieceFromToken(selectedEditPiece);
     cg.setPieces(new Map([[key as any, piece as any]]));
+    onEdit(cg.getFen());
   }
 
   function onContextMenu(ev: MouseEvent): void {
@@ -50,6 +58,7 @@
     const r = el.getBoundingClientRect();
     const key = coordsToKey(ev.clientX - r.left, ev.clientY - r.top, r.width, r.height, orientation);
     cg.setPieces(new Map([[key as any, undefined as any]]));
+    onEdit(cg.getFen());
   }
 
   onMount(() => {
