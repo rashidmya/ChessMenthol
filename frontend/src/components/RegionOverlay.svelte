@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { RegionShotFrame } from '../lib/types';
   import { toDesktopRegion, type Region } from '../lib/region';
+  import Icon from './Icon.svelte';
   export let shot: RegionShotFrame | null = null;
   export let onConfirm: (r: Region) => void = () => {};
   export let onCancel: () => void = () => {};
@@ -60,7 +61,7 @@
 
 <div class="overlay" data-testid="region-overlay">
   <div class="bar">
-    <span>◉ Drag a box over the chess board</span>
+    <span><Icon name="Target" /> Drag a box over the chess board</span>
     <button data-testid="overlay-use" on:click={confirmRegion}>Use region</button>
     <button data-testid="overlay-cancel" class="ghost" on:click={onCancel}>Cancel</button>
   </div>
