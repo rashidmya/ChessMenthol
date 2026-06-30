@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { LineDto } from '../lib/types';
+  import Icon from './Icon.svelte';
   export let lines: LineDto[] = [];
   // Per-multipv expand state. Resetting expansion across positions is the
   // parent's job, not ours: F10 keys <Lines> by FEN so a new position remounts
@@ -25,8 +26,7 @@
         title={open.has(l.multipv) ? 'Collapse line' : 'Show full line'}
         on:click={() => toggle(l.multipv)}
       >
-        <svg class="ic-down" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M5.8 9.7L12 16l6.2-6.3c.2-.2.3-.5.3-.7s-.1-.5-.3-.7s-.4-.3-.7-.3h-11c-.3 0-.5.1-.7.3s-.3.4-.3.7s.1.5.3.7" /></svg>
-        <svg class="ic-up" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M18.2 13.3L12 7l-6.2 6.3c-.2.2-.3.5-.3.7s.1.5.3.7s.4.3.7.3h11c.3 0 .5-.1.7-.3s.3-.5.3-.7s-.1-.5-.3-.7" /></svg>
+        <Icon name={open.has(l.multipv) ? 'UpTriangle' : 'DownTriangle'} />
       </button>
     </div>
   {/each}
@@ -44,12 +44,9 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .line.open .pv { white-space: normal; overflow: visible; text-overflow: clip; }
   .lexp { display: grid; place-items: center; width: 22px; height: 22px; padding: 0;
-    border: none; background: transparent; cursor: pointer; color: #a8a193; transition: .14s; }
+    border: none; background: transparent; cursor: pointer; color: #a8a193;
+    font-size: 15px; transition: .14s; }
   .lexp:hover { color: #3d7a4c; }
-  .lexp svg { width: 15px; height: 15px; display: block; }
-  .lexp .ic-up { display: none; }
-  .line.open .lexp .ic-down { display: none; }
-  .line.open .lexp .ic-up { display: block; }
   .line.pos .sc { background: #f7f4ec; color: #1b1916; border: 1px solid #cfc7b3; }
   .line.neg .sc { background: #2b2723; color: #f4f1ea; border: 1px solid #46413a; }
 </style>
