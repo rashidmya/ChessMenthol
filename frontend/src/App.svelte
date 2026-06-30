@@ -134,8 +134,10 @@
   <Header />
   <main>
     <div class="board-col">
-      {#if viewPrefs.evalBar && analysisEnabled}<EvalBar evalDto={s?.eval ?? null} {orientation} gameOver={s?.gameOver ?? null} />{/if}
       <div class="board-wrap">
+        {#if viewPrefs.evalBar && analysisEnabled}
+          <div class="evalbar-slot"><EvalBar evalDto={s?.eval ?? null} {orientation} gameOver={s?.gameOver ?? null} /></div>
+        {/if}
         <Board bind:this={boardComp} {fen} {orientation} {onMove} revertSignal={$errorSeq}
           lastMove={lastMoveUci}
           lines={s?.lines ?? []} showArrows={viewPrefs.arrows && analysisEnabled}
@@ -239,7 +241,6 @@
   /* ===== board column ===== */
   .board-col {
     display: flex;
-    gap: 10px;
     flex: none;
     align-self: flex-start;
     animation: rise .55s .05s ease both;
@@ -248,6 +249,22 @@
   .board-wrap {
     position: relative;
     width: var(--bsize);
+  }
+
+  /* The eval bar sits to the LEFT of the board, but it's taken out of flow so it never
+     widens .board-col. That's what keeps the board fixed in place when the bar toggles
+     on/off (otherwise the center-justified board+panel group shifts right). Pure
+     positioning: anchored to the board-wrap's top-left and translated fully left — its
+     own width plus a 10px gap — so it pokes into the whitespace left of the header
+     divider. The bar's height is var(--bsize) (set in EvalBar), which is exactly the
+     board's height: the board is an aspect-ratio:1/1 square filling .board-wrap, whose
+     width is var(--bsize). (top:0 aligns it to the board, not the taller .board-wrap,
+     which also contains the BoardControls below the board.) */
+  .evalbar-slot {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform: translateX(calc(-100% - 10px));
   }
 
   /* ===== right panel ===== */
@@ -262,7 +279,7 @@
     background: var(--card);
     border: 1px solid var(--keyline);
     border-radius: 7px;
-    box-shadow: 0 1px 0 #fff inset, 0 12px 30px -24px rgba(40,30,15,.45);
+    box-shadow: 0 .1rem .1rem 0 rgba(0, 0, 0, .2);
     animation: rise .55s ease both;
     display: flex;
     flex-direction: column;
