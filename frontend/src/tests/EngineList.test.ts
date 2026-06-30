@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
+import { tick } from 'svelte';
 
 const { invokeMock, openMock, isTauriMock } = vi.hoisted(() => ({
   invokeMock: vi.fn(async (..._a: unknown[]) => ({ name: 'Komodo 14' })),
@@ -63,6 +64,24 @@ describe('EngineList', () => {
     expect(alert.textContent).toMatch(/isn't a working UCI engine/i);
     expect(onSetEngine).not.toHaveBeenCalled();
     expect(list()).toHaveLength(1); // only bundled
+  });
+
+  it('auto-dismisses the add error after a few seconds', async () => {
+    vi.useFakeTimers();
+    try {
+      invokeMock.mockRejectedValue('not a uci engine');
+      const { getByText, queryByRole } = render(EngineList, { props: { engineId: 'stockfish', onSetEngine: vi.fn() } });
+      await fireEvent.click(getByText('+ Add engine'));
+      // Flush the async add flow (open → invoke reject → catch) so the alert renders.
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+      await tick();
+      expect(queryByRole('alert')).not.toBeNull();
+      // The error clears itself once the auto-dismiss timer elapses.
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(queryByRole('alert')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('cancelling the picker adds nothing', async () => {

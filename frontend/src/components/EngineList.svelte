@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import { invoke, isTauri } from '@tauri-apps/api/core';
   import { open } from '@tauri-apps/plugin-dialog';
   import { list, add, remove, type EngineRecord } from '../lib/engineRegistry';
@@ -6,14 +7,30 @@
   export let engineId: string = 'stockfish';
   export let onSetEngine: (id: string) => void = () => {};
 
+  // How long an add error stays visible before auto-dismissing.
+  const ADD_ERROR_TIMEOUT_MS = 3000;
+
   // Local snapshot of the registry; refreshed after add/remove.
   let engines: EngineRecord[] = list();
   let validating = false;
   let addError: string | null = null;
+  let addErrorTimer: ReturnType<typeof setTimeout> | null = null;
   // "+ Add engine" and external engines are Tauri-only (native picker + spawn).
   const canAdd = isTauri();
 
   function refresh(): void { engines = list(); }
+
+  // Show (or clear) the add error, auto-dismissing it after ADD_ERROR_TIMEOUT_MS so a
+  // stale failure message doesn't linger. Any pending dismiss is reset first.
+  function setAddError(msg: string | null): void {
+    if (addErrorTimer !== null) { clearTimeout(addErrorTimer); addErrorTimer = null; }
+    addError = msg;
+    if (msg !== null) {
+      addErrorTimer = setTimeout(() => { addError = null; addErrorTimer = null; }, ADD_ERROR_TIMEOUT_MS);
+    }
+  }
+
+  onDestroy(() => { if (addErrorTimer !== null) clearTimeout(addErrorTimer); });
 
   function select(id: string): void {
     if (id !== engineId) onSetEngine(id);
@@ -26,13 +43,13 @@
   }
 
   async function addEngine(): Promise<void> {
-    addError = null;
+    setAddError(null);
     let path: string | null;
     try {
       const picked = await open({ multiple: false, directory: false, title: 'Choose a UCI engine' });
       path = typeof picked === 'string' ? picked : null;
     } catch (e) {
-      addError = `couldn't open the file picker: ${e instanceof Error ? e.message : String(e)}`;
+      setAddError(`couldn't open the file picker: ${e instanceof Error ? e.message : String(e)}`);
       return;
     }
     if (!path) return; // user cancelled
@@ -44,7 +61,7 @@
       refresh();
       onSetEngine(record.id);
     } catch (e) {
-      addError = `${path} isn't a working UCI engine (${e instanceof Error ? e.message : String(e)})`;
+      setAddError(`${path} isn't a working UCI engine (${e instanceof Error ? e.message : String(e)})`);
     } finally {
       validating = false;
     }
