@@ -3,7 +3,11 @@
 //! user-provided external binary, writes UCI lines to its stdin, and streams stdout
 //! lines to the frontend over an ipc::Channel. One engine at a time (held in
 //! EngineState).
+use std::io::{BufRead, BufReader, Write};
+use std::process::{Command, Stdio};
+use std::sync::mpsc;
 use std::sync::Mutex;
+use std::time::Duration;
 
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager, State};
@@ -112,4 +116,72 @@ pub fn engine_stop(state: State<'_, EngineState>) -> Result<(), String> {
         let _ = child.kill();
     }
     Ok(())
+}
+
+/// The engine's reported `id name …`, returned to JS by `engine_validate`.
+#[derive(serde::Serialize)]
+pub struct EngineName {
+    pub name: String,
+}
+
+/// Validate a UCI engine binary: spawn it, send `uci`, and read stdout until
+/// `uciok` (or timeout). Returns the engine's reported `id name …` so the
+/// frontend can label it in the registry. Used by "+ Add engine" before adding.
+#[tauri::command]
+pub fn engine_validate(path: String) -> Result<EngineName, String> {
+    validate_engine(&path, Duration::from_secs(10)).map(|name| EngineName { name })
+}
+
+/// Core of `engine_validate`, timeout-parameterized so unit tests can exercise
+/// the timeout branch quickly. Returns the `id name` text on success.
+fn validate_engine(path: &str, timeout: Duration) -> Result<String, String> {
+    let mut child = Command::new(path)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|e| format!("spawn {path}: {e}"))?;
+
+    child
+        .stdin
+        .as_mut()
+        .ok_or("no stdin")?
+        .write_all(b"uci\n")
+        .map_err(|e| format!("write: {e}"))?;
+
+    // Read stdout on a worker thread and report over a channel, so the caller can
+    // enforce a timeout: an engine that never handshakes must not hang us. After
+    // we kill the child below its stdout closes, the BufReader hits EOF, and the
+    // detached thread exits.
+    let stdout = child.stdout.take().ok_or("no stdout")?;
+    let (tx, rx) = mpsc::channel::<Result<String, String>>();
+    std::thread::spawn(move || {
+        let mut name: Option<String> = None;
+        for line in BufReader::new(stdout).lines() {
+            let line = match line {
+                Ok(l) => l,
+                Err(_) => break,
+            };
+            let line = line.trim();
+            if let Some(rest) = line.strip_prefix("id name ") {
+                let trimmed = rest.trim();
+                if !trimmed.is_empty() {
+                    name = Some(trimmed.to_string());
+                }
+            }
+            if line == "uciok" {
+                let _ = tx.send(Ok(name.unwrap_or_else(|| "UCI engine".to_string())));
+                return;
+            }
+        }
+        let _ = tx.send(Err("engine exited before announcing uciok".to_string()));
+    });
+
+    let outcome = rx.recv_timeout(timeout);
+    let _ = child.kill();
+    let _ = child.wait();
+    match outcome {
+        Ok(result) => result,
+        Err(_) => Err("engine did not respond to `uci` in time".to_string()),
+    }
 }
