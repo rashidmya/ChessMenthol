@@ -25,8 +25,21 @@ function save<T>(key: string, obj: Record<string, T>): void {
 export function getSchema(id: string): UciOption[] | null {
   return load<UciOption[]>(SCHEMA_KEY)[id] ?? null;
 }
+
+type SchemaListener = (id: string) => void;
+const schemaListeners = new Set<SchemaListener>();
+
+/** Subscribe to schema-cache updates. Returns an unsubscribe fn. Fires with the engine
+ *  id whenever its schema is (re)cached via setSchema — lets a mounted options form
+ *  refresh when the wasm engine's schema is captured on first analysis load (web parity). */
+export function onSchemaChange(cb: SchemaListener): () => void {
+  schemaListeners.add(cb);
+  return () => { schemaListeners.delete(cb); };
+}
+
 export function setSchema(id: string, schema: UciOption[]): void {
   const all = load<UciOption[]>(SCHEMA_KEY); all[id] = schema; save(SCHEMA_KEY, all);
+  for (const cb of schemaListeners) cb(id);
 }
 export function getOverrides(id: string): Record<string, string> {
   return load<Record<string, string>>(OVERRIDES_KEY)[id] ?? {};

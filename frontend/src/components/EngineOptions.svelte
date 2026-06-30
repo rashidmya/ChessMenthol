@@ -1,7 +1,8 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import type { Command } from '../lib/types';
   import type { UciOption } from '../engine/uciOptions';
-  import { ensureSchema, getSchema, effectiveValues, setOption, resetOption, resetAll } from '../lib/engineOptions';
+  import { ensureSchema, getSchema, effectiveValues, setOption, resetOption, resetAll, onSchemaChange } from '../lib/engineOptions';
 
   export let engineId: string = 'stockfish';
   export let onCommand: (cmd: Command) => void = () => {};
@@ -30,6 +31,13 @@
   let lastId = '';
   $: void reloadFor(engineId);
   async function reloadFor(id: string): Promise<void> { if (id !== lastId) { lastId = id; await load(id); } }
+
+  // Subscribe to schema-cache updates so the form auto-populates when the wasm engine's
+  // schema is captured on first analysis load in a plain browser (web parity fix).
+  // On desktop, engine_probe populates the schema on mount, so this fires redundantly
+  // at most once but is idempotent (re-reads the same data, preserves overrides).
+  const unsubscribeSchema = onSchemaChange((id) => { if (id === engineId) void load(engineId); });
+  onDestroy(unsubscribeSchema);
 
   function clampSpin(o: UciOption, raw: string): string {
     let n = parseInt(raw, 10);

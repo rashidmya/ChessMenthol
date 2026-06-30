@@ -97,4 +97,21 @@ describe('EngineOptions', () => {
     const { findByText } = render(EngineOptions, { props: { engineId: 'stockfish', onCommand: vi.fn() } });
     expect(await findByText(/options unavailable/i)).toBeTruthy();
   });
+
+  it('refreshes from "options unavailable" when the schema is cached later (web)', async () => {
+    isTauriMock.mockReturnValue(false); // browser: ensureSchema returns [] initially
+    const { findByText, findByLabelText } = render(EngineOptions, { props: { engineId: 'stockfish', onCommand: vi.fn() } });
+    expect(await findByText(/options unavailable/i)).toBeTruthy();   // initially empty
+    setSchema('stockfish', schema as never);                         // controller caches wasm schema later
+    expect(await findByLabelText('Threads')).toBeTruthy();           // form auto-populates, no remount/reload
+  });
+
+  it('does not refresh when a different engine schema is cached', async () => {
+    isTauriMock.mockReturnValue(false);
+    const { findByText, queryByLabelText } = render(EngineOptions, { props: { engineId: 'stockfish', onCommand: vi.fn() } });
+    expect(await findByText(/options unavailable/i)).toBeTruthy();
+    setSchema('viridithas', schema as never); // different engine id — must not fire this form's reload
+    await new Promise((r) => setTimeout(r, 30));
+    expect(queryByLabelText('Threads')).toBeNull(); // still unavailable; no Threads control rendered
+  });
 });

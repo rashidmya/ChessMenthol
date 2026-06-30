@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   getSchema, setSchema, getOverrides, setOption, resetOption, resetAll,
-  effectiveValues, clear, SCHEMA_KEY, OVERRIDES_KEY,
+  effectiveValues, clear, onSchemaChange, SCHEMA_KEY, OVERRIDES_KEY,
 } from '../lib/engineOptions';
 import type { UciOption } from '../engine/uciOptions';
 
@@ -63,5 +63,19 @@ describe('engineOptions', () => {
     localStorage.setItem(SCHEMA_KEY, '{bad'); localStorage.setItem(OVERRIDES_KEY, '{bad');
     expect(getSchema('e1')).toBeNull();
     expect(getOverrides('e1')).toEqual({});
+  });
+
+  it('onSchemaChange fires on setSchema and unsubscribe stops it', () => {
+    const ids: string[] = [];
+    const unsub = onSchemaChange((id) => ids.push(id));
+    try {
+      setSchema('e1', schema);
+      expect(ids).toEqual(['e1']);
+      unsub();
+      setSchema('e2', schema);
+      expect(ids).toEqual(['e1']); // no further notifications after unsubscribe
+    } finally {
+      unsub(); // idempotent (Set.delete of a missing element is a no-op)
+    }
   });
 });
