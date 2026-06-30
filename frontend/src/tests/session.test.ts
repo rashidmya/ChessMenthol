@@ -45,12 +45,11 @@ function makeSession(eng: UciEngine, now: () => number, onUpdate: (a: AnalysisIn
 }
 
 describe('AnalysisSession launch', () => {
-  it('launches with setoption MultiPV, position, then go (no isready barrier)', () => {
+  it('launches with position then go (no isready barrier, no MultiPV setoption)', () => {
     const eng = new FakeEngine();
     const s = makeSession(eng, () => 0, () => {});
-    s.start(START_FEN, { depth: 18, multipv: 3, timeMs: null });
+    s.start(START_FEN, { depth: 18, timeMs: null });
     expect(eng.sent).toEqual([
-      'setoption name MultiPV value 3',
       `position fen ${START_FEN}`,
       'go depth 18',
     ]);
@@ -63,7 +62,7 @@ describe('AnalysisSession streaming + throttle', () => {
     let t = 0;
     const updates: AnalysisInfo[] = [];
     const s = makeSession(eng, () => t, (a) => updates.push(a));
-    s.start(START_FEN, { depth: 30, multipv: 2, timeMs: null });
+    s.start(START_FEN, { depth: 30, timeMs: null });
 
     t = 0;   eng.emit('info depth 10 multipv 1 score cp 20 pv e2e4');   // first -> emit
     t = 50;  eng.emit('info depth 10 multipv 2 score cp 10 pv d2d4');   // within window -> held
@@ -82,7 +81,7 @@ describe('AnalysisSession streaming + throttle', () => {
     const updates: AnalysisInfo[] = [];
     const done = vi.fn();
     const s = makeSession(eng, () => t, (a) => updates.push(a), done);
-    s.start(START_FEN, { depth: 5, multipv: 1, timeMs: null });
+    s.start(START_FEN, { depth: 5, timeMs: null });
 
     t = 0;  eng.emit('info depth 4 multipv 1 score cp 12 pv e2e4'); // emitted
     t = 10; eng.emit('info depth 5 multipv 1 score cp 15 pv e2e4'); // held (within window)
@@ -97,7 +96,7 @@ describe('AnalysisSession streaming + throttle', () => {
     const eng = new FakeEngine();
     const updates: AnalysisInfo[] = [];
     const s = makeSession(eng, () => 1000, (a) => updates.push(a));
-    s.start(START_FEN, { depth: 5, multipv: 1, timeMs: null });
+    s.start(START_FEN, { depth: 5, timeMs: null });
     eng.emit('info string hello');
     eng.emit('info depth 1 currmove e2e4 currmovenumber 1');
     expect(updates).toHaveLength(0);
@@ -110,7 +109,7 @@ describe('AnalysisSession cancellation', () => {
     const updates: AnalysisInfo[] = [];
     const done = vi.fn();
     const s = makeSession(eng, () => 1000, (a) => updates.push(a), done);
-    s.start(START_FEN, { depth: 30, multipv: 1, timeMs: null });
+    s.start(START_FEN, { depth: 30, timeMs: null });
     eng.emit('info depth 10 multipv 1 score cp 5 pv e2e4');
     s.stop();                       // engine emits the stopped search's bestmove -> drained to idle
     expect(eng.last()).toBe('stop');
@@ -124,11 +123,11 @@ describe('AnalysisSession cancellation', () => {
     const done = vi.fn();
     const updates: AnalysisInfo[] = [];
     const s = makeSession(eng, () => 1000, (a) => updates.push(a), done);
-    s.start(START_FEN, { depth: 30, multipv: 1, timeMs: null });
+    s.start(START_FEN, { depth: 30, timeMs: null });
     eng.emit('info depth 10 multipv 1 score cp 5 pv e2e4');
 
     const otherFen = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1';
-    s.start(otherFen, { depth: 30, multipv: 1, timeMs: null });
+    s.start(otherFen, { depth: 30, timeMs: null });
     // start() sent `stop`; the engine's stale bestmove was drained and the new
     // search launched. The superseded search must NOT fire onDone.
     expect(eng.sent).toContain('stop');
@@ -146,8 +145,8 @@ describe('AnalysisSession draining edge cases', () => {
     const eng = new ManualEngine();
     const done = vi.fn();
     const s = makeSession(eng, () => 0, () => {}, done);
-    s.start(START_FEN, { depth: 30, multipv: 1, timeMs: null }); // launch A (sends go)
-    s.start(E4_FEN, { depth: 30, multipv: 1, timeMs: null });    // searching -> draining, queue B, send stop
+    s.start(START_FEN, { depth: 30, timeMs: null }); // launch A (sends go)
+    s.start(E4_FEN, { depth: 30, timeMs: null });    // searching -> draining, queue B, send stop
     s.stop();                                                    // cancel the queued B, stay draining
     eng.emit('bestmove (none)');                                 // drain completes -> idle
     expect(done).not.toHaveBeenCalled();
@@ -158,9 +157,9 @@ describe('AnalysisSession draining edge cases', () => {
     const eng = new ManualEngine();
     const updates: AnalysisInfo[] = [];
     const s = makeSession(eng, () => 0, (a) => updates.push(a));
-    s.start(START_FEN, { depth: 30, multipv: 1, timeMs: null });
+    s.start(START_FEN, { depth: 30, timeMs: null });
     eng.emit('info depth 8 multipv 1 score cp 10 pv e2e4');      // searching -> update (1)
-    s.start(E4_FEN, { depth: 30, multipv: 1, timeMs: null });    // -> draining (stop sent)
+    s.start(E4_FEN, { depth: 30, timeMs: null });    // -> draining (stop sent)
     eng.emit('info depth 9 multipv 1 score cp 99 pv h2h4');      // stale, during drain -> IGNORED
     expect(updates).toHaveLength(1);
     eng.emit('bestmove (none)');                                 // drain -> launch B (searching)

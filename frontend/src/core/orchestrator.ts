@@ -558,7 +558,6 @@ export class Orchestrator {
     }
     this._session.start(fenOf(this._board), {
       depth: this._depth,
-      multipv: this._multipv,
       timeMs: this._movetimeMs,
     });
     this._analyzing = true;

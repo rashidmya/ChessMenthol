@@ -3,7 +3,7 @@ import type { UciEngine } from './engine';
 import type { AnalysisInfo } from './types';
 import { buildAnalysisInfo, goLimitString, parseInfoLine, type ParsedInfo, type GoLimit } from './uci';
 
-export interface StartOptions { depth: number | null; multipv: number; timeMs: number | null; }
+export interface StartOptions { depth: number | null; timeMs: number | null; }
 
 export interface SessionCallbacks {
   onUpdate: (info: AnalysisInfo) => void;
@@ -33,7 +33,6 @@ export class AnalysisSession {
   private lines = new Map<number, ParsedInfo>();
   private pending: AnalysisInfo | null = null;
   private lastEmit = 0;
-  private lastMultipv = -1;
   private nextStart: { fen: string; opts: StartOptions } | null = null;
 
   constructor(engine: UciEngine, cb: SessionCallbacks) {
@@ -89,10 +88,6 @@ export class AnalysisSession {
     // Prime lastEmit so the first info of a search always emits (leading edge),
     // independent of the clock's epoch.
     this.lastEmit = this.now() - this.throttleMs;
-    if (opts.multipv !== this.lastMultipv) {
-      this.engine.send(`setoption name MultiPV value ${opts.multipv}`);
-      this.lastMultipv = opts.multipv;
-    }
     this.engine.send(`position fen ${fen}`);
     this.engine.send(goLimitString(this.limit));
     this.phase = 'searching';

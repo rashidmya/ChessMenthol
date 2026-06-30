@@ -51,7 +51,7 @@ describe('real stockfish.wasm via Node (AnalysisSession integration)', () => {
     const updates: AnalysisInfo[] = [];
     await new Promise<void>((resolve) => {
       const s = new AnalysisSession(engine, { onUpdate: (a) => updates.push(a), onDone: () => resolve() });
-      s.start(START_FEN, { depth: 12, multipv: 2, timeMs: null });
+      s.start(START_FEN, { depth: 12, timeMs: null });
     });
 
     expect(updates.length).toBeGreaterThan(0);
@@ -62,7 +62,7 @@ describe('real stockfish.wasm via Node (AnalysisSession integration)', () => {
     expect(best!.pv.length).toBeGreaterThan(0);
     expect(best!.eval.cp).not.toBeNull();                 // start position is not a forced mate
     expect(Math.abs(best!.eval.cp!)).toBeLessThan(200);   // roughly balanced, White POV
-    expect(last.lines.length).toBeGreaterThanOrEqual(2);  // MultiPV 2 -> two lines accumulated
+    expect(last.lines.length).toBeGreaterThanOrEqual(1);  // session reads multipv lines; count is engine default (MultiPV=1)
   }, 60_000);
 
   it('supersedes an in-flight search: onDone fires once, only for the new position', async () => {
@@ -75,8 +75,8 @@ describe('real stockfish.wasm via Node (AnalysisSession integration)', () => {
         onUpdate: (a) => updates.push(a),
         onDone: () => { doneCount++; resolve(); },
       });
-      s.start(START_FEN, { depth: 40, multipv: 1, timeMs: null });       // long search, still running shortly after
-      setTimeout(() => s.start(FEN2, { depth: 12, multipv: 1, timeMs: null }), 200); // supersede mid-flight
+      s.start(START_FEN, { depth: 40, timeMs: null });       // long search, still running shortly after
+      setTimeout(() => s.start(FEN2, { depth: 12, timeMs: null }), 200); // supersede mid-flight
     });
 
     // The stopped first search is DRAINED on its real (async) bestmove — no onDone;
