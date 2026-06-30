@@ -18,7 +18,7 @@
   import HomePanel from './components/HomePanel.svelte';
   import EditPanel from './components/EditPanel.svelte';
   import ActionBar from './components/ActionBar.svelte';
-  import type { Region } from './lib/region';
+  import { captureCommands, type Region } from './lib/region';
   import { hasNativeCapture } from './lib/capture';
 
   let orientation: 'white' | 'black' = 'white';
@@ -36,7 +36,11 @@
   const hasCapture = hasNativeCapture(); // true inside Tauri; false in a plain browser
   let pickingRegion = false;
   function onPickRegion() { regionShot.set(null); pickingRegion = true; send({ type: 'request_region_shot' }); }
-  function onConfirmRegion(r: Region) { pickingRegion = false; send({ type: 'set_region', ...r }); }
+  function onConfirmRegion(r: Region) {
+    pickingRegion = false;
+    for (const c of captureCommands(r)) send(c);
+    enterAnalysis();
+  }
   function onCancelRegion() { pickingRegion = false; }
 
   function onToggleView(key: 'evalBar' | 'lines' | 'arrows' | 'feedback') {

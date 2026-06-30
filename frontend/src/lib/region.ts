@@ -1,3 +1,5 @@
+import type { Command } from './types';
+
 export interface Region { left: number; top: number; width: number; height: number; }
 export interface Box { x: number; y: number; w: number; h: number; }
 export interface Size { width: number; height: number; }
@@ -21,4 +23,12 @@ export function toDesktopRegion(box: Box, displayed: Size, real: Size): Region {
     width: Math.round((x1 - x0) * kx),
     height: Math.round((y1 - y0) * ky),
   };
+}
+
+/** The command sequence for a confirmed capture region: set it, then capture. */
+export function captureCommands(r: Region): Command[] {
+  return [
+    { type: 'set_region', left: r.left, top: r.top, width: r.width, height: r.height },
+    { type: 'capture_now' },
+  ];
 }
