@@ -26,6 +26,9 @@ function loadExternal(): EngineRecord[] {
       (r): r is EngineRecord =>
         !!r &&
         typeof (r as EngineRecord).id === 'string' &&
+        // Never let a stored record claim the reserved bundled id (which would shadow
+        // BUNDLED in list()); mirrors the same guard in add().
+        (r as EngineRecord).id !== BUNDLED.id &&
         typeof (r as EngineRecord).name === 'string' &&
         (r as EngineRecord).kind === 'external' &&
         typeof (r as EngineRecord).path === 'string',

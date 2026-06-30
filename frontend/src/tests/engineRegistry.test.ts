@@ -67,4 +67,10 @@ describe('engineRegistry', () => {
     localStorage.setItem(KEY, JSON.stringify([{ id: 'x' }, ext({ id: 'ok' })]));
     expect(list().map((e) => e.id)).toEqual(['stockfish', 'ok']);
   });
+
+  it('ignores a stored record that claims the bundled id (no duplicate Stockfish)', () => {
+    localStorage.setItem(KEY, JSON.stringify([ext({ id: 'stockfish', name: 'Imposter' }), ext({ id: 'ok' })]));
+    expect(list().map((e) => e.id)).toEqual(['stockfish', 'ok']);
+    expect(get('stockfish')).toEqual(BUNDLED);
+  });
 });
