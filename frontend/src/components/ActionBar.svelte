@@ -7,9 +7,9 @@
   export let onRequestAnalysis: () => void = () => {};
   export let onCancelAnalysis: () => void = () => {};
   export let reportProgress: { done: number; total: number } | null = null;
-  export let hasReportForGame = false;
+  export let hasReportForGame: boolean = false;
 
-  $: pct = reportProgress ? Math.round((reportProgress.done / reportProgress.total) * 100) : 0;
+  $: pct = reportProgress ? Math.round((reportProgress.done / (reportProgress.total || 1)) * 100) : 0;
 </script>
 
 <div class="nav">

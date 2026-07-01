@@ -13,21 +13,25 @@ describe('ActionBar trigger', () => {
     expect(onRequestAnalysis).toHaveBeenCalled();
   });
 
-  it('shows "View game report" when a matching report exists', () => {
-    const { getByText } = render(ActionBar, {
-      props: { currentPly: 0, total: 4, hasReportForGame: true, reportProgress: null },
+  it('shows "View game report" when a matching report exists', async () => {
+    const onRequestAnalysis = vi.fn();
+    const { getByText, getByTestId } = render(ActionBar, {
+      props: { currentPly: 0, total: 4, hasReportForGame: true, reportProgress: null, onRequestAnalysis },
     });
     expect(getByText('View game report')).toBeTruthy();
+    await fireEvent.click(getByTestId('request-analysis'));
+    expect(onRequestAnalysis).toHaveBeenCalled();
   });
 
   it('shows Cancel + progress while a batch runs', async () => {
     const onCancelAnalysis = vi.fn();
-    const { getByTestId } = render(ActionBar, {
+    const { getByTestId, queryByTestId } = render(ActionBar, {
       props: { currentPly: 0, total: 4, reportProgress: { done: 2, total: 5 }, onCancelAnalysis },
     });
     const cancel = getByTestId('analysis-progress');
     await fireEvent.click(cancel.querySelector('button')!);
     expect(onCancelAnalysis).toHaveBeenCalled();
+    expect(queryByTestId('request-analysis')).toBeNull();
   });
 
   it('disables the trigger when there is no game (total 0)', () => {
