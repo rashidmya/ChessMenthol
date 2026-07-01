@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { state, errorSeq, regionShot, connect, send } from './lib/engineClient';
+  import { state, errorSeq, regionShot, connect, send, report, reportProgress } from './lib/engineClient';
   import { buildFen, kingCountOk, castleFromFen } from './lib/edit';
   import { currentLastMoveUci } from './lib/board';
   import type { CastlingRights } from './lib/edit';
@@ -18,6 +18,7 @@
   import MoveHistory from './components/MoveHistory.svelte';
   import HomePanel from './components/HomePanel.svelte';
   import EditPanel from './components/EditPanel.svelte';
+  import ReportPanel from './components/ReportPanel.svelte';
   import ActionBar from './components/ActionBar.svelte';
   import { captureCommands, type Region } from './lib/region';
   import { hasNativeCapture } from './lib/capture';
@@ -26,7 +27,7 @@
   let orientation: 'white' | 'black' = 'white';
   let manualFlip = false;
   let selectedEditPiece: string | null = 'P';
-  type Screen = 'home' | 'analysis' | 'edit';
+  type Screen = 'home' | 'analysis' | 'edit' | 'report';
   let screen: Screen = 'home';
   // Editor form state (initialized when entering the editor)
   let editSide: 'white' | 'black' = 'white';
@@ -35,6 +36,7 @@
   let viewPrefs: ViewPrefs = loadViewPrefs();
   let editError: string | null = null;
   let boardComp: Board;
+  let lastReport: import('./lib/types').GameReportDto | null = null;
   const hasCapture = hasNativeCapture(); // true inside Tauri; false in a plain browser
   let pickingRegion = false;
   function onPickRegion() { regionShot.set(null); pickingRegion = true; send({ type: 'request_region_shot' }); }
@@ -76,8 +78,18 @@
   function onNew(): void {
     screen = 'home';
     manualFlip = false;
+    lastReport = null;
+    report.set(null);
     send({ type: 'set_analysis_enabled', enabled: false });
     send({ type: 'reset' });
+  }
+  function onRequestAnalysis(): void { send({ type: 'analyze_game' }); }
+  function onCancelAnalysis(): void { send({ type: 'cancel_analysis' }); }
+  function onReportBack(): void {
+    screen = 'analysis';
+    // The orchestrator leaves _analyzing=false after the batch finishes/cancels;
+    // re-enable live analysis so the board isn't silent after returning.
+    send({ type: 'set_analysis_enabled', enabled: true });
   }
   function onSetUp(): void {
     editError = null;
@@ -133,6 +145,11 @@
   $: if (s?.detectedOrientation && !manualFlip) {
     orientation = s.detectedOrientation as 'white' | 'black';
   }
+  $: rpt = $report;
+  $: progress = $reportProgress;
+  // Auto-switch to the report screen when a NEW report arrives (identity guard
+  // prevents re-switching back after the user clicks Back from the report screen).
+  $: if (rpt && rpt !== lastReport) { lastReport = rpt; if (screen === 'analysis') screen = 'report'; }
 </script>
 
 <div class="app">
@@ -167,6 +184,9 @@
           onSelect={onSelectPiece} onSide={onEditSide} onToggleCastle={onToggleCastle}
           onFlip={onFlip} onReset={onEditReset} onClear={onEditClear}
           onFenInput={onEditFenInput} onLoad={onEditLoad} onBack={onEditBack} />
+      {:else if screen === 'report' && rpt}
+        <ReportPanel report={rpt} moveList={s?.moveList ?? []} currentPly={s?.currentPly ?? 0}
+          {onNavigate} onBack={onReportBack} {onNew} />
       {:else}
         <section class="card" data-testid="analysis-card">
           <!-- 1. Engine header + engine lines (one section) -->
@@ -193,7 +213,21 @@
             {/if}
           </div>
 
-          <!-- 2. Move feedback — hidden until there's a move to describe, so no empty divider -->
+          <!-- 2. Request-computer-analysis trigger / progress bar -->
+          <div class="sec">
+            <div class="bd">
+              {#if progress}
+                <div class="analyzing" data-testid="analysis-progress">
+                  <div class="bar"><div class="fill" style="width:{Math.round((progress.done / progress.total) * 100)}%"></div></div>
+                  <button type="button" class="cancel" on:click={onCancelAnalysis}>Cancel · {progress.done}/{progress.total}</button>
+                </div>
+              {:else}
+                <button type="button" class="request" data-testid="request-analysis" on:click={onRequestAnalysis}>Request computer analysis</button>
+              {/if}
+            </div>
+          </div>
+
+          <!-- 3. Move feedback — hidden until there's a move to describe, so no empty divider -->
           {#if viewPrefs.feedback && analysisEnabled && s?.lastMove}
             <div class="sec" data-testid="feedback-section">
               <div class="bd">
@@ -204,14 +238,14 @@
             </div>
           {/if}
 
-          <!-- 3. Move history (renders its own .movehist-sec; wrap in a growing .sec
+          <!-- 4. Move history (renders its own .movehist-sec; wrap in a growing .sec
                so the history list absorbs the card's remaining height and scrolls) -->
           <div class="sec grow">
             <MoveHistory moveList={s?.moveList ?? []} currentPly={s?.currentPly ?? 0}
               {onNavigate} />
           </div>
 
-          <!-- 4. Action bar -->
+          <!-- 5. Action bar -->
           <div class="sec">
             <ActionBar currentPly={s?.currentPly ?? 0} total={s?.moveList?.length ?? 0}
               {onNavigate} onNew={onNew} />
@@ -302,5 +336,20 @@
   @keyframes rise {
     from { opacity: 0; transform: translateY(9px); }
     to   { opacity: 1; transform: none; }
+  }
+
+  /* ===== request-analysis trigger + progress bar ===== */
+  .request {
+    width: 100%; padding: 12px; border: 1px solid var(--keyline-2); border-radius: 9px;
+    background: var(--paper-2); font-family: var(--sans); font-weight: 700; font-size: 13.5px;
+    color: var(--green); cursor: pointer; transition: .14s;
+  }
+  .request:hover { border-color: var(--green); background: #fff; }
+  .analyzing { display: flex; flex-direction: column; gap: 8px; }
+  .bar { height: 8px; border-radius: 5px; background: var(--keyline); overflow: hidden; }
+  .fill { height: 100%; background: var(--green); transition: width .2s; }
+  .cancel {
+    align-self: center; padding: 6px 12px; border: 1px solid var(--keyline-2); border-radius: 7px;
+    background: var(--paper-2); font-family: var(--mono); font-size: 11px; color: var(--ink-2); cursor: pointer;
   }
 </style>

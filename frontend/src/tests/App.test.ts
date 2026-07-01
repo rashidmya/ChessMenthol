@@ -8,7 +8,7 @@ vi.mock('../lib/engineClient', async (importOriginal) => {
 });
 
 import App from '../App.svelte';
-import { send } from '../lib/engineClient';
+import { send, report as reportStore } from '../lib/engineClient';
 const sendMock = send as unknown as ReturnType<typeof vi.fn>;
 
 describe('App screen routing', () => {
@@ -54,5 +54,30 @@ describe('App screen routing', () => {
     expect(screen.getByTestId('home-panel')).toBeTruthy();
     expect(sendMock).toHaveBeenCalledWith({ type: 'set_analysis_enabled', enabled: false });
     expect(sendMock).toHaveBeenCalledWith({ type: 'reset' });
+  });
+});
+
+describe('App report flow', () => {
+  beforeEach(() => {
+    sendMock.mockClear();
+    reportStore.set(null);
+  });
+
+  it('shows a Request-computer-analysis trigger once in analysis', async () => {
+    render(App);
+    await fireEvent.click(screen.getByText('Explore'));
+    expect(screen.queryByTestId('request-analysis')).toBeTruthy();
+  });
+
+  it('switches to the report screen when a report arrives', async () => {
+    render(App);
+    await fireEvent.click(screen.getByText('Explore'));
+    reportStore.set({
+      white: { accuracy: 90, acpl: 20, inaccuracy: 0, mistake: 0, blunder: 0 },
+      black: { accuracy: 80, acpl: 30, inaccuracy: 0, mistake: 0, blunder: 0 },
+      startWin: 51, plies: [],
+    });
+    await Promise.resolve();
+    expect(screen.queryByTestId('report-panel')).toBeTruthy();
   });
 });
