@@ -48,4 +48,5 @@ export type Command =
   | { type: 'play_best'; uci: string }
   | { type: 'navigate'; index: number }
   | { type: 'reset' }
-  | { type: 'set_analysis_enabled'; enabled: boolean };
+  | { type: 'set_analysis_enabled'; enabled: boolean }
+  | { type: 'load_pgn'; pgn: string };

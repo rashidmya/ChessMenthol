@@ -36,6 +36,7 @@ import {
   outcomeOf,
   boardFenOf,
 } from './chess';
+import { parseGame } from './pgn';
 import { classifyMove, type Classification } from './classify';
 import { analysisToDict, classificationToDict, lastMoveToDict, regionShotToDict } from './serialize';
 import type { AssembledPosition } from '../vision/position';
@@ -207,6 +208,7 @@ export class Orchestrator {
         case 'reset_engine_option': this.resetEngineOption(cmd.name); break;
         case 'reset_engine_options': this.resetEngineOptions(); break;
         case 'stop': this.stopAnalysis(); break;
+        case 'load_pgn': this.loadPgn(cmd.pgn); break;
         default: this._error(`unknown command: ${(cmd as { type: string }).type}`);
       }
     } catch (exc) {
@@ -235,6 +237,34 @@ export class Orchestrator {
     this._baseFen = fenOf(board);
     this._history = [];
     this._cursor = 0;
+    this._board = board;
+    this._resetMoveState();
+    this._restart();
+  }
+
+  loadPgn(pgn: string): void {
+    let parsed: ReturnType<typeof parseGame>;
+    try {
+      parsed = parseGame(pgn);
+    } catch (exc) {
+      this._error(`invalid PGN: ${exc instanceof Error ? exc.message : String(exc)}`);
+      return;
+    }
+    let board: Chess;
+    try {
+      board = posFromFen(parsed.baseFen);
+    } catch (exc) {
+      this._error(`invalid PGN start position: ${exc instanceof Error ? exc.message : String(exc)}`);
+      return;
+    }
+    this._session.stop();
+    this._baseFen = fenOf(board);
+    this._history = [];
+    for (const m of parsed.moves) {
+      this._history.push({ move: m.uci, san: m.san });
+      board = playUci(board, m.uci);
+    }
+    this._cursor = this._history.length;
     this._board = board;
     this._resetMoveState();
     this._restart();

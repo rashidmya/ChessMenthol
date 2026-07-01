@@ -21,7 +21,7 @@
   import ActionBar from './components/ActionBar.svelte';
   import { captureCommands, type Region } from './lib/region';
   import { hasNativeCapture } from './lib/capture';
-  import { makePositionPgn } from './core/pgn';
+  import { makePositionPgn, looksLikePgn } from './core/pgn';
 
   let orientation: 'white' | 'black' = 'white';
   let manualFlip = false;
@@ -66,8 +66,11 @@
   }
   function onExplore(): void { enterAnalysis(); }
   function onStart(text: string): void {
-    const fen = text.trim();
-    if (fen) send({ type: 'set_fen', fen });   // PGN parsing deferred; treated as FEN for now
+    const trimmed = text.trim();
+    if (trimmed) {
+      if (looksLikePgn(trimmed)) send({ type: 'load_pgn', pgn: trimmed });
+      else send({ type: 'set_fen', fen: trimmed });
+    }
     enterAnalysis();
   }
   function onNew(): void {

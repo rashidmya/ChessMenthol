@@ -1,9 +1,10 @@
 /**
  * core/chess.ts — thin wrapper layer over chessops.
  *
- * This is the ONLY file in the codebase that imports from chessops directly.
- * All other modules (board.ts, classify.ts, serialize.ts, orchestrator.ts)
- * must go through these wrappers so that the chessops API never leaks outward.
+ * This and `core/pgn.ts` are the only files in the codebase that import from
+ * chessops directly. All other modules (board.ts, classify.ts, serialize.ts,
+ * orchestrator.ts) must go through these wrappers so that the chessops API
+ * never leaks outward.
  *
  * `attackedBy` accepts either a numeric Square index (0–63, chessops internal)
  * or an algebraic SquareName string (e.g. 'e4'). The algebraic form is most
