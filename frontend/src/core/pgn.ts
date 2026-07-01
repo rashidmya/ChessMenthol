@@ -6,7 +6,8 @@
 import { makePgn, defaultGame, parsePgn, startingPosition, type PgnNodeData } from 'chessops/pgn';
 import { parseSan } from 'chessops/san';
 import { makeFen } from 'chessops/fen';
-import { makeUci } from 'chessops/util';
+import { makeUci, squareFile, squareRank } from 'chessops/util';
+import { isNormal } from 'chessops/types';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -56,8 +57,26 @@ export function parseGame(text: string): ParsedGame {
     moveNo += 1;
     const move = parseSan(pos, nodeData.san);
     if (!move) throw new Error(`illegal or ambiguous SAN "${nodeData.san}" at move ${moveNo}`);
-    moves.push({ uci: makeUci(move), san: nodeData.san });
-    pos.play(move);
+    let uci = makeUci(move);
+    // chessops encodes castling as king-takes-own-rook (e1h1), but Stockfish and
+    // this app's UI/legalMovesUci use the king-two-square form (e1g1). Canonicalise
+    // so downstream best-move matching (string equality) works. Standard-chess only.
+    if (isNormal(move)) {
+      const piece = pos.board.get(move.from);
+      if (piece?.role === 'king') {
+        const dest = pos.board.get(move.to);
+        const fromFile = squareFile(move.from);
+        const isCastle =
+          (dest?.role === 'rook' && dest.color === piece.color) ||
+          Math.abs(squareFile(move.to) - fromFile) >= 2;
+        if (isCastle) {
+          const kingToFile = squareFile(move.to) > fromFile ? 6 : 2; // g-file / c-file
+          uci = makeUci({ from: move.from, to: kingToFile + squareRank(move.from) * 8 });
+        }
+      }
+    }
+    moves.push({ uci, san: nodeData.san });
+    pos.play(move); // play the ORIGINAL chessops-native move — do NOT reparse uci
   }
 
   return { baseFen, moves, headers: game.headers };

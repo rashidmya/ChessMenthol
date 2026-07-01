@@ -54,4 +54,17 @@ describe('parseGame', () => {
   it('throws on illegal SAN', () => {
     expect(() => parseGame('1. e5 *')).toThrow();
   });
+
+  it('emits king-two-square castling UCIs (Stockfish/UI parity), both colours', () => {
+    const wk = parseGame('[SetUp "1"]\n[FEN "r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1"]\n\n1. O-O *');
+    expect(wk.moves[0].uci).toBe('e1g1');
+    const wq = parseGame('[SetUp "1"]\n[FEN "r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1"]\n\n1. O-O-O *');
+    expect(wq.moves[0].uci).toBe('e1c1');
+    const bk = parseGame('[SetUp "1"]\n[FEN "r3k2r/8/8/8/8/8/8/R3K2R b KQkq - 0 1"]\n\n1... O-O *');
+    expect(bk.moves[0].uci).toBe('e8g8');
+    const bq = parseGame('[SetUp "1"]\n[FEN "r3k2r/8/8/8/8/8/8/R3K2R b KQkq - 0 1"]\n\n1... O-O-O *');
+    expect(bq.moves[0].uci).toBe('e8c8');
+    // sanity: SAN still reads as O-O / O-O-O
+    expect(wk.moves[0].san).toContain('O-O');
+  });
 });
