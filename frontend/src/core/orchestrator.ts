@@ -424,6 +424,9 @@ export class Orchestrator {
   }
 
   stopAnalysis(): void {
+    // A running batch report has its own teardown (clears _batch/_reportProgress
+    // and restores MultiPV); a plain stop would freeze it mid-run.
+    if (this._batch !== null) { this.cancelAnalysis(); return; }
     this._session.stop();
     this._analyzing = false;
     this._send(this._stateFrame(this._lastAnalysis));
@@ -739,7 +742,7 @@ export class Orchestrator {
     const cpsAfterMoves = cpsPositions.slice(1);
     const { white, black } = gameAccuracy(startWhite, cpsAfterMoves);
 
-    const counts = { white: { i: 0, m: 0, b: 0 }, black: { i: 0, m: 0, b: 0 } };
+    const counts = { white: { i: 0, m: 0, b: 0 }, black: { i: 0, m: 0, b: 0 } }; // i=inaccuracy, m=mistake, b=blunder
     const plies: PlyReportDto[] = [];
     let board = posFromFen(this._baseFen);
     for (let k = 0; k < this._history.length; k++) {
@@ -752,6 +755,7 @@ export class Orchestrator {
         try {
           const c = classifyMove(board, entry.move, before, after);
           classification = c;
+          // Populate history entries so board navigation shows per-ply classification badges.
           entry.classification = c;
           entry.lastMove = lastMoveToDict(c, board, entry.move, before, after);
           entry.preAnalysis = before;

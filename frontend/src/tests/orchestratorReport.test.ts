@@ -15,7 +15,7 @@ function makeOrch() {
     analysisEnabled: false,
   });
   const last = () => frames.filter((f): f is StateFrame => f.type === 'state').at(-1)!;
-  return { orch, frames, last, session };
+  return { orch, frames, last, session, engine };
 }
 
 // A session that, on start(fen), immediately returns a scripted eval for that fen.
@@ -82,5 +82,47 @@ describe('analyze_game', () => {
     const { orch, frames } = makeOrch();
     orch.handle({ type: 'analyze_game' });
     expect(frames.some((f) => f.type === 'error')).toBe(true);
+  });
+
+  it('cancel_analysis resets batch state and restores MultiPV', () => {
+    const { orch, frames, last, engine } = makeOrch();
+    orch.handle({ type: 'load_pgn', pgn: '1. e4 e5 2. Nf3 Nc6 *' });
+    orch.handle({ type: 'analyze_game' });   // batch starts, waits (silent session)
+    engine.setOption.mockClear();
+    orch.handle({ type: 'cancel_analysis' });
+    const s = last();
+    expect(s.reportProgress).toBeNull();
+    expect(s.analyzing).toBe(false);
+    // MultiPV restored (no prior override in localStorage → back to '1').
+    expect(engine.setOption).toHaveBeenCalledWith('MultiPV', '1');
+    // no report was produced
+    expect(frames.some((f) => f.type === 'report')).toBe(false);
+  });
+
+  it('stop during a running batch delegates to cancel (clears reportProgress)', () => {
+    const { orch, frames, last } = makeOrch();
+    orch.handle({ type: 'load_pgn', pgn: '1. e4 e5 2. Nf3 Nc6 *' });
+    orch.handle({ type: 'analyze_game' }); // batch starts, waits (silent session)
+    orch.handle({ type: 'stop' });
+    const s = last();
+    expect(s.reportProgress).toBeNull();
+    expect(s.analyzing).toBe(false);
+    expect(frames.some((f) => f.type === 'report')).toBe(false);
+  });
+
+  it('synthesizes terminal-position eval (checkmate) without hanging', async () => {
+    const frames: ServerFrame[] = [];
+    const engine = { select: vi.fn(), setOption: vi.fn() };
+    const orch = new Orchestrator((f) => frames.push(f), {
+      engine,
+      sessionFactory: scriptedFactory((fen) => ({ fen, depth: 20, lines: [{ multipv: 1, eval: { cp: 20, mate: null }, depth: 20, pv: ['a2a3'] }] })),
+      analysisEnabled: false,
+    });
+    orch.handle({ type: 'load_pgn', pgn: '1. f3 e5 2. g4 Qh4#' });
+    orch.handle({ type: 'analyze_game' });
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+    const rep = frames.find((f) => f.type === 'report');
+    expect(rep).toBeDefined();
+    if (rep && rep.type === 'report') expect(rep.report.plies).toHaveLength(4);
   });
 });
