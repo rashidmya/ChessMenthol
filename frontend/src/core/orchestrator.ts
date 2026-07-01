@@ -158,6 +158,7 @@ export class Orchestrator {
   // ---- gates ----
   _analysisEnabled: boolean;
   _gameOver: { result: string; reason: string } | null = null;
+  _reportProgress: { done: number; total: number } | null = null;
 
   // ---- vision (on-demand; tracker injected only under Tauri) ----
   _tracker: VisionTrackerLike | null;
@@ -675,6 +676,7 @@ export class Orchestrator {
       currentPly: this._cursor,
       analysisEnabled: this._analysisEnabled,
       movetime: this._movetimeMs,
+      reportProgress: this._reportProgress,
     };
   }
 

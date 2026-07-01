@@ -7,6 +7,22 @@ export interface ClassificationDto { label: string; cpl: number; isBest: boolean
 export interface MoveEntryDto {
   ply: number; san: string; uci: string; classification: ClassificationDto | null;
 }
+
+// ── report DTOs ──────────────────────────────────────────────────────────────
+export interface PlyReportDto {
+  ply: number;            // 1..N
+  san: string; uci: string;
+  winWhite: number;       // 0..100, White POV (for the graph)
+  cpl: number;            // mover POV, capped
+  classification: ClassificationDto | null;
+}
+export interface PlayerReportDto { accuracy: number; acpl: number; inaccuracy: number; mistake: number; blunder: number; }
+export interface GameReportDto {
+  white: PlayerReportDto; black: PlayerReportDto;
+  startWin: number;       // White-POV win% at the base position (graph point 0)
+  plies: PlyReportDto[];
+}
+export interface ReportFrame { type: 'report'; report: GameReportDto }
 export interface LastMovePvDto { san: string; uci?: string; evalText: string; pv: string; }
 export interface LastMoveDto {
   classification: ClassificationDto;
@@ -24,11 +40,12 @@ export interface StateFrame {
   currentPly: number;
   analysisEnabled: boolean;
   movetime: number | null;
+  reportProgress: { done: number; total: number } | null;
   gameOver: { result: string; reason: string } | null;
 }
 export interface RegionShotFrame { type: 'region_shot'; jpegBase64: string; width: number; height: number; }
 export interface ErrorFrame { type: 'error'; message: string; }
-export type ServerFrame = StateFrame | ErrorFrame | RegionShotFrame;
+export type ServerFrame = StateFrame | ErrorFrame | RegionShotFrame | ReportFrame;
 
 export type Command =
   | { type: 'set_fen'; fen: string }
@@ -49,4 +66,6 @@ export type Command =
   | { type: 'navigate'; index: number }
   | { type: 'reset' }
   | { type: 'set_analysis_enabled'; enabled: boolean }
-  | { type: 'load_pgn'; pgn: string };
+  | { type: 'load_pgn'; pgn: string }
+  | { type: 'analyze_game' }
+  | { type: 'cancel_analysis' };

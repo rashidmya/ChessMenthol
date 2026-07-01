@@ -14,7 +14,7 @@
  */
 
 import { writable } from 'svelte/store';
-import type { Command, ServerFrame, StateFrame, RegionShotFrame } from './types';
+import type { Command, ServerFrame, StateFrame, RegionShotFrame, ReportFrame, GameReportDto } from './types';
 import { loadStockfish, applyOptions, threadsAvailable } from '../engine/engine';
 import type { UciEngine } from '../engine/engine';
 import { loadNativeEngine } from '../engine/nativeEngine';
@@ -35,11 +35,14 @@ export const lastError = writable<string | null>(null);
 export const connected = writable(true); // no socket — always connected
 export const errorSeq = writable(0);
 export const regionShot = writable<RegionShotFrame | null>(null);
+export const report = writable<GameReportDto | null>(null);
+export const reportProgress = writable<{ done: number; total: number } | null>(null);
 
 // ─── frame routing ─────────────────────────────────────────────────────────
 
 export function applyFrame(frame: ServerFrame): void {
-  if (frame.type === 'state') state.set(frame);
+  if (frame.type === 'state') { state.set(frame); reportProgress.set(frame.reportProgress); }
+  else if (frame.type === 'report') report.set((frame as ReportFrame).report);
   else if (frame.type === 'region_shot') regionShot.set(frame);
   else if (frame.type === 'error') {
     lastError.set(frame.message);
