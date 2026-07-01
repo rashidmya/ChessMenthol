@@ -152,6 +152,7 @@ export class Orchestrator {
   _lastMove: LastMoveDto | null = null;
   _preMoveAnalysis: AnalysisInfo | null = null;
   _analyzing = false;
+  _annotating = false;
 
   // ---- explicit move history ----
   _baseFen = START_FEN;
@@ -343,6 +344,7 @@ export class Orchestrator {
     this._rebuildBoard();
     this._lastAnalysis = null;
     this._pending = null;
+    this._annotating = false;
     this._preMoveAnalysis = index > 0 ? this._history[index - 1].preAnalysis ?? null : null;
     this._lastMove = index > 0 ? this._history[index - 1].lastMove ?? null : null;
     this._restart();
@@ -548,9 +550,12 @@ export class Orchestrator {
     this._lastMove = null;
     if (outcomeOf(this._board) !== null) {
       this._pending = null;
+      this._annotating = false;
       this._classifyTerminal(boardBefore, uci, beforeA, this._cursor - 1);
     } else {
       this._pending = [boardBefore, uci, beforeA, this._cursor - 1];
+      const blB = beforeA !== null ? bestLine(beforeA) : null;
+      this._annotating = blB !== null && lineMove(blB) !== null; // only if a badge can actually resolve
     }
     this._restart();
   }
@@ -598,6 +603,7 @@ export class Orchestrator {
     this._pending = null;
     this._lastMove = null;
     this._preMoveAnalysis = null;
+    this._annotating = false;
   }
 
   private _restart(): void {
@@ -655,6 +661,7 @@ export class Orchestrator {
       // Consume the pending classification request even when skipped so it
       // won't retry forever.
       this._pending = null;
+      this._annotating = false;
     }
     this._send(this._stateFrame(info));
   };
@@ -845,6 +852,7 @@ export class Orchestrator {
       analysisEnabled: this._analysisEnabled,
       movetime: this._movetimeMs,
       reportProgress: this._reportProgress,
+      annotating: this._annotating,
     };
   }
 

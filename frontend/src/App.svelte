@@ -227,10 +227,11 @@
           </div>
 
           <!-- 3. Move feedback — hidden until there's a move to describe, so no empty divider -->
-          {#if viewPrefs.feedback && analysisEnabled && s?.lastMove}
+          {#if viewPrefs.feedback && analysisEnabled && (s?.lastMove || s?.annotating)}
             <div class="sec" data-testid="feedback-section">
               <div class="bd">
                 <MoveFeedback lastMove={s?.lastMove ?? null}
+                  evaluating={s?.annotating && (s?.currentPly ?? 0) >= 1 ? { san: s.moveList[s.currentPly - 1]?.san ?? '' } : null}
                   onPlayBest={(uci) => send({ type: 'play_best', uci })}
                   gameOver={s?.gameOver ?? null} />
               </div>

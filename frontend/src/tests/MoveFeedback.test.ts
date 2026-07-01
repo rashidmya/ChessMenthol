@@ -2,6 +2,23 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import MoveFeedback from '../components/MoveFeedback.svelte';
 
+describe('MoveFeedback evaluating hint', () => {
+  it('shows "<san> was played" + Evaluating… when a badge is pending', () => {
+    const { getByText, getByTestId } = render(MoveFeedback, {
+      props: { lastMove: null, evaluating: { san: 'd3' } },
+    });
+    expect(getByTestId('evaluating')).toBeTruthy();
+    expect(getByText(/d3 was played/)).toBeTruthy();
+    expect(getByText(/Evaluating/)).toBeTruthy();
+  });
+
+  it('renders nothing when neither lastMove nor evaluating is set', () => {
+    const { queryByTestId } = render(MoveFeedback, { props: { lastMove: null, evaluating: null } });
+    expect(queryByTestId('evaluating')).toBeNull();
+    expect(queryByTestId('movefeedback')).toBeNull();
+  });
+});
+
 const dto = {
   classification: { label: 'mistake', cpl: 276, isBest: false },
   played: { san: 'Nc3', uci: 'b1c3', evalText: '+5.03', pv: '16. Nxc3' },

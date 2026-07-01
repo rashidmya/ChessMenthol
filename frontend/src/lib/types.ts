@@ -42,6 +42,7 @@ export interface StateFrame {
   movetime: number | null;
   reportProgress: { done: number; total: number } | null;
   gameOver: { result: string; reason: string } | null;
+  annotating: boolean;
 }
 export interface RegionShotFrame { type: 'region_shot'; jpegBase64: string; width: number; height: number; }
 export interface ErrorFrame { type: 'error'; message: string; }

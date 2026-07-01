@@ -88,7 +88,7 @@ describe('App report flow', () => {
       sideToMove: 'white', engineId: 'stockfish', analyzing: false, eval: null, depth: 0, lines: [],
       lastMove: null, visionStatus: 'idle', detectedOrientation: null, lowConfidence: [], region: null,
       moveList, currentPly: moveList.length, analysisEnabled: true, movetime: null,
-      reportProgress: null, gameOver: null,
+      reportProgress: null, gameOver: null, annotating: false,
     };
   }
   const P1 = { ply: 1, san: 'e4', uci: 'e2e4', classification: null };

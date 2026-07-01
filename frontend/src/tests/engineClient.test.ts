@@ -57,7 +57,7 @@ describe('applyFrame routing', () => {
       visionStatus: 'idle' as const, detectedOrientation: null,
       lowConfidence: [], region: null,
       moveList: [], currentPly: 0, analysisEnabled: false,
-      movetime: 10000, reportProgress: null, gameOver: null,
+      movetime: 10000, reportProgress: null, gameOver: null, annotating: false,
     };
     applyFrame(frame);
     expect(get(state)?.fen).toBe(frame.fen);

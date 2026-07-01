@@ -3,6 +3,7 @@
   import MoveBadge from './MoveBadge.svelte';
 
   export let lastMove: LastMoveDto | null = null;
+  export let evaluating: { san: string } | null = null;
   export let onPlayBest: (uci: string) => void = () => {};
   export let gameOver: { result: string; reason: string } | null = null;
 
@@ -36,6 +37,17 @@
     return r === '1/2-1/2' ? '½' : r;
   }
 </script>
+
+{#if !lastMove && evaluating}
+  <div class="lm" data-testid="evaluating">
+    <div class="mrow">
+      <span class="mtext">
+        <span class="mname">{evaluating.san} was played</span>
+      </span>
+    </div>
+    <div class="evaluating">Evaluating<span class="dots"><span>.</span><span>.</span><span>.</span></span></div>
+  </div>
+{/if}
 
 {#if lastMove}
   {#if gameOver}
@@ -107,4 +119,10 @@
   .mname.best .desc { color: #5b8a3c; }
   .cont { flex: 1; min-width: 0; font-family: var(--figurine), monospace; font-size: 11px;
     color: #a8a193; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .evaluating { padding: 2px 8px 6px; font-family: var(--mono); font-size: 11px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--ink-faint); }
+  .evaluating .dots span { animation: blink 1.2s infinite both; }
+  .evaluating .dots span:nth-child(2) { animation-delay: .2s; }
+  .evaluating .dots span:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%, 80%, 100% { opacity: .2; } 40% { opacity: 1; } }
 </style>
