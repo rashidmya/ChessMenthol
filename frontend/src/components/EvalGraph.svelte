@@ -21,8 +21,7 @@
   }
 </script>
 
-<!-- svelte-ignore a11y-click-events-have-key-events -->
-<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
 <svg class="eval-graph" viewBox="0 0 {W} {H}" preserveAspectRatio="none"
      role="img" aria-label="Evaluation graph" on:click={onClick}>
   <rect x="0" y="0" width={W} height={H} fill="var(--ink-2)" />
