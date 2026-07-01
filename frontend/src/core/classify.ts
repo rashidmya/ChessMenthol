@@ -7,11 +7,19 @@
  *
  * All chess logic is routed through core/chess.ts; chessops is never imported
  * directly here.
+ *
+ * DELIBERATE DIVERGENCE from the Python port (PGN-import / computer-analysis
+ * report feature): the final band decision for Inaccuracy / Mistake / Blunder
+ * (previously a centipawn-loss ladder) is now driven by the Lichess
+ * winning-chances drop on the [-1,+1] scale, matching Lichess's MoveClassifier
+ * / MateAdvice logic.  Rules 1-5 (Book, Brilliant, Great, Best, Miss) and the
+ * Excellent/Good ranking are unchanged.
  */
 
 import { type Chess, type Role, type SquareName, attackedBy, playUci, roleAt } from './chess';
 import { type BookLookup, NoBook } from './book';
 import { type AnalysisInfo, bestLine, evalPov, lineMove } from '../engine/types';
+import { cpFromEval, winningChances } from './accuracy';
 
 // ─── MoveClass ────────────────────────────────────────────────────────────────
 
@@ -198,10 +206,39 @@ export function classifyMove(
     return { label: MoveClass.MISS, cpl, isBest };
   }
 
-  // 6. Centipawn-loss bands
-  if (cpl <= t.excellentMax)  return { label: MoveClass.EXCELLENT,  cpl, isBest };
-  if (cpl <= t.goodMax)       return { label: MoveClass.GOOD,       cpl, isBest };
-  if (cpl <= t.inaccuracyMax) return { label: MoveClass.INACCURACY, cpl, isBest };
-  if (cpl <= t.mistakeMax)    return { label: MoveClass.MISTAKE,    cpl, isBest };
-  return { label: MoveClass.BLUNDER, cpl, isBest };
+  // ── Lichess ?!/?/?? via winning-chances drop (mover POV) ──────────────────
+  const moverSign = moverWhite ? 1 : -1;
+  const beforeEval = bestLineBefore.eval;   // position before, best play
+  const afterEval  = afterBest.eval;        // position after the played move
+  const prevWC = winningChances(cpFromEval(beforeEval) * moverSign);
+  const curWC  = winningChances(cpFromEval(afterEval)  * moverSign);
+  const delta  = prevWC - curWC;            // >0 = mover lost winning chances
+
+  const mateInvolved = beforeEval.mate !== null || afterEval.mate !== null;
+  if (mateInvolved) {
+    // Lichess MateAdvice — grade how badly a mate-related blunder/inaccuracy scores.
+    const prevCp = cpFromEval(beforeEval) * moverSign;
+    const curCp  = cpFromEval(afterEval)  * moverSign;
+    const mateCreated = afterEval.mate !== null && (afterEval.mate * moverSign) < 0; // now getting mated
+    const mateLost    = beforeEval.mate !== null && (beforeEval.mate * moverSign) > 0 && afterEval.mate === null; // had mate, lost it
+    if (mateCreated) {
+      if (prevCp < -999) return { label: MoveClass.INACCURACY, cpl, isBest };
+      if (prevCp < -700) return { label: MoveClass.MISTAKE,    cpl, isBest };
+      return { label: MoveClass.BLUNDER, cpl, isBest };
+    }
+    if (mateLost) {
+      if (curCp > 999) return { label: MoveClass.INACCURACY, cpl, isBest };
+      if (curCp > 700) return { label: MoveClass.MISTAKE,    cpl, isBest };
+      return { label: MoveClass.BLUNDER, cpl, isBest };
+    }
+    // Mate delayed / mate improved / both-mate — no negative judgement; fall to bands.
+  } else {
+    if (delta >= 0.30) return { label: MoveClass.BLUNDER,    cpl, isBest };
+    if (delta >= 0.20) return { label: MoveClass.MISTAKE,    cpl, isBest };
+    if (delta >= 0.10) return { label: MoveClass.INACCURACY, cpl, isBest };
+  }
+
+  // Not a negative judgement: rank by centipawn loss (Excellent/Good only).
+  if (cpl <= t.excellentMax) return { label: MoveClass.EXCELLENT, cpl, isBest };
+  return { label: MoveClass.GOOD, cpl, isBest };
 }
