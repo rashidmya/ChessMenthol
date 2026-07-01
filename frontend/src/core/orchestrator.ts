@@ -37,7 +37,8 @@ import {
   boardFenOf,
 } from './chess';
 import { parseGame } from './pgn';
-import { classifyMove, type Classification } from './classify';
+import { cpFromEval, winPercent, gameAccuracy, acpl } from './accuracy';
+import { classifyMove, type Classification, MoveClass } from './classify';
 import { analysisToDict, classificationToDict, lastMoveToDict, regionShotToDict } from './serialize';
 import type { AssembledPosition } from '../vision/position';
 import type { RgbaImage } from '../lib/capture';
@@ -51,8 +52,10 @@ import type {
   LastMoveDto,
   EvalDto,
   LineDto,
+  GameReportDto,
+  PlyReportDto,
 } from '../lib/types';
-import { setOption as storeSetOption, resetOption as storeResetOption, resetAll as storeResetAll } from '../lib/engineOptions';
+import { setOption as storeSetOption, resetOption as storeResetOption, resetAll as storeResetAll, getOverrides } from '../lib/engineOptions';
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
@@ -159,6 +162,14 @@ export class Orchestrator {
   _analysisEnabled: boolean;
   _gameOver: { result: string; reason: string } | null = null;
   _reportProgress: { done: number; total: number } | null = null;
+  _reportDepth = 18;
+  private _batch: {
+    fens: string[];
+    i: number;
+    evals: (AnalysisInfo | null)[];
+    latest: AnalysisInfo | null;
+    priorMpv: string | null;
+  } | null = null;
 
   // ---- vision (on-demand; tracker injected only under Tauri) ----
   _tracker: VisionTrackerLike | null;
@@ -210,6 +221,8 @@ export class Orchestrator {
         case 'reset_engine_options': this.resetEngineOptions(); break;
         case 'stop': this.stopAnalysis(); break;
         case 'load_pgn': this.loadPgn(cmd.pgn); break;
+        case 'analyze_game': this.analyzeGame(); break;
+        case 'cancel_analysis': this.cancelAnalysis(); break;
         default: this._error(`unknown command: ${(cmd as { type: string }).type}`);
       }
     } catch (exc) {
@@ -602,6 +615,7 @@ export class Orchestrator {
 
   // Arrow fields so `this` stays bound when handed to the session as callbacks.
   _onUpdate = (info: AnalysisInfo): void => {
+    if (this._batch !== null) { this._batch.latest = info; return; }
     this._lastAnalysis = info;
     const bl = bestLine(info);
     if (
@@ -634,10 +648,150 @@ export class Orchestrator {
   };
 
   _onSearchDone = (): void => {
+    if (this._batch !== null) {
+      this._batch.evals[this._batch.i] = this._batch.latest;
+      this._batchAdvance();
+      return;
+    }
     // A finite search reached its limit: freeze the last result (analyzing off).
     this._analyzing = false;
     this._send(this._stateFrame(this._lastAnalysis));
   };
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // batch game analysis
+  // ──────────────────────────────────────────────────────────────────────────
+
+  analyzeGame(): void {
+    if (this._history.length === 0) { this._error('no game to analyze'); return; }
+    this._session.stop();
+    const fens: string[] = [this._baseFen];
+    let pos = posFromFen(this._baseFen);
+    for (const e of this._history) { pos = playUci(pos, e.move); fens.push(fenOf(pos)); }
+    const priorMpv = getOverrides(this._engineId)['MultiPV'] ?? null;
+    this._engine.setOption?.('MultiPV', '2');
+    this._batch = { fens, i: 0, evals: new Array(fens.length).fill(null), latest: null, priorMpv };
+    this._reportProgress = { done: 0, total: fens.length };
+    this._analyzing = true;
+    this._send(this._stateFrame(this._lastAnalysis));
+    this._batchStepStart();
+  }
+
+  cancelAnalysis(): void {
+    if (this._batch === null) return;
+    this._session.stop();
+    this._engine.setOption?.('MultiPV', this._batch.priorMpv ?? '1');
+    this._batch = null;
+    this._reportProgress = null;
+    this._analyzing = false;
+    this._send(this._stateFrame(this._lastAnalysis));
+  }
+
+  private _batchStepStart(): void {
+    const b = this._batch;
+    if (b === null) return;
+    if (b.i >= b.fens.length) { this._batchFinish(); return; }
+    const fen = b.fens[b.i];
+    const board = posFromFen(fen);
+    const oc = outcomeOf(board);
+    if (oc !== null) {
+      let evalDto: Eval;
+      if (oc.result === '1-0') evalDto = { cp: null, mate: 1 };
+      else if (oc.result === '0-1') evalDto = { cp: null, mate: -1 };
+      else evalDto = { cp: 0, mate: null };
+      b.evals[b.i] = {
+        fen,
+        depth: this._reportDepth,
+        lines: [{ multipv: 1, eval: evalDto, depth: this._reportDepth, pv: [] }],
+      };
+      b.latest = null;
+      this._batchAdvance();
+      return;
+    }
+    b.latest = null;
+    this._session.start(fen, { depth: this._reportDepth, timeMs: null });
+  }
+
+  private _batchAdvance(): void {
+    const b = this._batch;
+    if (b === null) return;
+    b.i += 1;
+    this._reportProgress = { done: b.i, total: b.fens.length };
+    this._send(this._stateFrame(this._lastAnalysis));
+    this._batchStepStart();
+  }
+
+  private _batchFinish(): void {
+    const b = this._batch;
+    if (b === null) return;
+    this._engine.setOption?.('MultiPV', b.priorMpv ?? '1');
+    const report = this._buildReport(b.evals);
+    this._batch = null;
+    this._reportProgress = null;
+    this._analyzing = false;
+    this._send({ type: 'report', report });
+    this._send(this._stateFrame(this._lastAnalysis));
+  }
+
+  private _buildReport(evals: (AnalysisInfo | null)[]): GameReportDto {
+    const startWhite = posFromFen(this._baseFen).turn === 'white';
+    const cpsPositions: number[] = evals.map((a) => (a && bestLine(a) ? cpFromEval(bestLine(a)!.eval) : 0));
+    const cpsAfterMoves = cpsPositions.slice(1);
+    const { white, black } = gameAccuracy(startWhite, cpsAfterMoves);
+
+    const counts = { white: { i: 0, m: 0, b: 0 }, black: { i: 0, m: 0, b: 0 } };
+    const plies: PlyReportDto[] = [];
+    let board = posFromFen(this._baseFen);
+    for (let k = 0; k < this._history.length; k++) {
+      const before = evals[k], after = evals[k + 1];
+      const entry = this._history[k];
+      const moverWhite = board.turn === 'white';
+      let classification: ReturnType<typeof classifyMove> | null = null;
+      if (before && after && bestLine(before) && lineMove(bestLine(before)!) && bestLine(after)) {
+        try {
+          const c = classifyMove(board, entry.move, before, after);
+          classification = c;
+          entry.classification = c;
+          entry.lastMove = lastMoveToDict(c, board, entry.move, before, after);
+          entry.preAnalysis = before;
+          const side = moverWhite ? counts.white : counts.black;
+          if (c.label === MoveClass.INACCURACY) side.i++;
+          else if (c.label === MoveClass.MISTAKE) side.m++;
+          else if (c.label === MoveClass.BLUNDER) side.b++;
+        } catch {
+          // Skip classification for this ply if it throws (e.g. missing PV).
+        }
+      }
+      plies.push({
+        ply: k + 1,
+        san: entry.san,
+        uci: entry.move,
+        winWhite: after && bestLine(after) ? winPercent(cpFromEval(bestLine(after)!.eval)) : 50,
+        cpl: classification?.cpl ?? 0,
+        classification: classification ? classificationToDict(classification) : null,
+      });
+      board = playUci(board, entry.move);
+    }
+
+    return {
+      white: {
+        accuracy: Math.round(white),
+        acpl: acpl(cpsPositions, startWhite, 'white'),
+        inaccuracy: counts.white.i,
+        mistake: counts.white.m,
+        blunder: counts.white.b,
+      },
+      black: {
+        accuracy: Math.round(black),
+        acpl: acpl(cpsPositions, startWhite, 'black'),
+        inaccuracy: counts.black.i,
+        mistake: counts.black.m,
+        blunder: counts.black.b,
+      },
+      startWin: winPercent(cpsPositions[0]),
+      plies,
+    };
+  }
 
   // ──────────────────────────────────────────────────────────────────────────
   // serialization
