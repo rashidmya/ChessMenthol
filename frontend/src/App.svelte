@@ -162,6 +162,7 @@
   // Auto-switch to the report screen when a NEW report arrives (identity guard
   // prevents re-switching back after the user clicks Back from the report screen).
   $: if (rpt && rpt !== lastReport) { lastReport = rpt; if (screen === 'analysis') screen = 'report'; }
+  $: hasReportForGame = !!(rpt && reportMatchesGame(rpt, s));
 </script>
 
 <div class="app">
@@ -225,20 +226,6 @@
             {/if}
           </div>
 
-          <!-- 2. Request-computer-analysis trigger / progress bar -->
-          <div class="sec">
-            <div class="bd">
-              {#if progress}
-                <div class="analyzing" data-testid="analysis-progress">
-                  <div class="bar"><div class="fill" style="width:{Math.round((progress.done / progress.total) * 100)}%"></div></div>
-                  <button type="button" class="cancel" on:click={onCancelAnalysis}>Cancel · {progress.done}/{progress.total}</button>
-                </div>
-              {:else}
-                <button type="button" class="request" data-testid="request-analysis" on:click={onRequestAnalysis}>Request computer analysis</button>
-              {/if}
-            </div>
-          </div>
-
           <!-- 3. Move feedback — hidden until there's a move to describe, so no empty divider -->
           {#if viewPrefs.feedback && analysisEnabled && s?.lastMove}
             <div class="sec" data-testid="feedback-section">
@@ -260,7 +247,9 @@
           <!-- 5. Action bar -->
           <div class="sec">
             <ActionBar currentPly={s?.currentPly ?? 0} total={s?.moveList?.length ?? 0}
-              {onNavigate} onNew={onNew} />
+              {onNavigate} onNew={onNew}
+              onRequestAnalysis={onRequestAnalysis} onCancelAnalysis={onCancelAnalysis}
+              reportProgress={progress} {hasReportForGame} />
           </div>
         </section>
       {/if}
@@ -350,18 +339,4 @@
     to   { opacity: 1; transform: none; }
   }
 
-  /* ===== request-analysis trigger + progress bar ===== */
-  .request {
-    width: 100%; padding: 12px; border: 1px solid var(--keyline-2); border-radius: 9px;
-    background: var(--paper-2); font-family: var(--sans); font-weight: 700; font-size: 13.5px;
-    color: var(--green); cursor: pointer; transition: .14s;
-  }
-  .request:hover { border-color: var(--green); background: #fff; }
-  .analyzing { display: flex; flex-direction: column; gap: 8px; }
-  .bar { height: 8px; border-radius: 5px; background: var(--keyline); overflow: hidden; }
-  .fill { height: 100%; background: var(--green); transition: width .2s; }
-  .cancel {
-    align-self: center; padding: 6px 12px; border: 1px solid var(--keyline-2); border-radius: 7px;
-    background: var(--paper-2); font-family: var(--mono); font-size: 11px; color: var(--ink-2); cursor: pointer;
-  }
 </style>
