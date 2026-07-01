@@ -83,7 +83,19 @@
     send({ type: 'set_analysis_enabled', enabled: false });
     send({ type: 'reset' });
   }
-  function onRequestAnalysis(): void { send({ type: 'analyze_game' }); }
+  function reportMatchesGame(
+    r: import('./lib/types').GameReportDto,
+    st: import('./lib/types').StateFrame | null,
+  ): boolean {
+    const a = r.plies.map((p) => p.uci);
+    const b = (st?.moveList ?? []).map((m) => m.uci);
+    return a.length === b.length && a.every((u, i) => u === b[i]);
+  }
+
+  function onRequestAnalysis(): void {
+    if (rpt && reportMatchesGame(rpt, s)) { screen = 'report'; return; }
+    send({ type: 'analyze_game' });
+  }
   function onCancelAnalysis(): void { send({ type: 'cancel_analysis' }); }
   function onReportBack(): void {
     screen = 'analysis';

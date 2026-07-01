@@ -8,7 +8,7 @@ vi.mock('../lib/engineClient', async (importOriginal) => {
 });
 
 import App from '../App.svelte';
-import { send, report as reportStore } from '../lib/engineClient';
+import { send, report as reportStore, state as stateStore } from '../lib/engineClient';
 const sendMock = send as unknown as ReturnType<typeof vi.fn>;
 
 describe('App screen routing', () => {
@@ -79,5 +79,46 @@ describe('App report flow', () => {
     });
     await Promise.resolve();
     expect(screen.queryByTestId('report-panel')).toBeTruthy();
+  });
+
+  // Minimal StateFrame carrying a given move list; other fields are sensible defaults.
+  function st(moveList: { ply: number; san: string; uci: string; classification: null }[]): import('../lib/types').StateFrame {
+    return {
+      type: 'state', fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      sideToMove: 'white', engineId: 'stockfish', analyzing: false, eval: null, depth: 0, lines: [],
+      lastMove: null, visionStatus: 'idle', detectedOrientation: null, lowConfidence: [], region: null,
+      moveList, currentPly: moveList.length, analysisEnabled: true, movetime: null,
+      reportProgress: null, gameOver: null,
+    };
+  }
+  const P1 = { ply: 1, san: 'e4', uci: 'e2e4', classification: null };
+  const RP1 = { ply: 1, san: 'e4', uci: 'e2e4', winWhite: 53, cpl: 0, classification: null };
+  const RP2 = { ply: 2, san: 'e5', uci: 'e7e5', winWhite: 50, cpl: 0, classification: null };
+  const baseReport = { white: { accuracy: 90, acpl: 20, inaccuracy: 0, mistake: 0, blunder: 0 },
+                       black: { accuracy: 80, acpl: 30, inaccuracy: 0, mistake: 0, blunder: 0 }, startWin: 51 };
+
+  it('reopens an existing matching report on Request without re-analyzing', async () => {
+    render(App);
+    await fireEvent.click(screen.getByText('Explore'));
+    stateStore.set(st([P1]));                                   // 1-move game on the board
+    reportStore.set({ ...baseReport, plies: [RP1] });           // report matches that game
+    await Promise.resolve();
+    await fireEvent.click(screen.getByTestId('report-back'));   // it auto-switched; return to analysis
+    sendMock.mockClear();
+    await fireEvent.click(screen.getByTestId('request-analysis'));
+    expect(screen.queryByTestId('report-panel')).toBeTruthy();     // reopened
+    expect(sendMock).not.toHaveBeenCalledWith({ type: 'analyze_game' }); // no re-run
+  });
+
+  it('re-analyzes when the cached report does not match the current game', async () => {
+    render(App);
+    await fireEvent.click(screen.getByText('Explore'));
+    stateStore.set(st([P1]));                                   // board has 1 move…
+    reportStore.set({ ...baseReport, plies: [RP1, RP2] });      // …but the report is for a 2-move game
+    await Promise.resolve();
+    await fireEvent.click(screen.getByTestId('report-back'));
+    sendMock.mockClear();
+    await fireEvent.click(screen.getByTestId('request-analysis'));
+    expect(sendMock).toHaveBeenCalledWith({ type: 'analyze_game' });
   });
 });
