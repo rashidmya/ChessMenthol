@@ -62,6 +62,7 @@ import { setOption as storeSetOption, resetOption as storeResetOption, resetAll 
 export const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 export const CLASSIFY_MIN_DEPTH = 8;
 export const DEFAULT_MOVETIME_MS = 10000; // ms; null == infinite
+export const ANNOTATE_DEBOUNCE_MS = 150;
 
 // ─── injection seams ──────────────────────────────────────────────────────────
 
@@ -153,6 +154,8 @@ export class Orchestrator {
   _preMoveAnalysis: AnalysisInfo | null = null;
   _analyzing = false;
   _annotating = false;
+  _annotate: { boardBefore: Chess; uci: string; ply: number; latest: AnalysisInfo | null } | null = null;
+  private _annotateTimer: ReturnType<typeof setTimeout> | null = null;
 
   // ---- explicit move history ----
   _baseFen = START_FEN;
@@ -258,6 +261,7 @@ export class Orchestrator {
       return;
     }
     this._session.stop();
+    this._cancelAnnotate();
     this._baseFen = fenOf(board);
     this._history = [];
     this._cursor = 0;
@@ -282,6 +286,7 @@ export class Orchestrator {
       return;
     }
     this._session.stop();
+    this._cancelAnnotate();
     this._baseFen = fenOf(board);
     this._history = [];
     for (const m of parsed.moves) {
@@ -328,6 +333,7 @@ export class Orchestrator {
       return;
     }
     this._session.stop();
+    this._cancelAnnotate();
     const before = this._lastAnalysis;
     const boardBefore = this._board; // playUci never mutates -> stays pre-move
     this._playMove(uci, boardBefore, before);
@@ -339,19 +345,34 @@ export class Orchestrator {
 
   navigate(index: number): void {
     this._session.stop();
+    this._cancelAnnotate();
     index = Math.max(0, Math.min(this._history.length, index));
     this._cursor = index;
     this._rebuildBoard();
     this._lastAnalysis = null;
     this._pending = null;
-    this._annotating = false;
     this._preMoveAnalysis = index > 0 ? this._history[index - 1].preAnalysis ?? null : null;
     this._lastMove = index > 0 ? this._history[index - 1].lastMove ?? null : null;
-    this._restart();
+    // Live per-move annotation: if the move we landed on isn't classified yet and we can
+    // analyze, evaluate its before/after so its badge appears. Debounced so fast scrubbing
+    // doesn't thrash the engine.
+    const needsAnnotate =
+      index >= 1 &&
+      this._analysisEnabled &&
+      this._history[index - 1].classification === undefined;
+    this._annotating = needsAnnotate;
+    this._restart(); // analyze the current position for display (emits a frame with annotating)
+    if (needsAnnotate) {
+      this._annotateTimer = setTimeout(() => {
+        this._annotateTimer = null;
+        this._startAnnotate(this._cursor);
+      }, ANNOTATE_DEBOUNCE_MS);
+    }
   }
 
   reset(): void {
     this._session.stop();
+    this._cancelAnnotate();
     this._baseFen = START_FEN;
     this._history = [];
     this._cursor = 0;
@@ -368,6 +389,7 @@ export class Orchestrator {
       // Disabling the engine silences _onUpdate, so a pending classification can
       // never resolve — clear it (else "Evaluating…" would stick true forever).
       this._session.stop();
+      this._cancelAnnotate();
       this._analyzing = false;
       this._annotating = false;
       this._pending = null;
@@ -394,6 +416,7 @@ export class Orchestrator {
       return;
     }
     this._session.stop();
+    this._cancelAnnotate();
     // Step the cursor back so _play_move REPLACES the last entry (not appends).
     this._cursor -= 1;
     this._playMove(uci, boardBefore, before);
@@ -445,6 +468,7 @@ export class Orchestrator {
     // Stopping the search freezes the last result; a still-pending classification
     // won't resolve until the next _restart(), so clear it now (no stuck "Evaluating…").
     this._session.stop();
+    this._cancelAnnotate();
     this._analyzing = false;
     this._annotating = false;
     this._pending = null;
@@ -547,6 +571,52 @@ export class Orchestrator {
       .reduce((p, e) => playUci(p, e.move), posFromFen(this._baseFen));
   }
 
+  private _boardAt(cursor: number): Chess {
+    return this._history.slice(0, cursor).reduce((p, e) => playUci(p, e.move), posFromFen(this._baseFen));
+  }
+
+  private _cancelAnnotate(): void {
+    if (this._annotateTimer !== null) { clearTimeout(this._annotateTimer); this._annotateTimer = null; }
+    this._annotate = null;
+  }
+
+  private _startAnnotate(index: number): void {
+    if (index < 1 || index > this._history.length) { this._annotating = false; return; }
+    if (this._history[index - 1].classification !== undefined) { this._annotating = false; return; }
+    const boardBefore = this._boardAt(index - 1);
+    this._annotate = { boardBefore, uci: this._history[index - 1].move, ply: index - 1, latest: null };
+    this._session.stop();
+    this._session.start(fenOf(boardBefore), { depth: this._depth, timeMs: this._movetimeMs });
+  }
+
+  private _finishAnnotate(): void {
+    const a = this._annotate;
+    if (a === null) return;
+    const beforeA = a.latest;
+    this._annotate = null;
+    const blBefore = beforeA !== null ? bestLine(beforeA) : null;
+    if (beforeA === null || blBefore === null || lineMove(blBefore) === null) {
+      // No usable before-eval: give up quietly and just analyze the current position.
+      this._annotating = false;
+      this._session.stop();
+      this._restart();
+      return;
+    }
+    if (outcomeOf(this._board) !== null) {
+      // Current position is terminal: classify against a synthetic eval (no engine needed).
+      this._classifyTerminal(a.boardBefore, a.uci, beforeA, a.ply);
+      this._annotating = false;
+      this._session.stop();
+      this._send(this._stateFrame(this._lastAnalysis));
+      return;
+    }
+    // Hand off to the existing classify path: analyze the current position; _onUpdate
+    // classifies the move (and clears _annotating) once it reaches CLASSIFY_MIN_DEPTH.
+    this._pending = [a.boardBefore, a.uci, beforeA, a.ply];
+    this._session.stop();
+    this._restart();
+  }
+
   private _playMove(uci: string, boardBefore: Chess, beforeA: AnalysisInfo | null): void {
     const san = sanOf(boardBefore, uci);
     this._history.length = this._cursor; // truncate any forward line
@@ -646,6 +716,11 @@ export class Orchestrator {
   // Arrow fields so `this` stays bound when handed to the session as callbacks.
   _onUpdate = (info: AnalysisInfo): void => {
     if (this._batch !== null) { this._batch.latest = info; return; }
+    if (this._annotate !== null) {
+      this._annotate.latest = info;                       // capture the BEFORE eval
+      if (info.depth >= CLASSIFY_MIN_DEPTH) this._finishAnnotate();
+      return;                                             // do NOT display the before-position lines
+    }
     this._lastAnalysis = info;
     const bl = bestLine(info);
     if (
@@ -684,6 +759,7 @@ export class Orchestrator {
       this._batchAdvance();
       return;
     }
+    if (this._annotate !== null) { this._finishAnnotate(); return; }
     // A finite search reached its limit: freeze the last result (analyzing off).
     this._analyzing = false;
     this._send(this._stateFrame(this._lastAnalysis));

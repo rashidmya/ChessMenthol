@@ -4,12 +4,16 @@ import type { ServerFrame, StateFrame } from '../lib/types';
 import type { AnalysisInfo } from '../engine/types';
 import type { SessionCallbacks } from '../engine/session';
 
-// Session that answers each start(fen) with a scripted eval (best move a2a3, depth 20).
+// Session that answers each start(fen) with a scripted eval, depth 20.
+// Returns a legal best-move pawn push for the side to move so lastMoveToDict
+// never throws on an illegal PV (a2a3 is white's, a7a6 is black's).
 function scriptedFactory(cpForFen: (fen: string) => number) {
   return (_e: unknown, cb: SessionCallbacks) => ({
     start(fen: string) {
       queueMicrotask(() => {
-        cb.onUpdate({ fen, depth: 20, lines: [{ multipv: 1, eval: { cp: cpForFen(fen), mate: null }, depth: 20, pv: ['a2a3'] }] } as AnalysisInfo);
+        const blackToMove = fen.split(' ')[1] === 'b';
+        const bestMove = blackToMove ? 'a7a6' : 'a2a3';
+        cb.onUpdate({ fen, depth: 20, lines: [{ multipv: 1, eval: { cp: cpForFen(fen), mate: null }, depth: 20, pv: [bestMove] }] } as AnalysisInfo);
         cb.onDone?.();
       });
     },
@@ -75,5 +79,41 @@ describe('annotating never sticks true when the engine is silenced', () => {
     expect(last().annotating).toBe(false);
     await drain();
     expect(last().annotating).toBe(false);
+  });
+});
+
+describe('live annotation while navigating', () => {
+  it('classifies the move you land on (jump) after the debounce', async () => {
+    vi.useFakeTimers();
+    const { orch, last } = mk();
+    orch.handle({ type: 'load_pgn', pgn: '1. e4 e5 2. Nf3 Nc6 *' }); // 4 plies, none classified
+    orch.handle({ type: 'navigate', index: 2 });                     // jump onto move 2 (…e5)
+    expect(last().annotating).toBe(true);                            // hint shows immediately
+    await vi.advanceTimersByTimeAsync(200);                          // fire the ~150ms debounce
+    for (let i = 0; i < 30; i++) { await Promise.resolve(); }        // drain the before+after evals
+    expect(last().moveList[1].classification).not.toBeNull();        // move 2 got a badge
+    expect(last().annotating).toBe(false);
+    vi.useRealTimers();
+  });
+
+  it('does nothing at index 0, when already classified, or when analysis is off', async () => {
+    vi.useFakeTimers();
+    // analysis OFF
+    const framesOff: ServerFrame[] = [];
+    const engineOff = { select: vi.fn(), setOption: vi.fn() };
+    const off = new Orchestrator((f) => framesOff.push(f), { engine: engineOff, sessionFactory: scriptedFactory(() => 20), analysisEnabled: false });
+    off.handle({ type: 'load_pgn', pgn: '1. e4 e5 *' });
+    off.handle({ type: 'navigate', index: 1 });
+    const lastOff = () => framesOff.filter((f): f is StateFrame => f.type === 'state').at(-1)!;
+    expect(lastOff().annotating).toBe(false);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(lastOff().moveList[0].classification).toBeNull();
+
+    // index 0 (base) with analysis ON -> nothing to annotate
+    const { orch, last } = mk();
+    orch.handle({ type: 'load_pgn', pgn: '1. e4 e5 *' });
+    orch.handle({ type: 'navigate', index: 0 });
+    expect(last().annotating).toBe(false);
+    vi.useRealTimers();
   });
 });
