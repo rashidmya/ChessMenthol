@@ -69,6 +69,12 @@ describe('analyze_game', () => {
       expect(rep.report.plies).toHaveLength(4);
       expect(rep.report.white.accuracy).toBeGreaterThan(0);
       expect(rep.report.plies[0].winWhite).toBeGreaterThan(0);
+      // Prove the classify path actually ran for every ply. A systematic
+      // classifyMove mis-wiring would be swallowed by the per-ply guard and
+      // leave all classifications null, yet accuracy (from gameAccuracy, not
+      // classify) would still be >0 — so accuracy alone can't catch it.
+      expect(rep.report.plies[0].classification).not.toBeNull();
+      expect(rep.report.plies.every((p) => p.classification !== null)).toBe(true);
     }
   });
 

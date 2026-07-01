@@ -748,6 +748,7 @@ export class Orchestrator {
       const moverWhite = board.turn === 'white';
       let classification: ReturnType<typeof classifyMove> | null = null;
       if (before && after && bestLine(before) && lineMove(bestLine(before)!) && bestLine(after)) {
+        // Per-ply guard: one pathological position must not abort the whole-game report.
         try {
           const c = classifyMove(board, entry.move, before, after);
           classification = c;
