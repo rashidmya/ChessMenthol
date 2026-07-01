@@ -314,6 +314,10 @@ export class Orchestrator {
       return;
     }
     this._session.stop();
+    // A pending before-pass shares this session; the board is about to change, so
+    // tear it down. (_resetMoveState below already clears _annotating/_pending; the
+    // gap _cancelAnnotate closes is the timer + the live _annotate object.)
+    this._cancelAnnotate();
     this._baseFen = fenOf(board);
     this._history = [];
     this._cursor = 0;
@@ -424,6 +428,15 @@ export class Orchestrator {
 
   setEngine(id: string): void {
     this._session.stop(); // join the prior worker before mutating shared state
+    // Tear down any in-flight before-pass: _restart() relaunches the CURRENT
+    // position, so a live _annotate would capture that eval as the "before" and
+    // misroute the classify. _cancelAnnotate kills the timer + _annotate; these
+    // commands don't call _resetMoveState, so clear _annotating (else the hint
+    // sticks after a pending-timer case) and _pending (drop the in-flight played-
+    // move classify — board unchanged, so it re-resolves on the next analysis).
+    this._cancelAnnotate();
+    this._annotating = false;
+    this._pending = null;
     this._engineId = id;
     this._engineStarted = false;
     this._restart();
@@ -433,6 +446,9 @@ export class Orchestrator {
     let depth = this._depth;
     if (cmd.depth != null) depth = cmd.depth;
     this._session.stop();
+    this._cancelAnnotate(); // tear down in-flight before-pass (see setEngine)
+    this._annotating = false;
+    this._pending = null;
     this._depth = depth;
     if ('movetime' in cmd) {
       const mt = cmd.movetime;
@@ -443,6 +459,9 @@ export class Orchestrator {
 
   setEngineOption(name: string, value?: string): void {
     this._session.stop();
+    this._cancelAnnotate(); // tear down in-flight before-pass (see setEngine)
+    this._annotating = false;
+    this._pending = null;
     // Buttons (value === undefined) fire once and are NOT stored; valued options persist.
     if (value !== undefined) storeSetOption(this._engineId, name, value);
     if (this._engineStarted) this._engine.setOption?.(name, value);
@@ -451,12 +470,18 @@ export class Orchestrator {
 
   resetEngineOption(name: string): void {
     this._session.stop();
+    this._cancelAnnotate(); // tear down in-flight before-pass (see setEngine)
+    this._annotating = false;
+    this._pending = null;
     storeResetOption(this._engineId, name);
     this._restart(); // engine default re-applies on the next engine load
   }
 
   resetEngineOptions(): void {
     this._session.stop();
+    this._cancelAnnotate(); // tear down in-flight before-pass (see setEngine)
+    this._annotating = false;
+    this._pending = null;
     storeResetAll(this._engineId);
     this._restart();
   }
@@ -565,15 +590,13 @@ export class Orchestrator {
   // analysis-driving internals
   // ──────────────────────────────────────────────────────────────────────────
 
-  private _rebuildBoard(): void {
-    this._board = this._history
-      .slice(0, this._cursor)
-      .reduce((p, e) => playUci(p, e.move), posFromFen(this._baseFen));
-  }
-
-  // _rebuildBoard generalized: replay base_fen + history up to an ARBITRARY cursor.
+  // Replay base_fen + history up to an ARBITRARY cursor.
   private _boardAt(cursor: number): Chess {
     return this._history.slice(0, cursor).reduce((p, e) => playUci(p, e.move), posFromFen(this._baseFen));
+  }
+
+  private _rebuildBoard(): void {
+    this._board = this._boardAt(this._cursor);
   }
 
   private _cancelAnnotate(): void {
@@ -739,15 +762,24 @@ export class Orchestrator {
       // -- e.g. every PV failed to parse, leaving an empty PV.
       const blBefore = beforeA !== null ? bestLine(beforeA) : null;
       if (beforeA !== null && blBefore !== null && lineMove(blBefore) !== null) {
-        const c = classifyMove(boardBefore, uci, beforeA, info);
-        const lm = lastMoveToDict(c, boardBefore, uci, beforeA, info);
-        this._lastMove = lm;
-        // Retain the deep pre-move analysis so a later play_best can reuse it.
-        this._preMoveAnalysis = beforeA;
-        if (ply >= 0 && ply < this._history.length) {
-          this._history[ply].classification = c;
-          this._history[ply].lastMove = lm;
-          this._history[ply].preAnalysis = beforeA;
+        // Defense in depth (mirrors _buildReport's per-ply guard): should a
+        // misrouted/illegal eval ever reach here, classifyMove/lastMoveToDict can
+        // throw (e.g. the wrong side's PV move is illegal on the before-board). A
+        // throw inside this session line-callback would wedge analysis, so swallow
+        // it and leave the move unclassified rather than rethrow.
+        try {
+          const c = classifyMove(boardBefore, uci, beforeA, info);
+          const lm = lastMoveToDict(c, boardBefore, uci, beforeA, info);
+          this._lastMove = lm;
+          // Retain the deep pre-move analysis so a later play_best can reuse it.
+          this._preMoveAnalysis = beforeA;
+          if (ply >= 0 && ply < this._history.length) {
+            this._history[ply].classification = c;
+            this._history[ply].lastMove = lm;
+            this._history[ply].preAnalysis = beforeA;
+          }
+        } catch {
+          // Skip classifying this move if it throws (e.g. missing/illegal PV).
         }
       }
       // Consume the pending classification request even when skipped so it

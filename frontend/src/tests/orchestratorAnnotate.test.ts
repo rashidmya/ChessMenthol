@@ -146,4 +146,20 @@ describe('live annotation while navigating', () => {
     if (rep && rep.type === 'report') expect(rep.report.plies).toHaveLength(4);
     vi.useRealTimers();
   });
+
+  it('classifies a terminal (checkmate) move you navigate onto (synthetic after-eval)', async () => {
+    vi.useFakeTimers();
+    const { orch, last } = mk();
+    orch.handle({ type: 'load_pgn', pgn: '1. f3 e5 2. g4 Qh4#' }); // 4 plies, final = mate (unclassified)
+    // load leaves the cursor on the mating ply; the terminal board never starts the
+    // engine (gameOver early-return), so re-navigating onto it triggers the before-pass
+    // whose _finishAnnotate takes the terminal branch (synthesizes the after-eval).
+    orch.handle({ type: 'navigate', index: 4 });                   // land on the mating move
+    expect(last().annotating).toBe(true);
+    await vi.advanceTimersByTimeAsync(200);                        // fire the debounce -> before-pass
+    for (let i = 0; i < 30; i++) { await Promise.resolve(); }      // drain the before-eval
+    expect(last().moveList[3].classification).not.toBeNull();      // mate move got a badge
+    expect(last().annotating).toBe(false);
+    vi.useRealTimers();
+  });
 });
