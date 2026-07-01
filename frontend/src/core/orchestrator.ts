@@ -571,6 +571,7 @@ export class Orchestrator {
       .reduce((p, e) => playUci(p, e.move), posFromFen(this._baseFen));
   }
 
+  // _rebuildBoard generalized: replay base_fen + history up to an ARBITRARY cursor.
   private _boardAt(cursor: number): Chess {
     return this._history.slice(0, cursor).reduce((p, e) => playUci(p, e.move), posFromFen(this._baseFen));
   }
@@ -585,6 +586,10 @@ export class Orchestrator {
     if (this._history[index - 1].classification !== undefined) { this._annotating = false; return; }
     const boardBefore = this._boardAt(index - 1);
     this._annotate = { boardBefore, uci: this._history[index - 1].move, ply: index - 1, latest: null };
+    // Setting _annotate BEFORE stop() is safe: AnalysisSession suppresses all
+    // callbacks while draining (session.ts: `if (phase !== 'searching') return`
+    // for info; a draining bestmove never fires onDone), so the prior search's
+    // stop() can't land a stale onUpdate/onDone into this before-pass.
     this._session.stop();
     this._session.start(fenOf(boardBefore), { depth: this._depth, timeMs: this._movetimeMs });
   }
@@ -772,6 +777,16 @@ export class Orchestrator {
   analyzeGame(): void {
     if (this._history.length === 0) { this._error('no game to analyze'); return; }
     this._session.stop();
+    // A pending live-annotation before-pass shares this single session. If its
+    // debounce timer fired mid-batch, _startAnnotate (which has NO _batch guard)
+    // would stop() the batch and its before-FEN eval would corrupt a report slot.
+    // Cancel the timer AND clear the flags: _cancelAnnotate only kills the timer +
+    // nulls _annotate, so annotating (set true by navigate before the timer runs)
+    // must be cleared explicitly or it leaks a stuck "Evaluating…" through the batch
+    // state frames. Clear _pending too so no stale classify request survives the batch.
+    this._cancelAnnotate();
+    this._annotating = false;
+    this._pending = null;
     const fens: string[] = [this._baseFen];
     let pos = posFromFen(this._baseFen);
     for (const e of this._history) { pos = playUci(pos, e.move); fens.push(fenOf(pos)); }

@@ -114,6 +114,36 @@ describe('live annotation while navigating', () => {
     orch.handle({ type: 'load_pgn', pgn: '1. e4 e5 *' });
     orch.handle({ type: 'navigate', index: 0 });
     expect(last().annotating).toBe(false);
+
+    // already classified -> navigating back onto it does NOT re-annotate
+    const { orch: o2, last: l2 } = mk();
+    o2.handle({ type: 'load_pgn', pgn: '1. e4 e5 *' });
+    for (let i = 0; i < 30; i++) { await Promise.resolve(); } // flush the live-analysis session
+    o2.handle({ type: 'analyze_game' });                      // stamps per-ply classifications
+    for (let i = 0; i < 30; i++) { await Promise.resolve(); } // run the batch to completion
+    o2.handle({ type: 'navigate', index: 1 });               // move 1 is now classified
+    expect(l2().annotating).toBe(false);
+    vi.useRealTimers();
+  });
+
+  it('analyze_game cancels a pending before-pass (no stuck annotating, no batch corruption)', async () => {
+    vi.useFakeTimers();
+    const { orch, frames, last } = mk();
+    orch.handle({ type: 'load_pgn', pgn: '1. e4 e5 2. Nf3 Nc6 *' }); // 4 plies, none classified
+    orch.handle({ type: 'navigate', index: 2 });                     // annotating true, debounce scheduled
+    expect(last().annotating).toBe(true);
+    // Flush the stray live-analysis microtasks WITHOUT firing the debounce timer
+    // (still pending) so the batch below starts from a clean session.
+    for (let i = 0; i < 30; i++) { await Promise.resolve(); }
+    expect(last().annotating).toBe(true);                            // still pending (timer not fired)
+    orch.handle({ type: 'analyze_game' });                           // must cancel the timer + clear annotating
+    expect(last().annotating).toBe(false);                          // (a) not stuck true — FAILS without the fix
+    await vi.advanceTimersByTimeAsync(200);                          // the cancelled timer must NOT fire mid-batch
+    for (let i = 0; i < 30; i++) { await Promise.resolve(); }        // drain the batch
+    expect(last().annotating).toBe(false);                          // still false after the debounce window
+    const rep = frames.find((f) => f.type === 'report');            // (b) batch completed cleanly into a report
+    expect(rep).toBeDefined();
+    if (rep && rep.type === 'report') expect(rep.report.plies).toHaveLength(4);
     vi.useRealTimers();
   });
 });
