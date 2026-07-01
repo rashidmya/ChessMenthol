@@ -21,6 +21,7 @@
   import ActionBar from './components/ActionBar.svelte';
   import { captureCommands, type Region } from './lib/region';
   import { hasNativeCapture } from './lib/capture';
+  import { makePositionPgn } from './core/pgn';
 
   let orientation: 'white' | 'black' = 'white';
   let manualFlip = false;
@@ -113,6 +114,7 @@
 
   $: s = $state;
   $: editing = screen === 'edit';
+  $: editPgn = makePositionPgn(editFen);
   // When analysis is off, the analysis-derived surfaces (eval bar, engine lines,
   // suggestion arrows, move feedback) and the View-options menu are hidden entirely,
   // regardless of the view-toggle prefs; they return (per the prefs) when re-enabled.
@@ -158,7 +160,7 @@
           onCapture={onPickRegion} onStart={onStart} />
       {:else if screen === 'edit'}
         <EditPanel fen={editFen} side={editSide} castle={editCastle} selected={selectedEditPiece}
-          editError={editError}
+          pgn={editPgn} editError={editError}
           onSelect={onSelectPiece} onSide={onEditSide} onToggleCastle={onToggleCastle}
           onFlip={onFlip} onReset={onEditReset} onClear={onEditClear}
           onFenInput={onEditFenInput} onLoad={onEditLoad} onBack={onEditBack} />
