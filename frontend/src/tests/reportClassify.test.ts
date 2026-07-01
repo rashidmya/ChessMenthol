@@ -60,4 +60,20 @@ describe('winning-chances classification bands (White to move)', () => {
     const c = classifyMove(pos, 'g1f3', before, after);
     expect([MoveClass.EXCELLENT, MoveClass.GOOD]).toContain(c.label);
   });
+
+  // DISCRIMINATOR: a clearly-winning position with a moderate cp dip.
+  // Winning-chances is saturated up here, so a large cpl is only a small WC swing.
+  //   before best = +800 cp (best d2d4), played g1f3 → +500 cp.  cpl = 300.
+  //   OLD cpl-band ladder: cpl 300 > mistakeMax(250) → BLUNDER.
+  //   NEW winning-chances: winningChances(800) − winningChances(500)
+  //                        ≈ 0.900 − 0.726 = 0.174  → INACCURACY.
+  // Rule 5 (Miss) does NOT fire: played +500 is not < missKeep(100).
+  // This case therefore ONLY passes with the winning-chances block; a revert to
+  // the cpl ladder would return BLUNDER and fail here.
+  it('grades a moderate dip in a winning position as INACCURACY (not the old BLUNDER)', () => {
+    const beforeWinning = info(START, 800, ['d2d4']);
+    const after = info('after', 500, []);
+    const c = classifyMove(pos, 'g1f3', beforeWinning, after);
+    expect(c.label).toBe(MoveClass.INACCURACY);
+  });
 });
