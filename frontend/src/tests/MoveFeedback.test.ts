@@ -7,8 +7,12 @@ describe('MoveFeedback evaluating hint', () => {
     const { getByText, getByTestId } = render(MoveFeedback, {
       props: { lastMove: null, evaluating: { san: 'd3' } },
     });
-    expect(getByTestId('evaluating')).toBeTruthy();
-    expect(getByText(/d3 was played/)).toBeTruthy();
+    const box = getByTestId('evaluating');
+    expect(box).toBeTruthy();
+    // SAN is wrapped in .san (figurine font); assert via recursive textContent
+    // since getByText only reads an element's direct text nodes.
+    expect(box.querySelector('.san')?.textContent).toBe('d3');
+    expect(box.textContent).toMatch(/d3 was played/);
     expect(getByText(/Evaluating/)).toBeTruthy();
   });
 

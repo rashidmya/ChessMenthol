@@ -365,8 +365,12 @@ export class Orchestrator {
     if (enabled) {
       this._restart();
     } else {
+      // Disabling the engine silences _onUpdate, so a pending classification can
+      // never resolve — clear it (else "Evaluating…" would stick true forever).
       this._session.stop();
       this._analyzing = false;
+      this._annotating = false;
+      this._pending = null;
       this._send(this._stateFrame(this._lastAnalysis));
     }
   }
@@ -438,8 +442,12 @@ export class Orchestrator {
     // A running batch report has its own teardown (clears _batch/_reportProgress
     // and restores MultiPV); a plain stop would freeze it mid-run.
     if (this._batch !== null) { this.cancelAnalysis(); return; }
+    // Stopping the search freezes the last result; a still-pending classification
+    // won't resolve until the next _restart(), so clear it now (no stuck "Evaluating…").
     this._session.stop();
     this._analyzing = false;
+    this._annotating = false;
+    this._pending = null;
     this._send(this._stateFrame(this._lastAnalysis));
   }
 
@@ -609,7 +617,11 @@ export class Orchestrator {
   private _restart(): void {
     this._gameOver = outcomeOf(this._board);
     if (!this._analysisEnabled) {
+      // No engine will run, so any pending classification can never resolve —
+      // clear it centrally here so _playMove-while-disabled can't stick annotating.
       this._analyzing = false;
+      this._annotating = false;
+      this._pending = null;
       this._send(this._stateFrame(this._lastAnalysis));
       return;
     }

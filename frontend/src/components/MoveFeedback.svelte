@@ -42,7 +42,9 @@
   <div class="lm" data-testid="evaluating">
     <div class="mrow">
       <span class="mtext">
-        <span class="mname">{evaluating.san} was played</span>
+        <!-- SAN wrapped in .san for figurine-font consistency with the other move rows.
+             Tests assert via textContent (recursive), not getByText (direct text nodes only). -->
+        <span class="mname"><span class="san">{evaluating.san}</span> was played</span>
       </span>
     </div>
     <div class="evaluating">Evaluating<span class="dots"><span>.</span><span>.</span><span>.</span></span></div>
@@ -125,4 +127,5 @@
   .evaluating .dots span:nth-child(2) { animation-delay: .2s; }
   .evaluating .dots span:nth-child(3) { animation-delay: .4s; }
   @keyframes blink { 0%, 80%, 100% { opacity: .2; } 40% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .evaluating .dots span { animation: none; opacity: 1; } }
 </style>

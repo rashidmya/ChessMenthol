@@ -40,3 +40,40 @@ describe('annotating flag on live-played moves', () => {
     expect(states().some((s) => s.annotating)).toBe(true);
   });
 });
+
+describe('annotating never sticks true when the engine is silenced', () => {
+  it('a move played while analysis is DISABLED does not strand annotating=true', async () => {
+    const { orch, last } = mk();
+    orch.handle({ type: 'set_analysis_enabled', enabled: true });
+    await drain();                                     // populate _lastAnalysis
+    orch.handle({ type: 'set_analysis_enabled', enabled: false });
+    orch.handle({ type: 'make_move', uci: 'e2e4' });   // _playMove -> _restart disabled early-return
+    expect(last().annotating).toBe(false);            // cleared centrally in _restart
+    await drain();
+    expect(last().annotating).toBe(false);            // and never resolves to true later
+  });
+
+  it('DISABLING analysis mid-annotation clears a pending classification', async () => {
+    const { orch, last } = mk();
+    orch.handle({ type: 'set_analysis_enabled', enabled: true });
+    await drain();
+    orch.handle({ type: 'make_move', uci: 'e2e4' });   // pending set, annotating true
+    expect(last().annotating).toBe(true);
+    orch.handle({ type: 'set_analysis_enabled', enabled: false }); // silence before it resolves
+    expect(last().annotating).toBe(false);
+    await drain();
+    expect(last().annotating).toBe(false);
+  });
+
+  it('STOPPING analysis mid-annotation clears a pending classification', async () => {
+    const { orch, last } = mk();
+    orch.handle({ type: 'set_analysis_enabled', enabled: true });
+    await drain();
+    orch.handle({ type: 'make_move', uci: 'e2e4' });   // pending set, annotating true
+    expect(last().annotating).toBe(true);
+    orch.handle({ type: 'stop' });                     // stopAnalysis with _analysisEnabled still true
+    expect(last().annotating).toBe(false);
+    await drain();
+    expect(last().annotating).toBe(false);
+  });
+});
