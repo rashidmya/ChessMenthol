@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { cpFromEval, winningChances, winPercent } from '../core/accuracy';
 import { moveAccuracy, weightedMean, harmonicMean, populationStdDev } from '../core/accuracy';
+import { gameAccuracy, acpl } from '../core/accuracy';
 
 describe('winPercent / winningChances', () => {
   it('is 50 at cp 0', () => {
@@ -49,5 +50,37 @@ describe('Maths helpers', () => {
   });
   it('populationStdDev divides by n', () => {
     expect(populationStdDev([2, 4, 4, 4, 5, 5, 7, 9])).toBeCloseTo(2, 6);
+  });
+});
+
+describe('gameAccuracy', () => {
+  it('gives near-100 for a dead-level game and lower for the side that drops chances', () => {
+    // 6 half-moves, White plays a big blunder on its move that dips to -300 cp.
+    // cpsAfterMoves are WHITE-POV cp for positions after each move.
+    const cps = [30, 20, 35, 25, -300, 10];
+    const { white, black } = gameAccuracy(true, cps);
+    expect(white).toBeGreaterThan(0);
+    expect(white).toBeLessThan(100);
+    expect(black).toBeGreaterThan(white); // White threw chances away, Black didn't
+  });
+  it('is symmetric-ish for a perfectly level game', () => {
+    const cps = [15, 15, 15, 15];
+    const { white, black } = gameAccuracy(true, cps);
+    expect(white).toBeCloseTo(100, 0);
+    expect(black).toBeCloseTo(100, 0);
+  });
+});
+
+describe('acpl', () => {
+  it('averages each colour’s per-move centipawn loss (mover POV, capped)', () => {
+    // positions 0..4 (start + 4 moves), White POV cp. White moves = 1,3; Black = 2,4.
+    const cps = [20, 10, 40, 30, -260];
+    // White losses: move1 (20->10)=10 ; move3 (40->30)=10 → mean 10
+    // Black losses (mover POV = NEGATE the White-POV delta):
+    //   move2: cps 10->40, Black got worse by 30 → loss 30
+    //   move4: cps 30->-260 (Black now WINNING by 260) → Black improved, loss 0
+    //   → mean (30+0)/2 = 15
+    expect(acpl(cps, true, 'white')).toBe(10);
+    expect(acpl(cps, true, 'black')).toBe(15);
   });
 });

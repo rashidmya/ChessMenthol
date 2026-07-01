@@ -57,3 +57,68 @@ export function populationStdDev(xs: number[]): number {
   const variance = xs.reduce((a, b) => a + (b - mean) * (b - mean), 0) / xs.length;
   return Math.sqrt(variance);
 }
+
+const CP_INITIAL = 15; // scalachess Eval.Cp.initial — seeded as position 0 in game accuracy
+
+/**
+ * AccuracyPercent.gameAccuracy — per-colour game accuracy.
+ * @param startWhite  true if White moves first at the base position
+ * @param cpsAfterMoves  White-POV cp for the position AFTER each move (length = #moves)
+ */
+export function gameAccuracy(startWhite: boolean, cpsAfterMoves: (number | null)[]): { white: number; black: number } {
+  const allWin: (number | null)[] = [winPercent(CP_INITIAL), ...cpsAfterMoves.map((c) => (c === null ? null : winPercent(c)))];
+  const n = cpsAfterMoves.length;
+  if (n === 0) return { white: 100, black: 100 };
+
+  const windowSize = clamp(Math.floor(n / 10), 2, 8);
+  // (windowSize - 2) leading copies of the first window, then every sliding window.
+  const windows: (number | null)[][] = [];
+  const firstWindow = allWin.slice(0, Math.min(windowSize, allWin.length));
+  for (let i = 0; i < Math.max(0, Math.min(windowSize, allWin.length) - 2); i++) windows.push(firstWindow);
+  for (let i = 0; i + windowSize <= allWin.length; i++) windows.push(allWin.slice(i, i + windowSize));
+
+  const weightAt = (i: number): number => {
+    const w = windows[Math.min(i, windows.length - 1)] ?? firstWindow;
+    const vals = w.filter((x): x is number => x !== null);
+    return clamp(populationStdDev(vals), 0.5, 12);
+  };
+
+  // Per-move accuracy from sliding pairs; colour = mover of move (i+1).
+  const per: { acc: number; weight: number; white: boolean }[] = [];
+  for (let i = 1; i < allWin.length; i++) {
+    const before = allWin[i - 1], after = allWin[i];
+    if (before === null || after === null) continue;
+    const moverWhite = startWhite ? (i % 2 === 1) : (i % 2 === 0);
+    // mover-POV win%: White uses win% directly, Black uses 100 - win%.
+    const b = moverWhite ? before : 100 - before;
+    const a = moverWhite ? after : 100 - after;
+    per.push({ acc: moveAccuracy(b, a), weight: weightAt(i - 1), white: moverWhite });
+  }
+
+  const forColour = (white: boolean): number => {
+    const rows = per.filter((p) => p.white === white);
+    if (rows.length === 0) return 100;
+    const weighted = weightedMean(rows.map((r) => [r.acc, r.weight] as [number, number]));
+    const harmonic = harmonicMean(rows.map((r) => r.acc));
+    if (weighted === null || harmonic === null) return 100;
+    return clamp((weighted + harmonic) / 2, 0, 100);
+  };
+
+  return { white: forColour(true), black: forColour(false) };
+}
+
+/**
+ * AccuracyCP.mean — average centipawn loss for one colour.
+ * @param cpsPositions  White-POV cp for positions 0..N (start + after each move)
+ */
+export function acpl(cpsPositions: number[], startWhite: boolean, color: 'white' | 'black'): number {
+  const losses: number[] = [];
+  for (let k = 1; k < cpsPositions.length; k++) {
+    const moverWhite = startWhite ? (k % 2 === 1) : (k % 2 === 0);
+    if (moverWhite !== (color === 'white')) continue;
+    const drop = (cpsPositions[k - 1] - cpsPositions[k]) * (moverWhite ? 1 : -1);
+    losses.push(Math.max(0, drop));
+  }
+  if (losses.length === 0) return 0;
+  return Math.round(losses.reduce((a, b) => a + b, 0) / losses.length);
+}
