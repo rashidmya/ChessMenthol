@@ -120,11 +120,42 @@ Each `navigate` first tears down any in-flight `_annotate`/`_pending` and stops 
 
 ---
 
+## Enhancements (approved after initial design)
+
+### E1 — State-aware trigger button (ties A + B together)
+The relocated `ActionBar` trigger reflects three states so the reuse behavior is visible, not silent:
+- `reportProgress` set → **Cancel · {done}/{total}** (calls `onCancelAnalysis`), `data-testid="analysis-progress"`.
+- else a cached report matches the current game (`hasReportForGame` true) → **View game report** (calls `onRequestAnalysis`, which reopens the report screen), `data-testid="request-analysis"`.
+- else → **Request computer analysis** (calls `onRequestAnalysis`, which runs the batch), `data-testid="request-analysis"`.
+
+`App.svelte` computes `hasReportForGame = !!(rpt && reportMatchesGame(rpt, s))` and passes it (plus `reportProgress`, `onRequestAnalysis`, `onCancelAnalysis`) into `ActionBar`. The Request and View-report states share the `request-analysis` testid (same handler; only the label differs).
+
+### E2 — Disable the trigger when no game is loaded
+When `total` (= `moveList.length`) is `0`, the Request/View button is rendered `disabled` (greyed, no click), so it can't fire the orchestrator's "no game to analyze" error. Re-enables as soon as the board has ≥1 move.
+
+### E3 — Debounce the Part-C before-pass on fast navigation
+On `navigate`, the board/cursor update and the current-position analysis restart happen **immediately** (lines stay responsive). The annotation before-pass is scheduled behind a ~150 ms debounce timer; a subsequent `navigate` cancels the pending timer (and tears down any in-flight `_annotate`) before re-evaluating eligibility for the new position. This prevents rapid arrow-scrubbing from thrashing the engine with searches it would immediately cancel. (The orchestrator may use `setTimeout`/`clearTimeout` here — that restriction only applies to workflow scripts, not app code.)
+
+### E4 — "Evaluating…" hint in the move-feedback area
+While a move's classification is pending, the right-panel move-feedback area (section 3 of the analysis card) shows the pending move's SAN and an animated "Evaluating…" line instead of an empty area:
+
+```
+d3 was played
+Evaluating…            ← animated (pulsing)
+```
+
+- New `annotating: boolean` field on `StateFrame`, true from the moment the current move's annotation is scheduled/in-flight until its classification is written (or the pass gives up / navigation moves away). Concretely the orchestrator sets an internal `_annotating` flag: `true` when `navigate` schedules an eligible before-pass **or** when `_playMove` sets `_pending`; `false` when the classify block writes `_history[ply].classification`, when a pass gives up (empty PV), or when navigating to an ineligible/already-classified position. This also makes live-*played* moves briefly show the same hint before their badge lands (consistent).
+- During the before-pass the displayed `_lastAnalysis` (current position's lines) is **kept frozen** — the before-position's lines are captured silently and not emitted — so the lines panel doesn't flicker; only the feedback area shows the pending hint.
+- `MoveFeedback.svelte` gains a prop `evaluating: { san: string } | null`. When `lastMove` is present it renders as today; else when `evaluating` is set it renders the pending row (`{san} was played` + animated `Evaluating…`); else nothing.
+- `App.svelte` shows the feedback section when `viewPrefs.feedback && analysisEnabled && (s?.lastMove || s?.annotating)`, and passes `evaluating={s?.annotating && (s?.currentPly ?? 0) >= 1 ? { san: s.moveList[s.currentPly - 1]?.san ?? '' } : null}`.
+
 ## Components touched
 
-- `src/App.svelte` — Part A (`onRequestAnalysis` reuse + `reportMatchesGame`), Part B (remove in-body trigger, pass trigger props to `ActionBar`).
-- `src/components/ActionBar.svelte` — Part B (Request/Cancel/progress in the `.acts` row, new props, icon).
-- `src/core/orchestrator.ts` — Part C (`_annotate` state, `navigate` pre-pass, `_onUpdate`/`_onSearchDone` interception, terminal edge).
+- `src/App.svelte` — Part A (`onRequestAnalysis` reuse + `reportMatchesGame`), Part B (remove in-body trigger, pass trigger props to `ActionBar`), E1 (`hasReportForGame`), E4 (feedback-section condition + `evaluating` prop).
+- `src/components/ActionBar.svelte` — Part B + E1 + E2 (Request/View/Cancel/progress in the `.acts` row, new props, icon, disabled-when-empty).
+- `src/components/MoveFeedback.svelte` — E4 (`evaluating` prop + pending row with animated "Evaluating…").
+- `src/core/orchestrator.ts` — Part C (`_annotate` state, `navigate` before-pass, `_onUpdate`/`_onSearchDone` interception, terminal edge), E3 (debounce timer), E4 (`_annotating` flag emitted on the state frame).
+- `src/lib/types.ts` — E4 (`annotating: boolean` on `StateFrame`).
 - `src/lib/licon.ts` — Part B (only if the chosen chart glyph key isn't already present).
 
 ## Testing
@@ -132,6 +163,9 @@ Each `navigate` first tears down any in-flight `_annotate`/`_pending` and stops 
 - **A (App):** with a `report` store matching `s.moveList`, clicking Request sets `screen='report'` and does **not** `send('analyze_game')` (spy). With a non-matching report (or none), Request sends `analyze_game`.
 - **B (ActionBar):** renders the `request-analysis` button; clicking calls `onRequestAnalysis`; when `reportProgress` is set, renders the Cancel affordance calling `onCancelAnalysis`. App test confirms the trigger now lives in the action bar (still reachable via `data-testid="request-analysis"`).
 - **C (orchestrator):** using a scripted session (per-FEN eval, like `orchestratorReport`'s `scriptedFactory`), load a PGN with analysis enabled, `navigate` to a ply, drain microtasks, and assert `_history[ply-1].classification` (and the emitted `moveList[ply-1].classification`) becomes non-null. Cover: a jump (not just Next), an already-classified move short-circuiting the pre-pass, `index=0` doing nothing, and analysis-disabled doing nothing. A terminal final-ply case asserts the move still classifies via the synthetic eval.
+- **E1/E2 (ActionBar):** renders **Request computer analysis** by default; when `hasReportForGame` is true renders **View game report** (same `request-analysis` testid, calls `onRequestAnalysis`); when `reportProgress` is set renders **Cancel · done/total** (`analysis-progress`, calls `onCancelAnalysis`); when `total===0` the Request/View button is `disabled`.
+- **E4 (MoveFeedback + orchestrator):** MoveFeedback renders the pending row (`{san} was played` + `Evaluating…`) when `lastMove` is null and `evaluating` is set, and the normal feedback when `lastMove` is present. Orchestrator: `navigate` to an un-annotated ply sets `annotating: true` on the emitted state frame; after the scripted classify completes, a subsequent frame has `annotating: false`.
+- **E3 (debounce):** covered implicitly by the Part-C tests still passing (the before-pass fires after the debounce). A focused timer test is optional; if added, use fake timers to assert the before-pass search only starts after the debounce and that a second `navigate` before it fires cancels the first.
 
 ## Error handling
 
