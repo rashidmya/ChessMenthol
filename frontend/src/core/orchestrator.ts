@@ -195,6 +195,15 @@ export class Orchestrator {
   // ──────────────────────────────────────────────────────────────────────────
 
   handle(cmd: Command): void {
+    // While a whole-game batch is running the engine session is exclusively ours;
+    // ignore every board/nav/settings/vision mutation so it can't preempt the shared
+    // AnalysisSession and corrupt the report. Only stop/cancel may tear the batch down
+    // (stopAnalysis delegates to cancelAnalysis when _batch !== null). The batch itself
+    // advances via the internal _onSearchDone/_onUpdate callbacks, not via handle().
+    if (this._batch !== null && cmd.type !== 'cancel_analysis' && cmd.type !== 'stop') {
+      this._send(this._stateFrame(this._lastAnalysis)); // re-emit current state (rejects the action)
+      return;
+    }
     // Vision commands route to the real (mostly async) handlers. The async ones
     // are fire-and-forget: each method catches + emits its own error/state frame,
     // so a rejection never escapes here.

@@ -110,6 +110,20 @@ describe('analyze_game', () => {
     expect(frames.some((f) => f.type === 'report')).toBe(false);
   });
 
+  it('ignores board/nav mutations while a batch is running', () => {
+    const { orch, frames, last } = makeOrch();
+    orch.handle({ type: 'load_pgn', pgn: '1. e4 e5 2. Nf3 Nc6 *' });
+    orch.handle({ type: 'analyze_game' });          // batch starts, waits (silent session)
+    const before = last();
+    expect(before.reportProgress).toEqual({ done: 0, total: 5 }); // base + 4 plies
+    expect(before.moveList.map((m) => m.uci)).toEqual(['e2e4', 'e7e5', 'g1f3', 'b8c6']);
+    orch.handle({ type: 'reset' });                 // would normally wipe history — must be ignored
+    const after = last();
+    expect(after.reportProgress).toEqual({ done: 0, total: 5 }); // batch untouched
+    expect(after.moveList).toHaveLength(4);          // history intact
+    expect(frames.some((f) => f.type === 'report')).toBe(false);
+  });
+
   it('synthesizes terminal-position eval (checkmate) without hanging', async () => {
     const frames: ServerFrame[] = [];
     const engine = { select: vi.fn(), setOption: vi.fn() };
