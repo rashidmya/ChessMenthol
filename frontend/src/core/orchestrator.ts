@@ -261,7 +261,10 @@ export class Orchestrator {
     this._baseFen = fenOf(board);
     this._history = [];
     for (const m of parsed.moves) {
-      this._history.push({ move: m.uci, san: m.san });
+      // Store the app's canonical SAN (sanOf on the pre-move board) rather than
+      // the raw PGN token, matching the live-play path (_playMove) so the report
+      // tasks that read _history[].san see consistent notation.
+      this._history.push({ move: m.uci, san: sanOf(board, m.uci) });
       board = playUci(board, m.uci);
     }
     this._cursor = this._history.length;
