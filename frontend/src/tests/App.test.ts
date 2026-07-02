@@ -160,19 +160,42 @@ describe('Review screen', () => {
     expect(screen.queryByTestId('report-panel')).toBeTruthy();
   });
 
-  it('review play button toggles auto-play and sends navigate on tick', async () => {
+  it('review auto-play advances one ply per tick, and toggling again pauses it', async () => {
     vi.useFakeTimers();
-    render(App);
-    await fireEvent.click(screen.getByText('Explore'));
-    stateStore.set(st([P1, { ply: 2, san: 'e5', uci: 'e7e5', classification: null }]));
-    reportStore.set({ ...baseReport, plies: [RP1, RP2] });
-    await Promise.resolve();
-    await fireEvent.click(screen.getByTestId('start-review'));
-    sendMock.mockClear();
-    await fireEvent.click(screen.getByTestId('autoplay'));
-    await vi.advanceTimersByTimeAsync(1300);
-    expect(sendMock).toHaveBeenCalledWith({ type: 'navigate', index: expect.any(Number) });
-    await fireEvent.click(screen.getByTestId('autoplay'));
-    vi.useRealTimers();
+    // Make `send` drive real state: a navigate command moves the frame's currentPly to
+    // `index`, so a tick genuinely sees the position advance (instead of self-stopping at
+    // the end). Reset the implementation afterwards so it never leaks to other tests.
+    const ml3 = [
+      { ply: 1, san: 'e4', uci: 'e2e4', classification: null },
+      { ply: 2, san: 'e5', uci: 'e7e5', classification: null },
+      { ply: 3, san: 'Nf3', uci: 'g1f3', classification: null },
+    ];
+    let frame = { ...st(ml3), currentPly: 1 };   // mid-game: at ply 1 of 3
+    sendMock.mockImplementation((cmd: import('../lib/types').Command) => {
+      if (cmd.type === 'navigate') { frame = { ...frame, currentPly: cmd.index }; stateStore.set(frame); }
+    });
+    try {
+      render(App);
+      await fireEvent.click(screen.getByText('Explore'));
+      stateStore.set(frame);
+      reportStore.set({ ...baseReport, plies: [RP1, RP2, { ...RP2, ply: 3, san: 'Nf3', uci: 'g1f3' }] });
+      await Promise.resolve();
+      await fireEvent.click(screen.getByTestId('start-review'));   // navigate 0 → currentPly 0
+      sendMock.mockClear();                                        // clears calls, keeps the implementation
+
+      // Play → each 1200ms tick advances one ply (0 → 1).
+      await fireEvent.click(screen.getByTestId('autoplay'));
+      await vi.advanceTimersByTimeAsync(1300);
+      expect(sendMock).toHaveBeenCalledWith({ type: 'navigate', index: 1 });   // real per-tick advance
+
+      // Pause → no further navigate after clearing, proving the timer was stopped.
+      await fireEvent.click(screen.getByTestId('autoplay'));
+      sendMock.mockClear();
+      await vi.advanceTimersByTimeAsync(1300);
+      expect(sendMock).not.toHaveBeenCalledWith({ type: 'navigate', index: expect.any(Number) });
+    } finally {
+      sendMock.mockReset();
+      vi.useRealTimers();
+    }
   });
 });

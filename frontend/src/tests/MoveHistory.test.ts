@@ -33,4 +33,18 @@ describe('MoveHistory', () => {
     expect((getByText('Nf6') as HTMLElement).style.color).not.toBe(''); // mistake -> colored
     expect((getByText('Bc4') as HTMLElement).style.color).not.toBe(''); // brilliant -> colored
   });
+
+  // MoveBadge renders as <svg class="move-badge" role="img">, so a classified move
+  // gets exactly one .move-badge when showBadges is on, and none when it's off (default).
+  const classified = [{ ply: 1, san: 'e4', uci: 'e2e4', classification: { label: 'blunder', cpl: 300, isBest: false } }];
+
+  it('renders a quality badge before a classified move when showBadges is on', () => {
+    const { container } = render(MoveHistory, { props: { moveList: classified, currentPly: 0, onNavigate: vi.fn(), showBadges: true } });
+    expect(container.querySelectorAll('.move-badge').length).toBe(1);
+  });
+
+  it('renders no badge when showBadges is off (default)', () => {
+    const { container } = render(MoveHistory, { props: { moveList: classified, currentPly: 0, onNavigate: vi.fn() } });
+    expect(container.querySelectorAll('.move-badge').length).toBe(0);
+  });
 });
