@@ -1,4 +1,4 @@
-import type { PlyReportDto } from '../lib/types';
+import type { GameReportDto, PlyReportDto } from '../lib/types';
 
 /** Count of each of the 10 move classes for one side. Keys are MoveClass string values. */
 export interface ClassCounts {
@@ -9,6 +9,25 @@ export interface ClassCounts {
 export function emptyClassCounts(): ClassCounts {
   return { brilliant: 0, great: 0, best: 0, excellent: 0, good: 0,
            book: 0, inaccuracy: 0, mistake: 0, blunder: 0, miss: 0 };
+}
+
+/** One point on the eval graph: White-POV win% (0..100), the White-POV eval text
+ *  for the tooltip, and a move label. */
+export interface GraphPoint { win: number; evalText: string; label: string; }
+
+/** Build the eval-graph series for a report: a base "Start" point followed by one
+ *  point per ply. Move labels mirror the move list (`floor((ply-1)/2)+1`, odd ply =
+ *  White) so the graph tooltip always reads the same as MoveHistory beside it. */
+export function graphSeries(report: GameReportDto): GraphPoint[] {
+  const points: GraphPoint[] = [
+    { win: report.startWin, evalText: report.startEvalText, label: 'Start' },
+  ];
+  for (const p of report.plies) {
+    const moveNo = Math.floor((p.ply - 1) / 2) + 1;
+    const label = p.ply % 2 === 1 ? `${moveNo}. ${p.san}` : `${moveNo}… ${p.san}`;
+    points.push({ win: p.winWhite, evalText: p.evalText, label });
+  }
+  return points;
 }
 
 /** Tally classified plies into per-side class counts, attributing each ply to the

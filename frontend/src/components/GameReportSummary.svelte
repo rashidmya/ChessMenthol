@@ -1,8 +1,10 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import Panel from './Panel.svelte';
   import AccuracyDial from './AccuracyDial.svelte';
   import EvalGraph from './EvalGraph.svelte';
   import MoveHistory from './MoveHistory.svelte';
+  import { graphSeries } from '../core/report';
   import type { GameReportDto, MoveEntryDto } from '../lib/types';
 
   export let report: GameReportDto;
@@ -13,19 +15,18 @@
   export let onBackToAnalysis: () => void = () => {};
   export let onNew: () => void = () => {};
 
-  // Graph wants a win% per position (base + after each move).
-  $: wins = [report.startWin, ...report.plies.map((p) => p.winWhite)];
+  // Graph series: base + one point per ply, each carrying win%, eval text, and label.
+  $: series = graphSeries(report);
+  $: wins = series.map((p) => p.win);
+  $: evals = series.map((p) => p.evalText);
+  $: labels = series.map((p) => p.label);
   $: whiteName = report.whiteName ?? 'White';
   $: blackName = report.blackName ?? 'Black';
 </script>
 
-<div class="card" data-testid="report-panel">
-  <header class="ghead">
-    <span class="medal"><Icon name="Trophy" /></span>
-    <span class="gtitle">Game Review</span>
-    <button type="button" class="toanalysis" data-testid="report-to-analysis"
-      title="Back to analysis" aria-label="Back to analysis" on:click={onBackToAnalysis}><Icon name="Microscope" /></button>
-  </header>
+<Panel title="Game Review" testid="report-panel">
+  <button slot="right" type="button" class="hbtn" data-testid="report-to-analysis"
+    title="Back to analysis" aria-label="Back to analysis" on:click={onBackToAnalysis}><Icon name="Microscope" /></button>
 
   <div class="sec dials">
     <AccuracyDial percent={report.white.accuracy} label={whiteName} side="white" testid="acc-white" />
@@ -33,7 +34,7 @@
   </div>
 
   <div class="sec">
-    <EvalGraph {wins} {currentPly} {onNavigate} />
+    <EvalGraph {wins} {evals} {labels} {currentPly} {onNavigate} />
   </div>
 
   <div class="sec">
@@ -70,27 +71,13 @@
     <MoveHistory {moveList} {currentPly} {onNavigate} />
   </div>
 
-  <div class="gacts">
+  <div class="gacts" slot="footer">
     <button type="button" class="new" on:click={onNew}>New</button>
     <button type="button" class="review" data-testid="start-review" on:click={onStartReview}>Start Review</button>
   </div>
-</div>
+</Panel>
 
 <style>
-  .card {
-    background: var(--card); border: 1px solid var(--keyline); border-radius: 8px;
-    box-shadow: 0 12px 30px -24px rgba(40,30,15,.45);
-    display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden;
-  }
-  .ghead { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
-    padding: 12px 15px; border-bottom: 1px solid var(--keyline); }
-  .medal { color: var(--green); font-size: 18px; justify-self: start; }
-  .gtitle { font-family: var(--sans); font-weight: 800; font-size: 15px; color: var(--ink); text-align: center; }
-  .toanalysis { justify-self: end; width: 30px; height: 30px; display: grid; place-items: center;
-    border: 1px solid var(--keyline-2); border-radius: 7px; background: var(--paper-2);
-    color: var(--ink-2); font-size: 15px; cursor: pointer; }
-  .toanalysis:hover { border-color: var(--green); color: var(--green); background: #fff; }
-
   .sec { padding: 16px; }
   .sec + .sec { border-top: 1px solid var(--keyline); }
   .dials { display: flex; align-items: center; justify-content: space-around; }
@@ -119,7 +106,7 @@
   .dot.white { background: #f7f3ea; }
   .dot.black { background: #2b2823; }
 
-  .gacts { display: flex; gap: 8px; padding: 14px 16px; border-top: 1px solid var(--keyline); }
+  .gacts { display: flex; gap: 8px; padding: 14px 16px; }
   .new { flex: 1; padding: 10px 16px; border: 1px solid var(--keyline-2); border-radius: 8px; background: var(--paper-2);
     font-family: var(--sans); font-weight: 600; font-size: 13px; color: var(--ink-2); cursor: pointer; }
   .new:hover { border-color: var(--green); color: var(--green); background: #fff; }

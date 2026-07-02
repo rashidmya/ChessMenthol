@@ -9,7 +9,7 @@ function pr(over: Partial<import('../lib/types').PlayerReportDto> = {}) {
 }
 const report: GameReportDto = {
   white: pr({ accuracy: 88, acpl: 17 }), black: pr({ accuracy: 82, acpl: 29, blunder: 3 }),
-  whiteName: 'Ada', blackName: 'Bo', startWin: 50, plies: [],
+  whiteName: 'Ada', blackName: 'Bo', startWin: 50, startEvalText: '+0.00', plies: [],
 };
 
 describe('GameReportSummary', () => {

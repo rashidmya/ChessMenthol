@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import Panel from './Panel.svelte';
   import EditPalette from './EditPalette.svelte';
   import type { CastlingRights } from '../lib/edit';
 
@@ -20,11 +21,8 @@
   export let onBack: () => void = () => {};
 </script>
 
-<div class="edit" data-testid="edit-panel">
-  <div class="pbar">
-    <button type="button" class="back" data-testid="edit-back" aria-label="Back" on:click={onBack}><Icon name="Back" /></button>
-    <span class="ptitle">Set Up Position</span>
-  </div>
+<Panel title="Set Up Position" testid="edit-panel">
+  <button slot="left" type="button" class="hbtn" data-testid="edit-back" aria-label="Back" on:click={onBack}><Icon name="Back" /></button>
   <div class="body">
     <EditPalette {selected} {onSelect} />
 
@@ -59,22 +57,15 @@
       placeholder={'[Event "?"]\n[Site "?"]\n[Date "????.??.??"]\n[Round "?"]\n[White "?"]\n[Black "?"]\n[Result "*"]'}></textarea>
 
     {#if editError}<div class="err" role="alert" data-testid="edit-error">{editError}</div>{/if}
+  </div>
+  <div class="foot" slot="footer">
     <button type="button" class="primary" on:click={onLoad}>Load</button>
   </div>
-</div>
+</Panel>
 
 <style>
-  .edit {
-    background: var(--card); border: 1px solid var(--keyline); border-radius: 8px;
-    box-shadow: 0 12px 30px -24px rgba(40,30,15,.45);
-    display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden;
-  }
-  .pbar { display: flex; align-items: center; gap: 10px; padding: 11px 16px; border-bottom: 1px solid var(--keyline); }
-  .back { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--keyline-2);
-    border-radius: 8px; background: var(--paper-2); color: var(--ink-2); font-size: 16px; cursor: pointer; transition: .14s; }
-  .back:hover { border-color: var(--green); color: var(--green); background: #fff; }
-  .ptitle { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); font-weight: 700; }
-  .body { padding: 16px; display: flex; flex-direction: column; overflow-y: auto; }
+  .body { padding: 16px; display: flex; flex-direction: column; overflow-y: auto; flex: 1; min-height: 0; }
+  .foot { padding: 14px 16px; }
   .row { display: flex; align-items: center; gap: 9px; margin: 14px 0; }
   .sel { flex: 1; padding: 11px 13px; border: 1px solid var(--keyline-2); border-radius: 9px; background: #fff;
     color: var(--ink-2); font-family: var(--sans); font-weight: 600; font-size: 13px; }

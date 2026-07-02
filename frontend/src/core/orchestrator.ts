@@ -43,7 +43,7 @@ import { classifyMove, type Classification } from './classify';
 import { analysisToDict, classificationToDict, lastMoveToDict, regionShotToDict } from './serialize';
 import type { AssembledPosition } from '../vision/position';
 import type { RgbaImage } from '../lib/capture';
-import { type AnalysisInfo, type Eval, bestLine, lineMove } from '../engine/types';
+import { type AnalysisInfo, type Eval, bestLine, lineMove, formatWhiteEval } from '../engine/types';
 import { AnalysisSession, type StartOptions, type SessionCallbacks } from '../engine/session';
 import type { UciEngine } from '../engine/engine';
 import type {
@@ -926,6 +926,7 @@ export class Orchestrator {
         san: entry.san,
         uci: entry.move,
         winWhite: after && bestLine(after) ? winPercent(cpFromEval(bestLine(after)!.eval)) : 50,
+        evalText: after && bestLine(after) ? formatWhiteEval(bestLine(after)!.eval) : '—',
         cpl: classification?.cpl ?? 0,
         classification: classification ? classificationToDict(classification) : null,
       });
@@ -946,6 +947,7 @@ export class Orchestrator {
       whiteName: this._whiteName,
       blackName: this._blackName,
       startWin: winPercent(cpsPositions[0]),
+      startEvalText: evals[0] && bestLine(evals[0]) ? formatWhiteEval(bestLine(evals[0])!.eval) : '—',
       plies,
     };
   }

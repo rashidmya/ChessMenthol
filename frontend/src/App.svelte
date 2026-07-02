@@ -22,9 +22,12 @@
   import EditPanel from './components/EditPanel.svelte';
   import GameReportSummary from './components/GameReportSummary.svelte';
   import ActionBar from './components/ActionBar.svelte';
+  import Panel from './components/Panel.svelte';
+  import Icon from './components/Icon.svelte';
   import { captureCommands, type Region } from './lib/region';
   import { hasNativeCapture } from './lib/capture';
   import { makePositionPgn, looksLikePgn } from './core/pgn';
+  import { graphSeries } from './core/report';
 
   let orientation: 'white' | 'black' = 'white';
   let manualFlip = false;
@@ -187,8 +190,12 @@
   // prevents re-switching back after the user clicks Back from the report screen).
   $: if (rpt && rpt !== lastReport) { lastReport = rpt; if (screen === 'analysis') screen = 'report'; }
   $: hasReportForGame = !!(rpt && reportMatchesGame(rpt, s));
-  // Eval-graph series for the Review screen: base position + one point per ply.
-  $: reviewWins = rpt ? [rpt.startWin, ...rpt.plies.map((p) => p.winWhite)] : [];
+  // Eval-graph series for the Review screen: base position + one point per ply,
+  // each carrying win%, White-POV eval text, and a move label (for the hover tooltip).
+  $: reviewSeries = rpt ? graphSeries(rpt) : [];
+  $: reviewWins = reviewSeries.map((p) => p.win);
+  $: reviewEvals = reviewSeries.map((p) => p.evalText);
+  $: reviewLabels = reviewSeries.map((p) => p.label);
   // Leaving the review screen stops auto-play.
   $: if (screen !== 'review' && playing) stopPlay();
 </script>
@@ -229,11 +236,9 @@
         <GameReportSummary report={rpt} moveList={s?.moveList ?? []} currentPly={s?.currentPly ?? 0}
           {onNavigate} {onStartReview} {onBackToAnalysis} {onNew} />
       {:else if screen === 'review' && rpt}
-        <section class="card" data-testid="review-card">
-          <div class="pbar">
-            <button type="button" class="back" data-testid="review-back" aria-label="Back to game report" on:click={onReviewBack}>←</button>
-            <span class="ptitle">Game Review</span>
-          </div>
+        <Panel title="Game Review" testid="review-card">
+          <button slot="left" type="button" class="hbtn" data-testid="review-back"
+            aria-label="Back to game report" on:click={onReviewBack}><Icon name="Back" /></button>
           {#if s?.lastMove || s?.annotating}
             <div class="sec" data-testid="feedback-section">
               <div class="bd">
@@ -248,15 +253,13 @@
             <MoveHistory moveList={s?.moveList ?? []} currentPly={s?.currentPly ?? 0} onNavigate={reviewNavigate} showBadges />
           </div>
           <div class="sec evalsec">
-            <EvalGraph wins={reviewWins} currentPly={s?.currentPly ?? 0} onNavigate={reviewNavigate} />
+            <EvalGraph wins={reviewWins} evals={reviewEvals} labels={reviewLabels} currentPly={s?.currentPly ?? 0} onNavigate={reviewNavigate} />
           </div>
-          <div class="sec">
-            <MoveStepper currentPly={s?.currentPly ?? 0} total={s?.moveList?.length ?? 0}
-              onNavigate={reviewNavigate} {playing} onTogglePlay={togglePlay} />
-          </div>
-        </section>
+          <MoveStepper slot="footer" currentPly={s?.currentPly ?? 0} total={s?.moveList?.length ?? 0}
+            onNavigate={reviewNavigate} {playing} onTogglePlay={togglePlay} />
+        </Panel>
       {:else}
-        <section class="card" data-testid="analysis-card">
+        <Panel title="Analysis" testid="analysis-card">
           <!-- 1. Engine header + engine lines (one section) -->
           <!-- NOTE: EngineSettings search-time slider defaults to index 2 (10s), which already
                matches the backend default movetime (10s). Initializing the slider from s.movetime
@@ -300,14 +303,12 @@
               {onNavigate} />
           </div>
 
-          <!-- 5. Action bar -->
-          <div class="sec">
-            <ActionBar currentPly={s?.currentPly ?? 0} total={s?.moveList?.length ?? 0}
-              {onNavigate} onNew={onNew}
-              onRequestAnalysis={onRequestAnalysis} onCancelAnalysis={onCancelAnalysis}
-              reportProgress={progress} {hasReportForGame} />
-          </div>
-        </section>
+          <!-- 5. Action bar (footer) -->
+          <ActionBar slot="footer" currentPly={s?.currentPly ?? 0} total={s?.moveList?.length ?? 0}
+            {onNavigate} onNew={onNew}
+            onRequestAnalysis={onRequestAnalysis} onCancelAnalysis={onCancelAnalysis}
+            reportProgress={progress} {hasReportForGame} />
+        </Panel>
       {/if}
     </div>
   </main>
@@ -371,18 +372,6 @@
     flex-direction: column;
   }
 
-  .card {
-    background: var(--card);
-    border: 1px solid var(--keyline);
-    border-radius: 7px;
-    box-shadow: 0 12px 30px -24px rgba(40,30,15,.45);
-    animation: rise .55s ease both;
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-  }
-
   /* ===== card section dividers ===== */
   .bd { padding: 7px 10px; }
   .sec + .sec { border-top: 1px solid var(--keyline); }
@@ -391,13 +380,6 @@
   .grow { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   /* The eval graph brings no padding of its own, so its review-card section needs it. */
   .evalsec { padding: 14px 16px; }
-
-  /* ===== review-card header ===== */
-  .pbar { display: flex; align-items: center; gap: 10px; padding: 11px 15px; border-bottom: 1px solid var(--keyline); }
-  .back { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid var(--keyline-2);
-    border-radius: 7px; background: var(--paper-2); color: var(--ink-2); font-size: 15px; cursor: pointer; }
-  .back:hover { border-color: var(--green); color: var(--green); background: #fff; }
-  .ptitle { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-2); font-weight: 700; }
 
   @keyframes rise {
     from { opacity: 0; transform: translateY(9px); }

@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import Panel from './Panel.svelte';
   export let hasCapture = false;
   export let onSetUp: () => void = () => {};
   export let onExplore: () => void = () => {};
@@ -8,8 +9,7 @@
   let input = '';
 </script>
 
-<div class="home" data-testid="home-panel">
-  <div class="pbar"><span class="ptitle">Start</span></div>
+<Panel title="Start" testid="home-panel">
   <div class="body">
     <button type="button" class="hbtn" on:click={onSetUp}><span class="ic"><Icon name="Pencil" /></span>Set Up Position</button>
     <button type="button" class="hbtn" on:click={onExplore}><span class="ic"><Icon name="Microscope" /></span>Explore</button>
@@ -18,20 +18,15 @@
     {/if}
     <textarea class="area" bind:value={input}
       placeholder="Paste your FEN, PGN(s), or drag & drop a PGN file here."></textarea>
+  </div>
+  <div class="foot" slot="footer">
     <button type="button" class="primary" on:click={() => onStart(input)}>Start Analysis</button>
   </div>
-</div>
+</Panel>
 
 <style>
-  .home {
-    background: var(--card); border: 1px solid var(--keyline); border-radius: 8px;
-    box-shadow: 0 12px 30px -24px rgba(40,30,15,.45);
-    display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden;
-  }
-  .pbar { padding: 11px 16px; border-bottom: 1px solid var(--keyline); }
-  .ptitle { font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
-    text-transform: uppercase; color: var(--ink-2); font-weight: 700; }
-  .body { padding: 18px 16px; display: flex; flex-direction: column; }
+  .body { padding: 18px 16px 6px; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  .foot { padding: 14px 16px; }
   .hbtn {
     width: 100%; display: flex; align-items: center; justify-content: center; gap: 13px;
     padding: 19px 16px; margin-bottom: 12px; font-family: var(--sans); font-weight: 600;

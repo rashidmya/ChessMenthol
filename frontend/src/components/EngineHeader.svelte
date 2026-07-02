@@ -39,7 +39,8 @@
 
 <div class="hd" class:divider>
   <div class="swwrap">
-    <span class="txt">Analysis</span>
+    <!-- The live-analysis on/off toggle. Its visible word was dropped because the
+         panel is already titled "Analysis"; the switch keeps its "Analysis" aria-label. -->
     <Switch
       on={analysisEnabled}
       label="Analysis"
@@ -82,8 +83,6 @@
   .hd .tag .bar { color: var(--keyline-2); margin: 0 3px; }
   .hd .tag .eng { color: var(--ink-2); font-weight: 700; }
   .swwrap { display: flex; align-items: center; gap: 10px; }
-  .swwrap .txt { font-family: var(--mono); font-size: 9.5px; letter-spacing: .06em;
-    text-transform: uppercase; color: var(--ink-2); font-weight: 700; }
   .cog { flex: none; width: 24px; height: 24px; display: grid; place-items: center;
     border: 1px solid var(--keyline-2); background: var(--paper-2); border-radius: 6px;
     cursor: pointer; color: var(--ink-3); font-size: 13px; line-height: 1; transition: .14s; }

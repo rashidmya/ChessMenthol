@@ -75,7 +75,7 @@ describe('App report flow', () => {
     reportStore.set({
       white: { accuracy: 90, acpl: 20, brilliant: 0, great: 0, best: 0, excellent: 0, good: 0, book: 0, inaccuracy: 0, mistake: 0, blunder: 0, miss: 0 },
       black: { accuracy: 80, acpl: 30, brilliant: 0, great: 0, best: 0, excellent: 0, good: 0, book: 0, inaccuracy: 0, mistake: 0, blunder: 0, miss: 0 },
-      startWin: 51, plies: [],
+      startWin: 51, startEvalText: '+0.00', plies: [],
     });
     await Promise.resolve();
     expect(screen.queryByTestId('report-panel')).toBeTruthy();
@@ -92,10 +92,10 @@ describe('App report flow', () => {
     };
   }
   const P1 = { ply: 1, san: 'e4', uci: 'e2e4', classification: null };
-  const RP1 = { ply: 1, san: 'e4', uci: 'e2e4', winWhite: 53, cpl: 0, classification: null };
-  const RP2 = { ply: 2, san: 'e5', uci: 'e7e5', winWhite: 50, cpl: 0, classification: null };
+  const RP1 = { ply: 1, san: 'e4', uci: 'e2e4', winWhite: 53, evalText: '+0.30', cpl: 0, classification: null };
+  const RP2 = { ply: 2, san: 'e5', uci: 'e7e5', winWhite: 50, evalText: '+0.00', cpl: 0, classification: null };
   const baseReport = { white: { accuracy: 90, acpl: 20, brilliant: 0, great: 0, best: 0, excellent: 0, good: 0, book: 0, inaccuracy: 0, mistake: 0, blunder: 0, miss: 0 },
-                       black: { accuracy: 80, acpl: 30, brilliant: 0, great: 0, best: 0, excellent: 0, good: 0, book: 0, inaccuracy: 0, mistake: 0, blunder: 0, miss: 0 }, startWin: 51 };
+                       black: { accuracy: 80, acpl: 30, brilliant: 0, great: 0, best: 0, excellent: 0, good: 0, book: 0, inaccuracy: 0, mistake: 0, blunder: 0, miss: 0 }, startWin: 51, startEvalText: '+0.00' };
 
   it('reopens an existing matching report on Request without re-analyzing', async () => {
     render(App);
@@ -140,10 +140,10 @@ describe('Review screen', () => {
     };
   }
   const P1 = { ply: 1, san: 'e4', uci: 'e2e4', classification: null };
-  const RP1 = { ply: 1, san: 'e4', uci: 'e2e4', winWhite: 53, cpl: 0, classification: null };
-  const RP2 = { ply: 2, san: 'e5', uci: 'e7e5', winWhite: 50, cpl: 0, classification: null };
+  const RP1 = { ply: 1, san: 'e4', uci: 'e2e4', winWhite: 53, evalText: '+0.30', cpl: 0, classification: null };
+  const RP2 = { ply: 2, san: 'e5', uci: 'e7e5', winWhite: 50, evalText: '+0.00', cpl: 0, classification: null };
   const baseReport = { white: { accuracy: 90, acpl: 20, brilliant: 0, great: 0, best: 0, excellent: 0, good: 0, book: 0, inaccuracy: 0, mistake: 0, blunder: 0, miss: 0 },
-                       black: { accuracy: 80, acpl: 30, brilliant: 0, great: 0, best: 0, excellent: 0, good: 0, book: 0, inaccuracy: 0, mistake: 0, blunder: 0, miss: 0 }, startWin: 51 };
+                       black: { accuracy: 80, acpl: 30, brilliant: 0, great: 0, best: 0, excellent: 0, good: 0, book: 0, inaccuracy: 0, mistake: 0, blunder: 0, miss: 0 }, startWin: 51, startEvalText: '+0.00' };
 
   it('Start Review opens the review screen, navigates to ply 0, and Back returns to the summary', async () => {
     render(App);

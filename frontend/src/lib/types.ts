@@ -13,6 +13,7 @@ export interface PlyReportDto {
   ply: number;            // 1..N
   san: string; uci: string;
   winWhite: number;       // 0..100, White POV (for the graph)
+  evalText: string;       // White-POV eval of the position after this ply (e.g. "+1.40", "+M5")
   cpl: number;            // mover POV, capped
   classification: ClassificationDto | null;
 }
@@ -25,6 +26,7 @@ export interface GameReportDto {
   white: PlayerReportDto; black: PlayerReportDto;
   whiteName?: string; blackName?: string;
   startWin: number;       // White-POV win% at the base position (graph point 0)
+  startEvalText: string;  // White-POV eval of the base position (graph point 0)
   plies: PlyReportDto[];
 }
 export interface ReportFrame { type: 'report'; report: GameReportDto }

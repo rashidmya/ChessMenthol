@@ -78,6 +78,29 @@ describe('analyze_game', () => {
     }
   });
 
+  it('carries a White-POV eval text per position and the start side', async () => {
+    const frames: ServerFrame[] = [];
+    const engine = { select: vi.fn(), setOption: vi.fn() };
+    const orch = new Orchestrator((f) => frames.push(f), {
+      engine,
+      sessionFactory: scriptedFactory((fen) => ({ fen, depth: 20, lines: [{ multipv: 1, eval: { cp: 20, mate: null }, depth: 20, pv: ['a2a3'] }] })),
+      analysisEnabled: false,
+    });
+
+    orch.handle({ type: 'load_pgn', pgn: '1. e4 e5 *' });
+    orch.handle({ type: 'analyze_game' });
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+
+    const rep = frames.find((f) => f.type === 'report');
+    expect(rep?.type).toBe('report');
+    if (rep && rep.type === 'report') {
+      // formatWhiteEval({cp: 20}) → "+0.20" for the base position and every ply.
+      expect(rep.report.startEvalText).toBe('+0.20');
+      expect(rep.report.plies[0].evalText).toBe('+0.20');
+      expect(rep.report.plies.every((p) => p.evalText === '+0.20')).toBe(true);
+    }
+  });
+
   it('errors when there is no game to analyze', () => {
     const { orch, frames } = makeOrch();
     orch.handle({ type: 'analyze_game' });
