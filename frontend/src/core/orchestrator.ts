@@ -37,8 +37,9 @@ import {
   boardFenOf,
 } from './chess';
 import { parseGame } from './pgn';
+import { perSideClassCounts } from './report';
 import { cpFromEval, winPercent, gameAccuracy, acpl } from './accuracy';
-import { classifyMove, type Classification, MoveClass } from './classify';
+import { classifyMove, type Classification } from './classify';
 import { analysisToDict, classificationToDict, lastMoveToDict, regionShotToDict } from './serialize';
 import type { AssembledPosition } from '../vision/position';
 import type { RgbaImage } from '../lib/capture';
@@ -54,6 +55,7 @@ import type {
   LineDto,
   GameReportDto,
   PlyReportDto,
+  PlayerReportDto,
 } from '../lib/types';
 import { setOption as storeSetOption, resetOption as storeResetOption, resetAll as storeResetAll, getOverrides } from '../lib/engineOptions';
 
@@ -161,6 +163,8 @@ export class Orchestrator {
   _baseFen = START_FEN;
   _history: HistoryEntry[] = [];
   _cursor = 0;
+  private _whiteName: string | undefined = undefined;
+  private _blackName: string | undefined = undefined;
 
   // ---- gates ----
   _analysisEnabled: boolean;
@@ -262,6 +266,7 @@ export class Orchestrator {
     }
     this._session.stop();
     this._cancelAnnotate();
+    this._whiteName = undefined; this._blackName = undefined;
     this._baseFen = fenOf(board);
     this._history = [];
     this._cursor = 0;
@@ -287,6 +292,8 @@ export class Orchestrator {
     }
     this._session.stop();
     this._cancelAnnotate();
+    this._whiteName = parsed.headers.get('White') || undefined;
+    this._blackName = parsed.headers.get('Black') || undefined;
     this._baseFen = fenOf(board);
     this._history = [];
     for (const m of parsed.moves) {
@@ -377,6 +384,7 @@ export class Orchestrator {
   reset(): void {
     this._session.stop();
     this._cancelAnnotate();
+    this._whiteName = undefined; this._blackName = undefined;
     this._baseFen = START_FEN;
     this._history = [];
     this._cursor = 0;
@@ -893,13 +901,11 @@ export class Orchestrator {
     const cpsAfterMoves = cpsPositions.slice(1);
     const { white, black } = gameAccuracy(startWhite, cpsAfterMoves);
 
-    const counts = { white: { i: 0, m: 0, b: 0 }, black: { i: 0, m: 0, b: 0 } }; // i=inaccuracy, m=mistake, b=blunder
     const plies: PlyReportDto[] = [];
     let board = posFromFen(this._baseFen);
     for (let k = 0; k < this._history.length; k++) {
       const before = evals[k], after = evals[k + 1];
       const entry = this._history[k];
-      const moverWhite = board.turn === 'white';
       let classification: ReturnType<typeof classifyMove> | null = null;
       if (before && after && bestLine(before) && lineMove(bestLine(before)!) && bestLine(after)) {
         // Per-ply guard: one pathological position must not abort the whole-game report.
@@ -910,10 +916,6 @@ export class Orchestrator {
           entry.classification = c;
           entry.lastMove = lastMoveToDict(c, board, entry.move, before, after);
           entry.preAnalysis = before;
-          const side = moverWhite ? counts.white : counts.black;
-          if (c.label === MoveClass.INACCURACY) side.i++;
-          else if (c.label === MoveClass.MISTAKE) side.m++;
-          else if (c.label === MoveClass.BLUNDER) side.b++;
         } catch {
           // Skip classification for this ply if it throws (e.g. missing PV).
         }
@@ -929,21 +931,19 @@ export class Orchestrator {
       board = playUci(board, entry.move);
     }
 
+    const cc = perSideClassCounts(plies, startWhite);
+    const player = (accuracyVal: number, side: 'white' | 'black', c: import('./report').ClassCounts): PlayerReportDto => ({
+      accuracy: Math.round(accuracyVal),
+      acpl: acpl(cpsPositions, startWhite, side),
+      brilliant: c.brilliant, great: c.great, best: c.best, excellent: c.excellent, good: c.good,
+      book: c.book, inaccuracy: c.inaccuracy, mistake: c.mistake, blunder: c.blunder, miss: c.miss,
+    });
+
     return {
-      white: {
-        accuracy: Math.round(white),
-        acpl: acpl(cpsPositions, startWhite, 'white'),
-        inaccuracy: counts.white.i,
-        mistake: counts.white.m,
-        blunder: counts.white.b,
-      },
-      black: {
-        accuracy: Math.round(black),
-        acpl: acpl(cpsPositions, startWhite, 'black'),
-        inaccuracy: counts.black.i,
-        mistake: counts.black.m,
-        blunder: counts.black.b,
-      },
+      white: player(white, 'white', cc.white),
+      black: player(black, 'black', cc.black),
+      whiteName: this._whiteName,
+      blackName: this._blackName,
       startWin: winPercent(cpsPositions[0]),
       plies,
     };

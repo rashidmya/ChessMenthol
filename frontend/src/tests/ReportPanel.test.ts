@@ -4,8 +4,8 @@ import ReportPanel from '../components/ReportPanel.svelte';
 import type { GameReportDto, MoveEntryDto } from '../lib/types';
 
 const report: GameReportDto = {
-  white: { accuracy: 92, acpl: 19, inaccuracy: 1, mistake: 0, blunder: 0 },
-  black: { accuracy: 45, acpl: 288, inaccuracy: 0, mistake: 0, blunder: 1 },
+  white: { accuracy: 92, acpl: 19, brilliant: 0, great: 0, best: 0, excellent: 0, good: 0, book: 0, inaccuracy: 1, mistake: 0, blunder: 0, miss: 0 },
+  black: { accuracy: 45, acpl: 288, brilliant: 0, great: 0, best: 0, excellent: 0, good: 0, book: 0, inaccuracy: 0, mistake: 0, blunder: 1, miss: 0 },
   startWin: 51,
   plies: [
     { ply: 1, san: 'e4', uci: 'e2e4', winWhite: 53, cpl: 0, classification: null },

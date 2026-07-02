@@ -16,9 +16,14 @@ export interface PlyReportDto {
   cpl: number;            // mover POV, capped
   classification: ClassificationDto | null;
 }
-export interface PlayerReportDto { accuracy: number; acpl: number; inaccuracy: number; mistake: number; blunder: number; }
+export interface PlayerReportDto {
+  accuracy: number; acpl: number;
+  brilliant: number; great: number; best: number; excellent: number; good: number;
+  book: number; inaccuracy: number; mistake: number; blunder: number; miss: number;
+}
 export interface GameReportDto {
   white: PlayerReportDto; black: PlayerReportDto;
+  whiteName?: string; blackName?: string;
   startWin: number;       // White-POV win% at the base position (graph point 0)
   plies: PlyReportDto[];
 }
