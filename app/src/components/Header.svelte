@@ -1,10 +1,11 @@
 <script lang="ts">
   // No props — purely presentational
+  import logoUrl from '../assets/logo.png';
 </script>
 
 <header>
   <div class="brand">
-    <span class="mk">&#9822;</span>
+    <img class="mk" src={logoUrl} alt="" />
     <h1>Chess<i>Menthol</i></h1>
   </div>
   <span class="kicker">Chess&nbsp;Analysis</span>
@@ -27,10 +28,10 @@
     gap: 11px;
   }
   .brand .mk {
-    font-size: 27px;
-    color: var(--green, #2f5d3a);
-    transform: translateY(3px);
-    font-family: var(--sym, 'Segoe UI Symbol', 'Apple Symbols', sans-serif);
+    height: 30px;
+    width: auto;
+    align-self: center;
+    display: block;
   }
   .brand h1 {
     font-family: var(--serif, 'Fraunces', Georgia, serif);
