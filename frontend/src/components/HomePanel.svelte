@@ -12,7 +12,7 @@
 <Panel title="Start" testid="home-panel">
   <div class="body">
     <button type="button" class="hbtn" on:click={onSetUp}><span class="ic"><Icon name="Pencil" /></span>Set Up Position</button>
-    <button type="button" class="hbtn" on:click={onExplore}><span class="ic"><Icon name="Microscope" /></span>Explore</button>
+    <button type="button" class="hbtn" on:click={onExplore}><span class="ic"><Icon name="StudyBoard" /></span>Explore</button>
     {#if hasCapture}
       <button type="button" class="hbtn cap" on:click={onCapture}><span class="ic"><Icon name="ScreenDesktop" /></span>Capture Board</button>
     {/if}

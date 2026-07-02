@@ -29,7 +29,7 @@
       <span class="ic"><Icon name="BarChart" /></span>{hasReportForGame ? 'View game report' : 'Request computer analysis'}
     </button>
   {/if}
-  <button type="button" class="act" on:click={onNew}><span class="ic"><Icon name="Reload" /></span>New</button>
+  <button type="button" class="act" on:click={onNew}><span class="ic"><Icon name="Search" /></span>New</button>
 </div>
 
 <style>
