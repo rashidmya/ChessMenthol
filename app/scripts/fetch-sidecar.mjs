@@ -137,6 +137,18 @@ async function main() {
       console.log(`[fetch-sidecar] -> binaries/${out}`);
     }
 
+    // A `--target universal-apple-darwin` build wants ONE fat sidecar named with
+    // the universal triple; lipo the two per-arch binaries together when both are
+    // present (there is no prebuilt universal Stockfish to download).
+    const macArm = join(BIN_DIR, 'stockfish-aarch64-apple-darwin');
+    const macX64 = join(BIN_DIR, 'stockfish-x86_64-apple-darwin');
+    if (existsSync(macArm) && existsSync(macX64)) {
+      const universal = join(BIN_DIR, 'stockfish-universal-apple-darwin');
+      console.log('[fetch-sidecar] lipo -> binaries/stockfish-universal-apple-darwin');
+      execFileSync('lipo', ['-create', '-output', universal, macArm, macX64]);
+      chmodSync(universal, 0o755);
+    }
+
     const net = join(NET_DIR, NET_NAME);
     if (existsSync(net)) {
       console.log(`[fetch-sidecar] net present: resources/engine/${NET_NAME}`);
