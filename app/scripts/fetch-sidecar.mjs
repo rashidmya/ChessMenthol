@@ -53,6 +53,7 @@ const TARGETS = {
  */
 export function hostTriple(platform, arch) {
   const key = `${platform}/${arch}`;
+  /** @type {Record<string, string>} */
   const map = {
     'linux/x64': 'x86_64-unknown-linux-gnu',
     'win32/x64': 'x86_64-pc-windows-msvc',
