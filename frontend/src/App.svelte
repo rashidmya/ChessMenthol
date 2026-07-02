@@ -18,7 +18,7 @@
   import MoveHistory from './components/MoveHistory.svelte';
   import HomePanel from './components/HomePanel.svelte';
   import EditPanel from './components/EditPanel.svelte';
-  import ReportPanel from './components/ReportPanel.svelte';
+  import GameReportSummary from './components/GameReportSummary.svelte';
   import ActionBar from './components/ActionBar.svelte';
   import { captureCommands, type Region } from './lib/region';
   import { hasNativeCapture } from './lib/capture';
@@ -27,7 +27,7 @@
   let orientation: 'white' | 'black' = 'white';
   let manualFlip = false;
   let selectedEditPiece: string | null = 'P';
-  type Screen = 'home' | 'analysis' | 'edit' | 'report';
+  type Screen = 'home' | 'analysis' | 'edit' | 'report' | 'review';
   let screen: Screen = 'home';
   // Editor form state (initialized when entering the editor)
   let editSide: 'white' | 'black' = 'white';
@@ -97,12 +97,14 @@
     send({ type: 'analyze_game' });
   }
   function onCancelAnalysis(): void { send({ type: 'cancel_analysis' }); }
-  function onReportBack(): void {
+  function onBackToAnalysis(): void {
     screen = 'analysis';
     // The orchestrator leaves _analyzing=false after the batch finishes/cancels;
     // re-enable live analysis so the board isn't silent after returning.
     send({ type: 'set_analysis_enabled', enabled: true });
   }
+  function onStartReview(): void { onNavigate(0); screen = 'review'; }
+  function onReviewBack(): void { screen = 'report'; }
   function onSetUp(): void {
     editError = null;
     const f = s?.fen ?? 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -198,8 +200,7 @@
           onFlip={onFlip} onReset={onEditReset} onClear={onEditClear}
           onFenInput={onEditFenInput} onLoad={onEditLoad} onBack={onEditBack} />
       {:else if screen === 'report' && rpt}
-        <ReportPanel report={rpt} moveList={s?.moveList ?? []} currentPly={s?.currentPly ?? 0}
-          {onNavigate} onBack={onReportBack} {onNew} />
+        <GameReportSummary report={rpt} {onStartReview} {onBackToAnalysis} {onNew} />
       {:else}
         <section class="card" data-testid="analysis-card">
           <!-- 1. Engine header + engine lines (one section) -->

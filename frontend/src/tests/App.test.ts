@@ -103,7 +103,7 @@ describe('App report flow', () => {
     stateStore.set(st([P1]));                                   // 1-move game on the board
     reportStore.set({ ...baseReport, plies: [RP1] });           // report matches that game
     await Promise.resolve();
-    await fireEvent.click(screen.getByTestId('report-back'));   // it auto-switched; return to analysis
+    await fireEvent.click(screen.getByTestId('report-to-analysis'));   // it auto-switched; return to analysis
     sendMock.mockClear();
     await fireEvent.click(screen.getByTestId('request-analysis'));
     expect(screen.queryByTestId('report-panel')).toBeTruthy();     // reopened
@@ -116,7 +116,7 @@ describe('App report flow', () => {
     stateStore.set(st([P1]));                                   // board has 1 move…
     reportStore.set({ ...baseReport, plies: [RP1, RP2] });      // …but the report is for a 2-move game
     await Promise.resolve();
-    await fireEvent.click(screen.getByTestId('report-back'));
+    await fireEvent.click(screen.getByTestId('report-to-analysis'));
     sendMock.mockClear();
     await fireEvent.click(screen.getByTestId('request-analysis'));
     expect(sendMock).toHaveBeenCalledWith({ type: 'analyze_game' });
