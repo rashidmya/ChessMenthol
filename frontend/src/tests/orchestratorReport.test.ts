@@ -124,6 +124,48 @@ describe('analyze_game', () => {
     expect(frames.some((f) => f.type === 'report')).toBe(false);
   });
 
+  // ── player names (PGN headers → report; cleared for hand-edited games) ──────
+  const scriptedEval = scriptedFactory((fen) => ({
+    fen, depth: 20, lines: [{ multipv: 1, eval: { cp: 20, mate: null }, depth: 20, pv: ['a2a3'] }],
+  }));
+  function namedOrch() {
+    const frames: ServerFrame[] = [];
+    const engine = { select: vi.fn(), setOption: vi.fn() };
+    const orch = new Orchestrator((f) => frames.push(f), {
+      engine, sessionFactory: scriptedEval, analysisEnabled: false,
+    });
+    return { orch, frames };
+  }
+  const NAMED_PGN = '[White "Ada"]\n[Black "Bo"]\n\n1. e4 *';
+
+  it('carries PGN White/Black header names into the report', async () => {
+    const { orch, frames } = namedOrch();
+    orch.handle({ type: 'load_pgn', pgn: NAMED_PGN });
+    orch.handle({ type: 'analyze_game' });
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+    const rep = frames.find((f) => f.type === 'report');
+    expect(rep).toBeDefined();
+    if (rep && rep.type === 'report') {
+      expect(rep.report.whiteName).toBe('Ada');
+      expect(rep.report.blackName).toBe('Bo');
+    }
+  });
+
+  it('set_turn clears the stale PGN names for the resulting hand-edited game', async () => {
+    const { orch, frames } = namedOrch();
+    orch.handle({ type: 'load_pgn', pgn: NAMED_PGN });   // names captured (Ada/Bo)
+    orch.handle({ type: 'set_turn', white: true });      // wipes history + must clear names
+    orch.handle({ type: 'make_move', uci: 'g1f3' });     // rebuild a 1-move history
+    orch.handle({ type: 'analyze_game' });
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+    const rep = frames.find((f) => f.type === 'report');
+    expect(rep).toBeDefined();
+    if (rep && rep.type === 'report') {
+      expect(rep.report.whiteName).toBeUndefined();
+      expect(rep.report.blackName).toBeUndefined();
+    }
+  });
+
   it('synthesizes terminal-position eval (checkmate) without hanging', async () => {
     const frames: ServerFrame[] = [];
     const engine = { select: vi.fn(), setOption: vi.fn() };

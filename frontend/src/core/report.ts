@@ -25,7 +25,7 @@ export function perSideClassCounts(
     if (!label) continue;
     const moverWhite = startWhite ? p.ply % 2 === 1 : p.ply % 2 === 0;
     const side = moverWhite ? white : black;
-    if (label in side) (side as unknown as Record<string, number>)[label]++;
+    if (label in side) side[label as keyof ClassCounts]++;
   }
   return { white, black };
 }

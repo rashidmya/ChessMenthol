@@ -40,6 +40,14 @@ describe('perSideClassCounts', () => {
     expect(white.blunder).toBe(0);
   });
 
+  it('ignores a non-null but unrecognized label for both sides', () => {
+    // 'equal' is not one of the 10 MoveClass values; the `label in side` guard drops it.
+    const { white, black } = perSideClassCounts([ply(1, 'equal'), ply(2, 'equal')]);
+    const total = (c: typeof white) => Object.values(c).reduce((a, b) => a + b, 0);
+    expect(total(white)).toBe(0);
+    expect(total(black)).toBe(0);
+  });
+
   it('emptyClassCounts has all 10 keys at 0', () => {
     expect(Object.values(emptyClassCounts()).every((v) => v === 0)).toBe(true);
     expect(Object.keys(emptyClassCounts())).toHaveLength(10);

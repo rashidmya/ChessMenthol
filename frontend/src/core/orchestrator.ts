@@ -37,7 +37,7 @@ import {
   boardFenOf,
 } from './chess';
 import { parseGame } from './pgn';
-import { perSideClassCounts } from './report';
+import { perSideClassCounts, type ClassCounts } from './report';
 import { cpFromEval, winPercent, gameAccuracy, acpl } from './accuracy';
 import { classifyMove, type Classification } from './classify';
 import { analysisToDict, classificationToDict, lastMoveToDict, regionShotToDict } from './serialize';
@@ -325,6 +325,7 @@ export class Orchestrator {
     // tear it down. (_resetMoveState below already clears _annotating/_pending; the
     // gap _cancelAnnotate closes is the timer + the live _annotate object.)
     this._cancelAnnotate();
+    this._whiteName = undefined; this._blackName = undefined;
     this._baseFen = fenOf(board);
     this._history = [];
     this._cursor = 0;
@@ -932,7 +933,7 @@ export class Orchestrator {
     }
 
     const cc = perSideClassCounts(plies, startWhite);
-    const player = (accuracyVal: number, side: 'white' | 'black', c: import('./report').ClassCounts): PlayerReportDto => ({
+    const player = (accuracyVal: number, side: 'white' | 'black', c: ClassCounts): PlayerReportDto => ({
       accuracy: Math.round(accuracyVal),
       acpl: acpl(cpsPositions, startWhite, side),
       brilliant: c.brilliant, great: c.great, best: c.best, excellent: c.excellent, good: c.good,
