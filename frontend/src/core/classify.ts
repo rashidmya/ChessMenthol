@@ -21,8 +21,14 @@
  * recaptures.  `isSacrifice` is now defender-aware via a static exchange
  * evaluation (only a piece the opponent can truly win material on counts), and
  * Brilliant additionally requires the mover was not already clearly winning.
- * Rules 1, 3-5 (Book, Great, Best, Miss) and the Excellent/Good ranking are
- * unchanged.
+ *
+ * DELIBERATE DIVERGENCE #3 (chess.com-style Game Review): Great is now an "only
+ * good move" in a still-competitive position rather than the port's flat 150cp
+ * best-vs-2nd gap (which fired on every forced recapture once the report runs at
+ * MultiPV 2). It requires the second-best line to drop at least a blunder's
+ * worth of winning chances, the mover not to be already winning, and the move
+ * not to be an obvious material-winning capture. Rules 1, 4-5 (Book, Best, Miss)
+ * and the Excellent/Good ranking are unchanged.
  */
 
 import { type Chess, type Role, type SquareName, playUci, roleAt, seeCapture } from './chess';
@@ -52,7 +58,8 @@ export interface Thresholds {
   goodMax:         number;  // cpl <= => GOOD
   inaccuracyMax:   number;  // cpl <= => INACCURACY
   mistakeMax:      number;  // cpl <= => MISTAKE (else BLUNDER)
-  greatGap:            number;  // best better than 2nd-best by this => only-move (GREAT)
+  greatOnlyMoveWc:     number;  // 2nd-best must drop >= this in winning chances => only move (GREAT)
+  greatAlreadyWinning: number;  // mover-POV best eval before >= this => already winning, no GREAT
   brilliantMaxCpl:     number;  // near-best ceiling to still be BRILLIANT
   brilliantKeep:       number;  // mover-POV eval after move must stay >= this (not losing)
   brilliantAlreadyWinning: number; // mover-POV best eval before >= this => already winning, no BRILLIANT
@@ -66,7 +73,8 @@ export const DEFAULT_THRESHOLDS: Thresholds = {
   goodMax:         50,
   inaccuracyMax:  100,
   mistakeMax:     250,
-  greatGap:       150,
+  greatOnlyMoveWc: 0.30, // every alternative would drop >= a blunder's worth of winning chances
+  greatAlreadyWinning: 300, // already up ~a minor piece before the move => keeping it isn't "great"
   brilliantMaxCpl: 30,
   brilliantKeep:  -50,
   brilliantAlreadyWinning: 300, // already up ~a minor piece before the move => sacs aren't brilliant
@@ -138,6 +146,28 @@ export function isSacrifice(
   return (opponentWins - gained) >= t.sacrificeMin;
 }
 
+// ─── isWinningOrEvenCapture ──────────────────────────────────────────────────
+
+/**
+ * An "obvious" material-winning capture: the move captures an enemy piece worth
+ * at least as much as the moving piece and does not hand the material back (it
+ * is not a sacrifice).  Recaptures and grabbing a hanging piece are obvious —
+ * chess.com labels them Best, never Great, even when they are the only move.
+ */
+export function isWinningOrEvenCapture(
+  posBefore: Chess,
+  uci:       string,
+  thresholds?: Thresholds,
+): boolean {
+  const t = thresholds ?? DEFAULT_THRESHOLDS;
+  const capturedRole = roleAt(posBefore, uci.slice(2, 4) as SquareName);
+  if (capturedRole === undefined) return false;   // not a capture
+  const moverRole = roleAt(posBefore, uci.slice(0, 2) as SquareName);
+  if (moverRole === undefined) return false;       // no piece on the from-square (shouldn't happen)
+  return PIECE_VALUE[capturedRole] >= PIECE_VALUE[moverRole]
+      && !isSacrifice(posBefore, uci, t);
+}
+
 // ─── classifyMove ─────────────────────────────────────────────────────────────
 
 /**
@@ -188,10 +218,16 @@ export function classifyMove(
   const cpl    = Math.max(0, bestMover - playedMover);
   const isBest = uci === bestMoveUci;
 
-  let secondGap: number | null = null;
+  // Winning-chances gap from best to second-best line (mover POV) — the "only
+  // move" signal for GREAT. Null when the engine reported a single line (MultiPV
+  // 1). Using winning chances rather than raw cp auto-compresses decided
+  // positions, so keeping a won game no longer looks like an only-move.
+  let secondWcDrop: number | null = null;
   if (analysisBefore.lines.length >= 2) {
-    const secondMover = evalPov(analysisBefore.lines[1].eval, moverWhite);
-    secondGap = bestMover - secondMover;
+    const moverSign = moverWhite ? 1 : -1;
+    const bestWc   = winningChances(cpFromEval(bestLineBefore.eval) * moverSign);
+    const secondWc = winningChances(cpFromEval(analysisBefore.lines[1].eval) * moverSign);
+    secondWcDrop = bestWc - secondWc;
   }
 
   // ── ordered classification rules (exact Python ordering) ─────────────────
@@ -212,8 +248,17 @@ export function classifyMove(
     return { label: MoveClass.BRILLIANT, cpl, isBest };
   }
 
-  // 3. Great: only move that holds (best by a wide margin over the alternative)
-  if (isBest && secondGap !== null && secondGap >= t.greatGap) {
+  // 3. Great (chess.com parity): the only good move in a still-competitive
+  //    position — isBest, every alternative drops at least a blunder's worth of
+  //    winning chances, you were not already winning, and it isn't an obvious
+  //    material-winning capture (recaptures / hanging grabs are Best, not Great).
+  if (
+    isBest &&
+    secondWcDrop !== null &&
+    secondWcDrop >= t.greatOnlyMoveWc &&
+    bestMover < t.greatAlreadyWinning &&
+    !isWinningOrEvenCapture(posBefore, uci, t)
+  ) {
     return { label: MoveClass.GREAT, cpl, isBest };
   }
 

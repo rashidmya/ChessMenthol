@@ -216,15 +216,61 @@ describe('classifyMove', () => {
     expect(result.label).toBe(MoveClass.BOOK);
   });
 
-  // Python: test_great_move_is_only_move
+  // Great is the only good move in a competitive position (winning-chances gap).
   // before: [(cp=50, ['e2e4']), (cp=-150, ['d2d4'])]; e4 played.
-  // is_best=True, second_gap = 50 − (−150) = 200 >= 150 → GREAT
+  // isBest, e4 is quiet, WC(+50)−WC(−150) ≈ 0.36 ≥ 0.30, bestMover 50 < 300 → GREAT
   it('classifies as GREAT when it is the only move that holds', () => {
     const [pos, afterFen] = startAndAfter('e2e4');
     const before = mkAnalysis(START_FEN, [[cp(50), ['e2e4']], [cp(-150), ['d2d4']]]);
     const after  = mkAnalysis(afterFen,  [[cp(50), ['e7e5']]]);
     const result = classifyMove(pos, 'e2e4', before, after);
     expect(result.label).toBe(MoveClass.GREAT);
+  });
+
+  // A quiet, non-capturing only-move in a non-winning position stays GREAT.
+  it('keeps GREAT for a quiet only-move that is not already winning', () => {
+    const [pos, afterFen] = startAndAfter('g1f3');
+    const before = mkAnalysis(START_FEN, [[cp(40), ['g1f3']], [cp(-260), ['f2f3']]]);
+    const after  = mkAnalysis(afterFen,  [[cp(40), ['e7e5']]]);
+    const result = classifyMove(pos, 'g1f3', before, after);
+    expect(result.label).toBe(MoveClass.GREAT);
+  });
+
+  // chess.com-parity GREAT regressions (over-detection the fix targets) ────────
+
+  // Old rule fired on a flat 150cp gap regardless of how decided the game was.
+  // Here the mover is already winning (+6.0) and the 2nd move is only ~1.7 worse
+  // — a tiny winning-chances gap. That's a plain BEST, not GREAT.
+  it('does NOT label GREAT when already winning and the WC gap is small', () => {
+    const [pos, afterFen] = startAndAfter('e2e4');
+    const before = mkAnalysis(START_FEN, [[cp(600), ['e2e4']], [cp(430), ['d2d4']]]);
+    const after  = mkAnalysis(afterFen,  [[cp(600), ['e7e5']]]);
+    const result = classifyMove(pos, 'e2e4', before, after);
+    expect(result.label).not.toBe(MoveClass.GREAT);
+    expect(result.label).toBe(MoveClass.BEST);
+  });
+
+  // Even a large WC gap does not earn GREAT when you were already crushing —
+  // keeping a won game isn't a "great find". +5.0 best vs 0.0 alternative → BEST.
+  it('does NOT label GREAT when already crushing (already-winning guard)', () => {
+    const [pos, afterFen] = startAndAfter('e2e4');
+    const before = mkAnalysis(START_FEN, [[cp(500), ['e2e4']], [cp(0), ['d2d4']]]);
+    const after  = mkAnalysis(afterFen,  [[cp(500), ['e7e5']]]);
+    const result = classifyMove(pos, 'e2e4', before, after);
+    expect(result.label).not.toBe(MoveClass.GREAT);
+  });
+
+  // An obvious material-winning capture (here a rook recapture) is BEST, not
+  // GREAT, even as the only move — chess.com never celebrates the obvious.
+  it('does NOT label an obvious winning capture GREAT (recapture)', () => {
+    const fen = '4k3/8/8/3r4/8/8/3R4/4K3 w - - 0 1';
+    const pos = posFromFen(fen);
+    const afterFen = fenOf(playUci(pos, 'd2d5'));
+    const before = mkAnalysis(fen,      [[cp(30), ['d2d5']], [cp(-400), ['e1f1']]]);
+    const after  = mkAnalysis(afterFen, [[cp(30), ['e8f8']]]);
+    const result = classifyMove(pos, 'd2d5', before, after);
+    expect(result.label).not.toBe(MoveClass.GREAT);
+    expect(result.label).toBe(MoveClass.BEST);
   });
 
   // chess.com-parity brilliant: a sound sacrifice from a position that is NOT
