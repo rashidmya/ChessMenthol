@@ -235,7 +235,6 @@
             <span class="ptitle">Game Review</span>
           </div>
           <div class="sec">
-            <p class="glabel">Evaluation · white winning chances</p>
             <EvalGraph wins={reviewWins} currentPly={s?.currentPly ?? 0} onNavigate={reviewNavigate} />
           </div>
           {#if s?.lastMove || s?.annotating}
@@ -397,7 +396,6 @@
     border-radius: 7px; background: var(--paper-2); color: var(--ink-2); font-size: 15px; cursor: pointer; }
   .back:hover { border-color: var(--green); color: var(--green); background: #fff; }
   .ptitle { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-2); font-weight: 700; }
-  .glabel { font-family: var(--mono); font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 7px; }
 
   @keyframes rise {
     from { opacity: 0; transform: translateY(9px); }
