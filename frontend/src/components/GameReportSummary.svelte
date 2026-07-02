@@ -20,13 +20,14 @@
   $: wins = series.map((p) => p.win);
   $: evals = series.map((p) => p.evalText);
   $: labels = series.map((p) => p.label);
+  $: classes = series.map((p) => p.cls);
   $: whiteName = report.whiteName ?? 'White';
   $: blackName = report.blackName ?? 'Black';
 </script>
 
-<Panel title="Game Review" testid="report-panel">
+<Panel title="Computer Analysis" testid="report-panel">
   <button slot="right" type="button" class="hbtn" data-testid="report-to-analysis"
-    title="Back to analysis" aria-label="Back to analysis" on:click={onBackToAnalysis}><Icon name="Microscope" /></button>
+    title="Back to analysis" aria-label="Back to analysis" on:click={onBackToAnalysis}><Icon name="Search" /></button>
 
   <div class="sec dials">
     <AccuracyDial percent={report.white.accuracy} label={whiteName} side="white" testid="acc-white" />
@@ -34,7 +35,7 @@
   </div>
 
   <div class="sec">
-    <EvalGraph {wins} {evals} {labels} {currentPly} {onNavigate} />
+    <EvalGraph {wins} {evals} {labels} {classes} {currentPly} {onNavigate} />
   </div>
 
   <div class="sec">

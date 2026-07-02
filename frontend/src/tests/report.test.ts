@@ -56,8 +56,10 @@ describe('perSideClassCounts', () => {
 
 describe('graphSeries', () => {
   const emptyPlayer: PlayerReportDto = { accuracy: 0, acpl: 0, ...emptyClassCounts() };
-  function rp(n: number, san: string, winWhite: number, evalText: string): PlyReportDto {
-    return { ply: n, san, uci: 'a2a3', winWhite, evalText, cpl: 0, classification: null };
+  const inaccuracy = { label: 'inaccuracy', cpl: 60, isBest: false };
+  function rp(n: number, san: string, winWhite: number, evalText: string,
+              classification: PlyReportDto['classification'] = null): PlyReportDto {
+    return { ply: n, san, uci: 'a2a3', winWhite, evalText, cpl: 0, classification };
   }
   const report: GameReportDto = {
     white: emptyPlayer, black: emptyPlayer,
@@ -65,14 +67,14 @@ describe('graphSeries', () => {
     plies: [
       rp(1, 'e4', 60, '+0.30'),
       rp(2, 'e5', 52, '+0.10'),
-      rp(3, 'Nf3', 55, '+0.20'),
+      rp(3, 'Nf3', 55, '+0.20', inaccuracy),
     ],
   };
 
   it('prepends a Start point built from the base position', () => {
     const s = graphSeries(report);
     expect(s).toHaveLength(4); // base + 3 plies
-    expect(s[0]).toEqual({ win: 50, evalText: '+0.00', label: 'Start' });
+    expect(s[0]).toEqual({ win: 50, evalText: '+0.00', label: 'Start', cls: null });
   });
 
   it('labels plies like the move list: "N." for White, "N…" for Black', () => {
@@ -82,10 +84,11 @@ describe('graphSeries', () => {
     expect(s[3].label).toBe('2. Nf3');
   });
 
-  it('passes each ply win% and eval text straight through', () => {
+  it('passes each ply win%, eval text, and classification straight through', () => {
     const s = graphSeries(report);
-    expect(s[1]).toEqual({ win: 60, evalText: '+0.30', label: '1. e4' });
+    expect(s[1]).toEqual({ win: 60, evalText: '+0.30', label: '1. e4', cls: null });
     expect(s[3].win).toBe(55);
     expect(s[3].evalText).toBe('+0.20');
+    expect(s[3].cls).toEqual(inaccuracy);
   });
 });

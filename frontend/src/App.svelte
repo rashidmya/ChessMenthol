@@ -196,6 +196,7 @@
   $: reviewWins = reviewSeries.map((p) => p.win);
   $: reviewEvals = reviewSeries.map((p) => p.evalText);
   $: reviewLabels = reviewSeries.map((p) => p.label);
+  $: reviewClasses = reviewSeries.map((p) => p.cls);
   // Leaving the review screen stops auto-play.
   $: if (screen !== 'review' && playing) stopPlay();
 </script>
@@ -236,7 +237,7 @@
         <GameReportSummary report={rpt} moveList={s?.moveList ?? []} currentPly={s?.currentPly ?? 0}
           {onNavigate} {onStartReview} {onBackToAnalysis} {onNew} />
       {:else if screen === 'review' && rpt}
-        <Panel title="Game Review" testid="review-card">
+        <Panel title="Computer Analysis" testid="review-card">
           <button slot="left" type="button" class="hbtn" data-testid="review-back"
             aria-label="Back to game report" on:click={onReviewBack}><Icon name="Back" /></button>
           {#if s?.lastMove || s?.annotating}
@@ -253,7 +254,7 @@
             <MoveHistory moveList={s?.moveList ?? []} currentPly={s?.currentPly ?? 0} onNavigate={reviewNavigate} showBadges />
           </div>
           <div class="sec evalsec">
-            <EvalGraph wins={reviewWins} evals={reviewEvals} labels={reviewLabels} currentPly={s?.currentPly ?? 0} onNavigate={reviewNavigate} />
+            <EvalGraph wins={reviewWins} evals={reviewEvals} labels={reviewLabels} classes={reviewClasses} currentPly={s?.currentPly ?? 0} onNavigate={reviewNavigate} />
           </div>
           <MoveStepper slot="footer" currentPly={s?.currentPly ?? 0} total={s?.moveList?.length ?? 0}
             onNavigate={reviewNavigate} {playing} onTogglePlay={togglePlay} />
