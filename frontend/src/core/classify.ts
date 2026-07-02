@@ -12,11 +12,20 @@
  * report feature): the final band decision for Inaccuracy / Mistake / Blunder
  * (previously a centipawn-loss ladder) is now driven by the Lichess
  * winning-chances drop on the [-1,+1] scale, matching Lichess's MoveClassifier
- * / MateAdvice logic.  Rules 1-5 (Book, Brilliant, Great, Best, Miss) and the
- * Excellent/Good ranking are unchanged.
+ * / MateAdvice logic.
+ *
+ * DELIBERATE DIVERGENCE #2 (chess.com-style Game Review): Brilliant is now a
+ * chess.com-parity "sound sacrifice".  The old attack-only heuristic flagged any
+ * near-best move that placed a piece on a square an enemy piece merely touched —
+ * badly over-detecting brilliants on defended outposts, equal trades and
+ * recaptures.  `isSacrifice` is now defender-aware via a static exchange
+ * evaluation (only a piece the opponent can truly win material on counts), and
+ * Brilliant additionally requires the mover was not already clearly winning.
+ * Rules 1, 3-5 (Book, Great, Best, Miss) and the Excellent/Good ranking are
+ * unchanged.
  */
 
-import { type Chess, type Role, type SquareName, attackedBy, playUci, roleAt } from './chess';
+import { type Chess, type Role, type SquareName, playUci, roleAt, seeCapture } from './chess';
 import { type BookLookup, NoBook } from './book';
 import { type AnalysisInfo, bestLine, evalPov, lineMove } from '../engine/types';
 import { cpFromEval, winningChances } from './accuracy';
@@ -43,12 +52,13 @@ export interface Thresholds {
   goodMax:         number;  // cpl <= => GOOD
   inaccuracyMax:   number;  // cpl <= => INACCURACY
   mistakeMax:      number;  // cpl <= => MISTAKE (else BLUNDER)
-  greatGap:        number;  // best better than 2nd-best by this => only-move (GREAT)
-  brilliantMaxCpl: number;  // near-best ceiling to still be BRILLIANT
-  brilliantKeep:   number;  // mover-POV eval after move must stay >= this for BRILLIANT
-  sacrificeMin:    number;  // (risked − gained) material floor for a sacrifice
-  missWin:         number;  // had at least this (mover POV) => was winning
-  missKeep:        number;  // dropped below this => threw the win (MISS)
+  greatGap:            number;  // best better than 2nd-best by this => only-move (GREAT)
+  brilliantMaxCpl:     number;  // near-best ceiling to still be BRILLIANT
+  brilliantKeep:       number;  // mover-POV eval after move must stay >= this (not losing)
+  brilliantAlreadyWinning: number; // mover-POV best eval before >= this => already winning, no BRILLIANT
+  sacrificeMin:        number;  // net material the opponent can win back => a sacrifice
+  missWin:             number;  // had at least this (mover POV) => was winning
+  missKeep:            number;  // dropped below this => threw the win (MISS)
 }
 
 export const DEFAULT_THRESHOLDS: Thresholds = {
@@ -59,6 +69,7 @@ export const DEFAULT_THRESHOLDS: Thresholds = {
   greatGap:       150,
   brilliantMaxCpl: 30,
   brilliantKeep:  -50,
+  brilliantAlreadyWinning: 300, // already up ~a minor piece before the move => sacs aren't brilliant
   sacrificeMin:   200,
   missWin:        200,
   missKeep:       100,
@@ -87,13 +98,25 @@ export interface Classification {
 // ─── isSacrifice ─────────────────────────────────────────────────────────────
 
 /**
- * Heuristic: did the move offer material on its destination square?
+ * Defender-aware sacrifice test: after the move, can the opponent actually win
+ * material on the destination square?
  *
- * Faithful port of Python `is_sacrifice`.  Intentional quirks preserved:
- *   • En-passant: the captured pawn is NOT on the destination square before the
- *     move, so `roleAt(posBefore, dest)` is undefined → gain = 0.
- *   • Promotions: `uci.slice(2,4)` is the destination; after the move, the
- *     piece there is the promoted piece, so `risked` = promoted piece's value.
+ * chess.com-parity divergence from the Python port's attack-only heuristic (see
+ * the module header).  A static exchange evaluation on the destination — from
+ * the opponent's perspective, since it is their turn after the move — measures
+ * how much material the opponent nets by capturing there, accounting for our
+ * defenders and the full recapture sequence.  A defended piece / equal trade /
+ * recapture nets 0 and is NOT a sacrifice; a genuinely hanging piece nets its
+ * value.  Subtracting what we grabbed on the move (`gained`) gives the net
+ * material handed over; a real sacrifice hands over at least `sacrificeMin`
+ * (which, being a minor-piece floor, also excludes mere pawn sacs — SEE on a
+ * pawn can never reach it).
+ *
+ * Notes on edge cases:
+ *   • En-passant: the captured pawn is not on the destination before the move,
+ *     so `gained` = 0 (unchanged from the port).
+ *   • Promotions: the destination holds the promoted piece after the move, so
+ *     the SEE values the piece the opponent would actually capture.
  */
 export function isSacrifice(
   posBefore:  Chess,
@@ -104,22 +127,15 @@ export function isSacrifice(
   // Columns 2–3 of any UCI string are the destination square ('e2e4' → 'e4', 'e7e8q' → 'e8').
   const dest = uci.slice(2, 4) as SquareName;
 
-  // Material on the destination BEFORE the move (captured piece, if any).
+  // Material we grabbed by playing the move (captured piece on the destination, if any).
   const capturedRole = roleAt(posBefore, dest);
-  const gain         = capturedRole !== undefined ? PIECE_VALUE[capturedRole] : 0;
+  const gained       = capturedRole !== undefined ? PIECE_VALUE[capturedRole] : 0;
 
-  // Position AFTER the move.
-  const after     = playUci(posBefore, uci);
-  const movedRole = roleAt(after, dest);
-  if (movedRole === undefined) return false;   // shouldn't happen for legal moves
+  // After the move it is the opponent's turn; SEE tells us what they win back.
+  const after        = playUci(posBefore, uci);
+  const opponentWins = seeCapture(after, dest, PIECE_VALUE);
 
-  const risked   = PIECE_VALUE[movedRole];
-  const opponent = posBefore.turn === 'white' ? 'black' : 'white'; // Python: not mover
-
-  if (attackedBy(after, dest, opponent)) {
-    return (risked - gain) >= t.sacrificeMin;
-  }
-  return false;
+  return (opponentWins - gained) >= t.sacrificeMin;
 }
 
 // ─── classifyMove ─────────────────────────────────────────────────────────────
@@ -185,9 +201,14 @@ export function classifyMove(
     return { label: MoveClass.BOOK, cpl, isBest };
   }
 
-  // 2. Brilliant: near-best, sound sacrifice, eval stays acceptable
-  const nearBest = cpl <= t.brilliantMaxCpl;
-  if (nearBest && playedMover >= t.brilliantKeep && isSacrifice(posBefore, uci, t)) {
+  // 2. Brilliant (chess.com parity): a sound sacrifice — near-best, not losing
+  //    afterwards, not already clearly winning beforehand, and the opponent can
+  //    genuinely win material on the square (defender-aware SEE in isSacrifice,
+  //    so defended pieces / equal trades / recaptures don't qualify).
+  const nearBest          = cpl <= t.brilliantMaxCpl;
+  const notLosingAfter    = playedMover >= t.brilliantKeep;
+  const notAlreadyWinning = bestMover < t.brilliantAlreadyWinning;
+  if (nearBest && notLosingAfter && notAlreadyWinning && isSacrifice(posBefore, uci, t)) {
     return { label: MoveClass.BRILLIANT, cpl, isBest };
   }
 

@@ -9,10 +9,11 @@
 
 import { describe, it, expect } from 'vitest';
 import type { Chess } from '../core/chess';
-import { fenOf, playUci, posFromFen } from '../core/chess';
+import { fenOf, playUci, posFromFen, seeCapture } from '../core/chess';
 import {
   DEFAULT_THRESHOLDS,
   MoveClass,
+  PIECE_VALUE,
   classifyMove,
   isSacrifice,
 } from '../core/classify';
@@ -112,6 +113,55 @@ describe('isSacrifice', () => {
     const pos = posFromFen('k7/8/6p1/7q/8/8/8/3QK3 w - - 0 1');
     expect(isSacrifice(pos, 'd1h5')).toBe(false);
   });
+
+  // chess.com-parity (defender-aware SEE): a DEFENDED piece on an attacked square
+  // is NOT a sacrifice — the opponent cannot win material there.
+  // Nb3-d4: d4 is attacked by the c6 knight but defended by the c3 pawn
+  // (…Nxd4 cxd4 is an equal knight trade). Old attack-only heuristic said true.
+  it('returns false for a defended piece on an attacked square (equal trade)', () => {
+    const pos = posFromFen('7k/8/2n5/8/8/1NP5/8/4K3 w - - 0 1');
+    expect(isSacrifice(pos, 'b3d4')).toBe(false);
+  });
+
+  // Same position without the c3 defender: the knight is truly hanging to the
+  // c6 knight (opponent wins a whole knight) → a real sacrifice.
+  it('returns true for an undefended (genuinely hanging) piece', () => {
+    const pos = posFromFen('7k/8/2n5/8/8/1N6/8/4K3 w - - 0 1');
+    expect(isSacrifice(pos, 'b3d4')).toBe(true);
+  });
+});
+
+// ─── seeCapture (static exchange evaluation) ─────────────────────────────────
+
+describe('seeCapture', () => {
+  // Side to move captures the piece on the target square; result is the net
+  // material the side to move wins through the optimal capture sequence.
+  // (Knight on c6 attacks d4 — used as the recurring target square here.)
+
+  it('wins the full value of an undefended piece', () => {
+    // Black to move; white knight on d4 attacked only by the c6 knight.
+    const pos = posFromFen('7k/8/2n5/8/3N4/8/8/4K3 b - - 0 1');
+    expect(seeCapture(pos, 'd4', PIECE_VALUE)).toBe(PIECE_VALUE.knight);
+  });
+
+  it('is zero for a defended piece (equal trade)', () => {
+    // Black to move; white knight d4 defended by the c3 pawn, attacked by c6
+    // (…Nxd4 cxd4 is an even knight trade).
+    const pos = posFromFen('7k/8/2n5/8/3N4/2P5/8/4K3 b - - 0 1');
+    expect(seeCapture(pos, 'd4', PIECE_VALUE)).toBe(0);
+  });
+
+  it('returns 0 when the square is not attacked at all', () => {
+    const pos = posFromFen('7k/8/8/8/3N4/8/8/4K3 b - - 0 1');
+    expect(seeCapture(pos, 'd4', PIECE_VALUE)).toBe(0);
+  });
+
+  it('nets a pawn when two attackers overwhelm one defender (multi-ply)', () => {
+    // Black knight c6 + rook d8 attack white knight d4; only the c3 pawn defends.
+    // …Nxd4 cxd4 Rxd4 wins the pawn: knight−knight even, then rook takes pawn.
+    const pos = posFromFen('3r3k/8/2n5/8/3N4/2P5/8/4K3 b - - 0 1');
+    expect(seeCapture(pos, 'd4', PIECE_VALUE)).toBe(PIECE_VALUE.pawn);
+  });
 });
 
 // ─── 6–14. classifyMove ──────────────────────────────────────────────────────
@@ -177,17 +227,47 @@ describe('classifyMove', () => {
     expect(result.label).toBe(MoveClass.GREAT);
   });
 
-  // Python: test_brilliant_sound_sacrifice
-  // Position: k7/8/6p1/8/8/8/8/3QK3 w - - 0 1; Qh5 (sacrifice into g6 pawn).
-  // cpl=0, played_mover=300 >= −50, isSacrifice=true → BRILLIANT
+  // chess.com-parity brilliant: a sound sacrifice from a position that is NOT
+  // already winning. Position: k7/8/6p1/8/8/8/8/3QK3 w - - 0 1; Qh5 offers the
+  // queen to the g6 pawn (isSacrifice=true, the queen is genuinely hanging).
+  // cpl=0, playedMover=120 >= −50 (not losing after), bestMover=120 < 300
+  // (not already winning) → BRILLIANT.
   it('classifies a sound sacrifice as BRILLIANT', () => {
     const sacFen = 'k7/8/6p1/8/8/8/8/3QK3 w - - 0 1';
     const pos    = posFromFen(sacFen);
     const afterFen = fenOf(playUci(pos, 'd1h5'));
-    const before = mkAnalysis(sacFen,  [[cp(300), ['d1h5']]]);
-    const after  = mkAnalysis(afterFen, [[cp(300), ['a8b8']]]);
+    const before = mkAnalysis(sacFen,  [[cp(120), ['d1h5']]]);
+    const after  = mkAnalysis(afterFen, [[cp(120), ['a8b8']]]);
     const result = classifyMove(pos, 'd1h5', before, after);
     expect(result.label).toBe(MoveClass.BRILLIANT);
+  });
+
+  // chess.com-parity: a DEFENDED near-best piece is not a sacrifice, so it must
+  // NOT be brilliant — this is the over-detection the fix targets.
+  // Nb3-d4 is the engine's best move (cpl 0) and d4 is attacked, but the c3 pawn
+  // defends it (…Nxd4 cxd4 is an equal trade) → plain BEST, never BRILLIANT.
+  it('does NOT label a defended near-best move BRILLIANT (regression)', () => {
+    const fen = '7k/8/2n5/8/8/1NP5/8/4K3 w - - 0 1';
+    const pos = posFromFen(fen);
+    const afterFen = fenOf(playUci(pos, 'b3d4'));
+    const before = mkAnalysis(fen,      [[cp(120), ['b3d4']]]);
+    const after  = mkAnalysis(afterFen, [[cp(120), ['c6d4']]]);
+    const result = classifyMove(pos, 'b3d4', before, after);
+    expect(result.label).not.toBe(MoveClass.BRILLIANT);
+    expect(result.label).toBe(MoveClass.BEST);
+  });
+
+  // chess.com-parity: even a genuine sacrifice is NOT brilliant when the mover
+  // was already clearly winning before it. Same undefended hanging-knight sac,
+  // but bestMover=600 ≥ brilliantAlreadyWinning(300) → the guard skips brilliant.
+  it('does NOT label a sacrifice BRILLIANT when already clearly winning', () => {
+    const fen = '7k/8/2n5/8/8/1N6/8/4K3 w - - 0 1';
+    const pos = posFromFen(fen);
+    const afterFen = fenOf(playUci(pos, 'b3d4'));
+    const before = mkAnalysis(fen,      [[cp(600), ['b3d4']]]);
+    const after  = mkAnalysis(afterFen, [[cp(590), ['c6d4']]]);
+    const result = classifyMove(pos, 'b3d4', before, after);
+    expect(result.label).not.toBe(MoveClass.BRILLIANT);
   });
 
   // Python: test_missed_win

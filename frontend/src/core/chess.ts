@@ -15,7 +15,7 @@ import { parseFen, makeFen, makeBoardFen } from 'chessops/fen';
 import { Chess } from 'chessops/chess';
 import { chessgroundDests } from 'chessops/compat';
 import { makeSan, makeSanVariation } from 'chessops/san';
-import { parseUci, makeUci, makeSquare, parseSquare, squareRank } from 'chessops/util';
+import { parseUci, makeUci, makeSquare, parseSquare, squareRank, opposite } from 'chessops/util';
 import type { Color, Move, Piece, Role, Square, SquareName } from 'chessops/types';
 import { Board } from 'chessops/board';
 import { defaultSetup } from 'chessops/setup';
@@ -215,6 +215,75 @@ export function attackedBy(pos: Chess, square: Square | SquareName, color: Color
     typeof square === 'number' ? square : parseSquare(square);
   if (sq === undefined) throw new Error(`Invalid square: "${square}"`);
   return pos.kingAttackers(sq, color, pos.board.occupied).nonEmpty();
+}
+
+// ─── seeCapture ────────────────────────────────────────────────────────────
+
+/**
+ * Static Exchange Evaluation on `square`: the net material the **side to move**
+ * wins by initiating the optimal capture sequence on the piece standing there,
+ * assuming each side may stop capturing when it is no longer profitable.
+ *
+ * This is the swap-off algorithm (chessprogramming.org/Static_Exchange_Evaluation).
+ * X-ray attackers (batteries) are revealed automatically: each iteration removes
+ * the used attacker from the occupancy passed to `kingAttackers`, so a slider
+ * behind it becomes a fresh attacker. Pins are ignored, as is conventional for
+ * SEE — it measures material, not legality.
+ *
+ * Returns 0 when the square is empty or the side to move has no attacker of it.
+ *
+ * `value` maps each role to a centipawn value (callers pass their own scale so
+ * this stays independent of classify.ts and free of a circular import).
+ */
+export function seeCapture(
+  pos: Chess,
+  square: Square | SquareName,
+  value: Record<Role, number>,
+): number {
+  const sq: Square | undefined =
+    typeof square === 'number' ? square : parseSquare(square);
+  if (sq === undefined) throw new Error(`Invalid square: "${square}"`);
+
+  const target = pos.board.get(sq);
+  if (!target) return 0;
+
+  let occ = pos.board.occupied;
+
+  // Least-valuable attacker of `color` still present in `occ`. kingAttackers uses
+  // `occ` for slider blocking (x-ray reveal); intersecting with `occ` drops the
+  // attackers we have already spent from earlier plies of the exchange.
+  const leastAttacker = (color: Color): { sq: Square; role: Role } | undefined => {
+    const attackers = pos.kingAttackers(sq, color, occ).intersect(occ);
+    let best: { sq: Square; role: Role } | undefined;
+    let bestVal = Infinity;
+    for (const s of attackers) {
+      const role = pos.board.get(s)!.role;
+      if (value[role] < bestVal) { bestVal = value[role]; best = { sq: s, role }; }
+    }
+    return best;
+  };
+
+  let side: Color = pos.turn;
+  let attacker = leastAttacker(side);
+  if (!attacker) return 0; // nothing can capture → not part of any exchange
+
+  const gain: number[] = [value[target.role]]; // material on the square, captured first
+  let d = 0;
+  while (attacker) {
+    d++;
+    gain[d] = value[attacker.role] - gain[d - 1]; // speculative: I capture, you recapture
+    if (Math.max(-gain[d - 1], gain[d]) < 0) break; // neither side gains by continuing
+    occ = occ.without(attacker.sq);                 // spend this attacker (reveals x-rays)
+    side = opposite(side);
+    attacker = leastAttacker(side);
+  }
+  // Negamax the swap list back down: each side would stop capturing if continuing hurts.
+  d--;
+  while (d > 0) {
+    gain[d - 1] = -Math.max(-gain[d - 1], gain[d]);
+    d--;
+  }
+  return gain[0] === 0 ? 0 : gain[0]; // normalise the -0 that negamax can produce
 }
 
 // ─── roleAt ──────────────────────────────────────────────────────────────────
