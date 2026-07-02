@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { state, errorSeq, regionShot, connect, send, report, reportProgress } from './lib/engineClient';
   import { buildFen, kingCountOk, castleFromFen } from './lib/edit';
   import { currentLastMoveUci } from './lib/board';
@@ -16,6 +16,8 @@
   import Lines from './components/Lines.svelte';
   import MoveFeedback from './components/MoveFeedback.svelte';
   import MoveHistory from './components/MoveHistory.svelte';
+  import EvalGraph from './components/EvalGraph.svelte';
+  import MoveStepper from './components/MoveStepper.svelte';
   import HomePanel from './components/HomePanel.svelte';
   import EditPanel from './components/EditPanel.svelte';
   import GameReportSummary from './components/GameReportSummary.svelte';
@@ -105,6 +107,26 @@
   }
   function onStartReview(): void { onNavigate(0); screen = 'review'; }
   function onReviewBack(): void { screen = 'report'; }
+
+  // ===== Review auto-play =====
+  let playing = false;
+  let playTimer: ReturnType<typeof setInterval> | null = null;
+  function stopPlay(): void { playing = false; if (playTimer) { clearInterval(playTimer); playTimer = null; } }
+  function togglePlay(): void {
+    if (playing) { stopPlay(); return; }
+    const total = s?.moveList?.length ?? 0;
+    if ((s?.currentPly ?? 0) >= total) send({ type: 'navigate', index: 0 });
+    playing = true;
+    playTimer = setInterval(() => {
+      const total2 = s?.moveList?.length ?? 0;
+      const cur = s?.currentPly ?? 0;
+      if (cur >= total2) { stopPlay(); return; }
+      send({ type: 'navigate', index: cur + 1 });
+    }, 1200);
+  }
+  // Any manual navigation (arrows, move click, eval-graph click) pauses auto-play.
+  function reviewNavigate(ply: number): void { stopPlay(); onNavigate(ply); }
+  onDestroy(stopPlay);
   function onSetUp(): void {
     editError = null;
     const f = s?.fen ?? 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -165,6 +187,10 @@
   // prevents re-switching back after the user clicks Back from the report screen).
   $: if (rpt && rpt !== lastReport) { lastReport = rpt; if (screen === 'analysis') screen = 'report'; }
   $: hasReportForGame = !!(rpt && reportMatchesGame(rpt, s));
+  // Eval-graph series for the Review screen: base position + one point per ply.
+  $: reviewWins = rpt ? [rpt.startWin, ...rpt.plies.map((p) => p.winWhite)] : [];
+  // Leaving the review screen stops auto-play.
+  $: if (screen !== 'review' && playing) stopPlay();
 </script>
 
 <div class="app">
@@ -201,6 +227,34 @@
           onFenInput={onEditFenInput} onLoad={onEditLoad} onBack={onEditBack} />
       {:else if screen === 'report' && rpt}
         <GameReportSummary report={rpt} {onStartReview} {onBackToAnalysis} {onNew} />
+      {:else if screen === 'review' && rpt}
+        <section class="card" data-testid="review-card">
+          <div class="pbar">
+            <button type="button" class="back" data-testid="review-back" aria-label="Back to game report" on:click={onReviewBack}>←</button>
+            <span class="ptitle">Game Review</span>
+          </div>
+          <div class="sec">
+            <p class="glabel">Evaluation · white winning chances</p>
+            <EvalGraph wins={reviewWins} currentPly={s?.currentPly ?? 0} onNavigate={reviewNavigate} />
+          </div>
+          {#if s?.lastMove || s?.annotating}
+            <div class="sec" data-testid="feedback-section">
+              <div class="bd">
+                <MoveFeedback lastMove={s?.lastMove ?? null}
+                  evaluating={s?.annotating && (s?.currentPly ?? 0) >= 1 ? { san: s.moveList[s.currentPly - 1]?.san ?? '' } : null}
+                  onPlayBest={(uci) => send({ type: 'play_best', uci })}
+                  gameOver={s?.gameOver ?? null} />
+              </div>
+            </div>
+          {/if}
+          <div class="sec grow">
+            <MoveHistory moveList={s?.moveList ?? []} currentPly={s?.currentPly ?? 0} onNavigate={reviewNavigate} showBadges />
+          </div>
+          <div class="sec">
+            <MoveStepper currentPly={s?.currentPly ?? 0} total={s?.moveList?.length ?? 0}
+              onNavigate={reviewNavigate} {playing} onTogglePlay={togglePlay} />
+          </div>
+        </section>
       {:else}
         <section class="card" data-testid="analysis-card">
           <!-- 1. Engine header + engine lines (one section) -->
@@ -335,6 +389,14 @@
   /* Only the move-history section grows to absorb the card's remaining height,
      letting its inner .movehist-sec (flex:1) and .movehist (overflow-y:auto) scroll. */
   .grow { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+  /* ===== review-card header ===== */
+  .pbar { display: flex; align-items: center; gap: 10px; padding: 11px 15px; border-bottom: 1px solid var(--keyline); }
+  .back { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid var(--keyline-2);
+    border-radius: 7px; background: var(--paper-2); color: var(--ink-2); font-size: 15px; cursor: pointer; }
+  .back:hover { border-color: var(--green); color: var(--green); background: #fff; }
+  .ptitle { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-2); font-weight: 700; }
+  .glabel { font-family: var(--mono); font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 7px; }
 
   @keyframes rise {
     from { opacity: 0; transform: translateY(9px); }

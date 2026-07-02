@@ -19,8 +19,10 @@ describe('GameReportSummary', () => {
     expect(getByTestId('acc-black').textContent).toContain('82');
     expect(getByText('Ada')).toBeTruthy();
     expect(getByText('Bo')).toBeTruthy();
-    // brilliant row: white 0 / black 0
-    expect(getByTestId('cat-blunder').textContent).toContain('1'); // black blunder = 1
+    // blunder row: the count lands in the correct column — white (first .cnt) 0, black (last .cnt) 1.
+    const cnts = getByTestId('cat-blunder').querySelectorAll('.cnt');
+    expect(cnts[0].textContent).toBe('0');                 // white column
+    expect(cnts[cnts.length - 1].textContent).toBe('1');   // black column (blunder = 1)
   });
 
   it('falls back to White/Black when names are absent', () => {
@@ -29,10 +31,11 @@ describe('GameReportSummary', () => {
     expect(getByText('Black')).toBeTruthy();
   });
 
-  it('fires Start Review and Back-to-analysis handlers', async () => {
-    const onStartReview = vi.fn(), onBackToAnalysis = vi.fn();
-    const { getByTestId } = render(GameReportSummary, { props: { report, onStartReview, onBackToAnalysis } });
+  it('fires Start Review, Back-to-analysis, and New handlers', async () => {
+    const onStartReview = vi.fn(), onBackToAnalysis = vi.fn(), onNew = vi.fn();
+    const { getByTestId, getByText } = render(GameReportSummary, { props: { report, onStartReview, onBackToAnalysis, onNew } });
     await fireEvent.click(getByTestId('start-review')); expect(onStartReview).toHaveBeenCalled();
     await fireEvent.click(getByTestId('report-to-analysis')); expect(onBackToAnalysis).toHaveBeenCalled();
+    await fireEvent.click(getByText('New')); expect(onNew).toHaveBeenCalled();
   });
 });

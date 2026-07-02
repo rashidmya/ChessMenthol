@@ -2,10 +2,14 @@
   import type { MoveEntryDto } from '../lib/types';
   import { moveColor } from '../lib/moveclass';
   import { tick } from 'svelte';
+  import MoveBadge from './MoveBadge.svelte';
 
   export let moveList: MoveEntryDto[] = [];
   export let currentPly: number = 0;
   export let onNavigate: (ply: number) => void = () => {};
+  // Prepend a quality badge before each classified move's SAN (used on the Review
+  // screen). Off by default so the analysis-screen move list is unchanged.
+  export let showBadges = false;
 
   let container: HTMLElement | undefined;
 
@@ -54,7 +58,7 @@
             aria-current={row.white.ply === currentPly ? 'true' : undefined}
             data-testid="mh-mv"
             on:click={() => onNavigate(row.white!.ply)}
-          >{row.white.san}</button>
+          >{#if showBadges && row.white.classification}<MoveBadge label={row.white.classification.label} size={13} />{/if}{row.white.san}</button>
         {:else}
           <span class="mh-mv mh-empty">…</span>
         {/if}
@@ -67,7 +71,7 @@
             aria-current={row.black.ply === currentPly ? 'true' : undefined}
             data-testid="mh-mv"
             on:click={() => onNavigate(row.black!.ply)}
-          >{row.black.san}</button>
+          >{#if showBadges && row.black.classification}<MoveBadge label={row.black.classification.label} size={13} />{/if}{row.black.san}</button>
         {:else}
           <span class="mh-mv mh-empty">…</span>
         {/if}

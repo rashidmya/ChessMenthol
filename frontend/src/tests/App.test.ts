@@ -122,3 +122,57 @@ describe('App report flow', () => {
     expect(sendMock).toHaveBeenCalledWith({ type: 'analyze_game' });
   });
 });
+
+describe('Review screen', () => {
+  beforeEach(() => {
+    sendMock.mockClear();
+    reportStore.set(null);
+  });
+
+  // Minimal StateFrame carrying a given move list; other fields are sensible defaults.
+  function st(moveList: { ply: number; san: string; uci: string; classification: null }[]): import('../lib/types').StateFrame {
+    return {
+      type: 'state', fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      sideToMove: 'white', engineId: 'stockfish', analyzing: false, eval: null, depth: 0, lines: [],
+      lastMove: null, visionStatus: 'idle', detectedOrientation: null, lowConfidence: [], region: null,
+      moveList, currentPly: moveList.length, analysisEnabled: true, movetime: null,
+      reportProgress: null, gameOver: null, annotating: false,
+    };
+  }
+  const P1 = { ply: 1, san: 'e4', uci: 'e2e4', classification: null };
+  const RP1 = { ply: 1, san: 'e4', uci: 'e2e4', winWhite: 53, cpl: 0, classification: null };
+  const RP2 = { ply: 2, san: 'e5', uci: 'e7e5', winWhite: 50, cpl: 0, classification: null };
+  const baseReport = { white: { accuracy: 90, acpl: 20, brilliant: 0, great: 0, best: 0, excellent: 0, good: 0, book: 0, inaccuracy: 0, mistake: 0, blunder: 0, miss: 0 },
+                       black: { accuracy: 80, acpl: 30, brilliant: 0, great: 0, best: 0, excellent: 0, good: 0, book: 0, inaccuracy: 0, mistake: 0, blunder: 0, miss: 0 }, startWin: 51 };
+
+  it('Start Review opens the review screen, navigates to ply 0, and Back returns to the summary', async () => {
+    render(App);
+    await fireEvent.click(screen.getByText('Explore'));
+    stateStore.set(st([P1]));
+    reportStore.set({ ...baseReport, plies: [RP1] });
+    await Promise.resolve();
+    expect(screen.queryByTestId('report-panel')).toBeTruthy();
+    sendMock.mockClear();
+    await fireEvent.click(screen.getByTestId('start-review'));
+    expect(screen.queryByTestId('review-card')).toBeTruthy();
+    expect(sendMock).toHaveBeenCalledWith({ type: 'navigate', index: 0 });
+    await fireEvent.click(screen.getByTestId('review-back'));
+    expect(screen.queryByTestId('report-panel')).toBeTruthy();
+  });
+
+  it('review play button toggles auto-play and sends navigate on tick', async () => {
+    vi.useFakeTimers();
+    render(App);
+    await fireEvent.click(screen.getByText('Explore'));
+    stateStore.set(st([P1, { ply: 2, san: 'e5', uci: 'e7e5', classification: null }]));
+    reportStore.set({ ...baseReport, plies: [RP1, RP2] });
+    await Promise.resolve();
+    await fireEvent.click(screen.getByTestId('start-review'));
+    sendMock.mockClear();
+    await fireEvent.click(screen.getByTestId('autoplay'));
+    await vi.advanceTimersByTimeAsync(1300);
+    expect(sendMock).toHaveBeenCalledWith({ type: 'navigate', index: expect.any(Number) });
+    await fireEvent.click(screen.getByTestId('autoplay'));
+    vi.useRealTimers();
+  });
+});
