@@ -234,9 +234,6 @@
             <button type="button" class="back" data-testid="review-back" aria-label="Back to game report" on:click={onReviewBack}>←</button>
             <span class="ptitle">Game Review</span>
           </div>
-          <div class="sec">
-            <EvalGraph wins={reviewWins} currentPly={s?.currentPly ?? 0} onNavigate={reviewNavigate} />
-          </div>
           {#if s?.lastMove || s?.annotating}
             <div class="sec" data-testid="feedback-section">
               <div class="bd">
@@ -249,6 +246,9 @@
           {/if}
           <div class="sec grow">
             <MoveHistory moveList={s?.moveList ?? []} currentPly={s?.currentPly ?? 0} onNavigate={reviewNavigate} showBadges />
+          </div>
+          <div class="sec">
+            <EvalGraph wins={reviewWins} currentPly={s?.currentPly ?? 0} onNavigate={reviewNavigate} />
           </div>
           <div class="sec">
             <MoveStepper currentPly={s?.currentPly ?? 0} total={s?.moveList?.length ?? 0}

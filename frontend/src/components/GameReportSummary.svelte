@@ -33,6 +33,10 @@
   </div>
 
   <div class="sec">
+    <EvalGraph {wins} {currentPly} {onNavigate} />
+  </div>
+
+  <div class="sec">
     <table class="counts">
       <thead>
         <tr>
@@ -64,10 +68,6 @@
 
   <div class="sec grow">
     <MoveHistory {moveList} {currentPly} {onNavigate} />
-  </div>
-
-  <div class="sec">
-    <EvalGraph {wins} {currentPly} {onNavigate} />
   </div>
 
   <div class="gacts">
