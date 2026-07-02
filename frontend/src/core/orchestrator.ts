@@ -158,6 +158,12 @@ export class Orchestrator {
   _annotating = false;
   _annotate: { boardBefore: Chess; uci: string; ply: number; latest: AnalysisInfo | null } | null = null;
   private _annotateTimer: ReturnType<typeof setTimeout> | null = null;
+  // Per-position eval cache (Lichess-parity: the tree node IS the cache). Keyed by
+  // exact FEN, holds the deepest eval seen for each position — from the report batch
+  // or a prior live search — so navigating back to an already-analyzed position
+  // redisplays it without re-running the engine (see the _restart skip-guard).
+  // Invalidated whenever the engine or its options change, or a new game is loaded.
+  private _evalCache = new Map<string, AnalysisInfo>();
 
   // ---- explicit move history ----
   _baseFen = START_FEN;
@@ -170,7 +176,7 @@ export class Orchestrator {
   _analysisEnabled: boolean;
   _gameOver: { result: string; reason: string } | null = null;
   _reportProgress: { done: number; total: number } | null = null;
-  _reportDepth = 18;
+  _reportDepth = 24;
   private _batch: {
     fens: string[];
     i: number;
@@ -446,6 +452,7 @@ export class Orchestrator {
     this._cancelAnnotate();
     this._annotating = false;
     this._pending = null;
+    this._clearEvalCache(); // a different engine gives different evals — drop the old ones
     this._engineId = id;
     this._engineStarted = false;
     this._restart();
@@ -458,6 +465,7 @@ export class Orchestrator {
     this._cancelAnnotate(); // tear down in-flight before-pass (see setEngine)
     this._annotating = false;
     this._pending = null;
+    this._clearEvalCache(); // depth/movetime changed — let the new limits drive fresh searches
     this._depth = depth;
     if ('movetime' in cmd) {
       const mt = cmd.movetime;
@@ -471,6 +479,7 @@ export class Orchestrator {
     this._cancelAnnotate(); // tear down in-flight before-pass (see setEngine)
     this._annotating = false;
     this._pending = null;
+    this._clearEvalCache(); // an option change can change evals — drop the old ones
     // Buttons (value === undefined) fire once and are NOT stored; valued options persist.
     if (value !== undefined) storeSetOption(this._engineId, name, value);
     if (this._engineStarted) this._engine.setOption?.(name, value);
@@ -482,6 +491,7 @@ export class Orchestrator {
     this._cancelAnnotate(); // tear down in-flight before-pass (see setEngine)
     this._annotating = false;
     this._pending = null;
+    this._clearEvalCache(); // an option change can change evals — drop the old ones
     storeResetOption(this._engineId, name);
     this._restart(); // engine default re-applies on the next engine load
   }
@@ -491,6 +501,7 @@ export class Orchestrator {
     this._cancelAnnotate(); // tear down in-flight before-pass (see setEngine)
     this._annotating = false;
     this._pending = null;
+    this._clearEvalCache(); // an option change can change evals — drop the old ones
     storeResetAll(this._engineId);
     this._restart();
   }
@@ -613,6 +624,19 @@ export class Orchestrator {
     this._annotate = null;
   }
 
+  // Remember the best (deepest) eval seen for a position so a later visit can skip
+  // the engine. Best-of keeps the strongest eval across revisits (Lichess isFirstEvalBetter).
+  private _cacheEval(info: AnalysisInfo): void {
+    const prev = this._evalCache.get(info.fen);
+    if (prev === undefined || info.depth > prev.depth) this._evalCache.set(info.fen, info);
+  }
+
+  // Cached evals are tied to the current engine + options + game; drop them whenever
+  // any of those change so a stale/foreign eval can never be shown for a position.
+  private _clearEvalCache(): void {
+    this._evalCache.clear();
+  }
+
   private _startAnnotate(index: number): void {
     if (index < 1 || index > this._history.length) { this._annotating = false; return; }
     if (this._history[index - 1].classification !== undefined) { this._annotating = false; return; }
@@ -719,6 +743,7 @@ export class Orchestrator {
     this._lastMove = null;
     this._preMoveAnalysis = null;
     this._annotating = false;
+    this._clearEvalCache(); // new game/position ⇒ prior positions' evals no longer relevant
   }
 
   private _restart(): void {
@@ -738,11 +763,25 @@ export class Orchestrator {
       this._send(this._stateFrame(null));
       return;
     }
+    // Skip-guard (Lichess-parity `CevalCtrl.doStart`): if we already hold an eval for
+    // this exact position at least as deep as a report eval — from the report batch or
+    // a prior live search — redisplay it instead of burning the engine again. This is
+    // what makes scrubbing an analyzed game (Game Review, auto-play) instant and CPU-idle.
+    // Gated on no pending classification (a pending classify needs a live search to reach
+    // CLASSIFY_MIN_DEPTH) and no in-flight before-pass (which owns the session).
+    const fen = fenOf(this._board);
+    const cached = this._evalCache.get(fen);
+    if (this._pending === null && this._annotate === null && cached !== undefined && cached.depth >= this._reportDepth) {
+      this._lastAnalysis = cached;
+      this._analyzing = false;
+      this._send(this._stateFrame(cached));
+      return;
+    }
     if (!this._engineStarted && this._engine.select) {
       this._engine.select(this._engineId);
       this._engineStarted = true;
     }
-    this._session.start(fenOf(this._board), {
+    this._session.start(fen, {
       depth: this._depth,
       timeMs: this._movetimeMs,
     });
@@ -759,6 +798,7 @@ export class Orchestrator {
       return;                                             // do NOT display the before-position lines
     }
     this._lastAnalysis = info;
+    this._cacheEval(info); // remember this position's eval so revisiting it skips a re-search
     const bl = bestLine(info);
     if (
       this._pending !== null &&
@@ -887,6 +927,9 @@ export class Orchestrator {
   private _batchFinish(): void {
     const b = this._batch;
     if (b === null) return;
+    // Seed the per-position cache with every report eval so navigating the reviewed
+    // game (or auto-play) redisplays these depth-`_reportDepth` evals with no engine.
+    for (const a of b.evals) if (a !== null) this._cacheEval(a);
     this._engine.setOption?.('MultiPV', b.priorMpv ?? '1');
     const report = this._buildReport(b.evals);
     this._batch = null;
