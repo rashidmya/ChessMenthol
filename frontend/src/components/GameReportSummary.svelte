@@ -33,11 +33,6 @@
   </div>
 
   <div class="sec">
-    <p class="glabel">Evaluation · white winning chances</p>
-    <EvalGraph {wins} {currentPly} {onNavigate} />
-  </div>
-
-  <div class="sec">
     <table class="counts">
       <thead>
         <tr>
@@ -71,6 +66,10 @@
     <MoveHistory {moveList} {currentPly} {onNavigate} />
   </div>
 
+  <div class="sec">
+    <EvalGraph {wins} {currentPly} {onNavigate} />
+  </div>
+
   <div class="gacts">
     <button type="button" class="new" on:click={onNew}>New</button>
     <button type="button" class="review" data-testid="start-review" on:click={onStartReview}>Start Review</button>
@@ -96,10 +95,6 @@
   .sec + .sec { border-top: 1px solid var(--keyline); }
   .dials { display: flex; align-items: center; justify-content: space-around; }
   .grow { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 6px; }
-  .glabel {
-    font-family: var(--mono); font-size: 9px; letter-spacing: .14em;
-    text-transform: uppercase; color: var(--ink-faint); margin: 0 0 7px;
-  }
 
   .counts { width: 100%; border-collapse: collapse; font-size: 12.5px; }
   .counts th {
