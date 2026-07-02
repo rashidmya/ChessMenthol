@@ -66,7 +66,7 @@
 <style>
   .edit {
     background: var(--card); border: 1px solid var(--keyline); border-radius: 8px;
-    box-shadow: 0 1px 0 #fff inset, 0 12px 30px -24px rgba(40,30,15,.45);
+    box-shadow: 0 12px 30px -24px rgba(40,30,15,.45);
     display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden;
   }
   .pbar { display: flex; align-items: center; gap: 10px; padding: 11px 16px; border-bottom: 1px solid var(--keyline); }

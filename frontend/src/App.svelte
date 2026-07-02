@@ -247,7 +247,7 @@
           <div class="sec grow">
             <MoveHistory moveList={s?.moveList ?? []} currentPly={s?.currentPly ?? 0} onNavigate={reviewNavigate} showBadges />
           </div>
-          <div class="sec">
+          <div class="sec evalsec">
             <EvalGraph wins={reviewWins} currentPly={s?.currentPly ?? 0} onNavigate={reviewNavigate} />
           </div>
           <div class="sec">
@@ -375,7 +375,7 @@
     background: var(--card);
     border: 1px solid var(--keyline);
     border-radius: 7px;
-    box-shadow: 0 .1rem .1rem 0 rgba(0, 0, 0, .2);
+    box-shadow: 0 12px 30px -24px rgba(40,30,15,.45);
     animation: rise .55s ease both;
     display: flex;
     flex-direction: column;

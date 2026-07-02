@@ -79,7 +79,7 @@
 <style>
   .card {
     background: var(--card); border: 1px solid var(--keyline); border-radius: 8px;
-    box-shadow: 0 1px 0 #fff inset, 0 12px 30px -24px rgba(40,30,15,.45);
+    box-shadow: 0 12px 30px -24px rgba(40,30,15,.45);
     display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden;
   }
   .ghead { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
