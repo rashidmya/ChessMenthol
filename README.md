@@ -1,114 +1,117 @@
 # ChessMenthol
 
-A cross-platform desktop chess assistant. ChessMenthol watches a chess board on
-your screen, recognizes the position with computer vision, and analyzes it with
-Stockfish — streaming evaluations, best lines, and chess.com-style move
-classification (brilliant / great / best / … / blunder / miss).
+A cross-platform desktop chess assistant. ChessMenthol watches a chess board on your screen,
+recognizes the position with computer vision, and analyzes it with Stockfish — streaming
+evaluations, best lines, and chess.com-style move classification (brilliant / great / best / …
+/ blunder / miss).
 
-The engine, chess logic, move classification, and board-vision pipeline all run
-in **WebAssembly** inside a **Svelte 5** UI. A thin **Tauri (Rust)** shell does
-only one native thing a web page cannot: capture the screen.
+Everything runs **locally and offline**: the engine, chess logic, move classification, and
+board-vision pipeline all run in **WebAssembly** inside a **Svelte 5** UI, wrapped in a thin
+**Tauri 2 (Rust)** shell that does the one thing a web page cannot — capture the screen.
 
-## Architecture
+## Features
 
+- **Screen-capture board recognition** — drag a box over any on-screen board (chess.com,
+  Lichess, a PDF, a video) and ChessMenthol reads the position with computer vision; no
+  extension, no account, no upload.
+- **Live Stockfish analysis** — evaluation, best move, and multiple principal variations
+  (MultiPV) with an eval bar that updates as the position changes.
+- **chess.com-style move classification** — every move labeled across 10 classes (brilliant,
+  great, best, excellent, good, book, inaccuracy, mistake, blunder, miss).
+- **Full-game review** — import a PGN or analyze a captured/played game to get a computer
+  report (per-player accuracy %, ACPL, and per-class counts), an eval graph, and a Review mode
+  that steps through the game move-by-move with badges and auto-play.
+- **Position editor & play** — set up any position by hand, flip the board, and play out moves.
+- **Bring-your-own engine** — ships with Stockfish (a fast ~7 MB *Lite* preset and the full
+  ~108 MB NNUE build), and you can add any external UCI engine and tune its options.
+
+## Installation
+
+Download the installer for your OS from the
+[**Releases**](https://github.com/rashidmya/ChessMenthol/releases/latest) page.
+
+> The installers are **unsigned**, so each OS shows a first-launch warning — steps to allow the
+> app are below. Downloads are large (~200 MB) because the full Stockfish NNUE build is bundled.
+
+### Windows
+
+Run the `.msi` or `.exe`. SmartScreen may warn on an unsigned app — click **More info → Run
+anyway**.
+
+### macOS
+
+Open the `.dmg` and drag **ChessMenthol** to Applications. It is unsigned and un-notarized, so
+Gatekeeper blocks it on first launch — **right-click the app → Open** (then confirm), or clear
+the quarantine flag:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/ChessMenthol.app
 ```
-Tauri shell (Rust, thin)        Renderer (Svelte 5 + TypeScript)
-  capture_frame() -> RGBA   →     core/orchestrator.ts  (board, history, classify)
-  (xcap; Wayland CLI fallback)    engine: stockfish.wasm  (Web Worker, UCI in TS)
-                                  vision: detect.ts + onnxruntime-web (Web Worker)
-                                  chess rules: chessops
+
+The macOS build is a universal binary (Apple Silicon + Intel).
+
+### Linux
+
+Use the portable `.AppImage`, or install the `.deb` / `.rpm`:
+
+```bash
+chmod +x ChessMenthol_*.AppImage && ./ChessMenthol_*.AppImage
 ```
 
-There is no Python and no localhost server — the previous FastAPI backend and its
-WebSocket protocol were removed in the Svelte + Tauri migration (see
-`docs/superpowers/specs/2026-06-28-svelte-tauri-migration-design.md`).
+- **Screen capture** on Wayland compositors without `wlr-screencopy` (KWin/Mutter) shells out
+  to a screenshot tool — install one of **`spectacle`** (KDE), **`grim`** (wlroots), or
+  **`gnome-screenshot`** (GNOME). X11 captures directly.
+- If the window fails to render on Wayland (WebKitGTK DMABUF crash, *"Gdk Error 71"*), launch
+  with:
+  ```bash
+  WEBKIT_DISABLE_DMABUF_RENDERER=1 ./ChessMenthol_*.AppImage
+  ```
 
-## Engines
+## Development
 
-Two engine presets, selectable in the UI:
+The app lives in `app/` — a Svelte 5 + TypeScript renderer with the Tauri (Rust) shell under
+`app/src-tauri/`.
 
-- **Stockfish Lite** (default) — the ~7 MB WASM build; fast to load, light first run.
-- **Stockfish** — the full ~108 MB NNUE build; stronger, loaded on demand when you
-  select it (the engine worker reloads on switch).
-
-Both run as `stockfish.wasm` in a Web Worker (threaded when `SharedArrayBuffer` is
-available, single-threaded otherwise). Because the full build is bundled for the
-strong preset, the installers are large (~200 MB+).
-
-## Prerequisites
+**Prerequisites**
 
 - **Node.js** (LTS) and **npm**
 - **Rust** (stable) + the [Tauri 2 system prerequisites](https://tauri.app/start/prerequisites/)
-  for your OS. On Debian/Ubuntu Linux:
+  for your OS. On Debian/Ubuntu:
   ```bash
   sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev patchelf
   ```
 
-## Develop
+**Run**
 
 ```bash
-cd frontend
+cd app
 npm install
-npm run tauri dev
+npm run tauri dev     # desktop app (screen capture enabled)
 ```
 
-The app also runs as an **analysis-only website** (no screen capture) with
-`npm run dev` — vision is enabled only under the Tauri desktop shell.
+`npm run dev` runs the same UI as an **analysis-only website** (no screen capture — vision is
+Tauri-only). On some Wayland setups prefix a command with `WEBKIT_DISABLE_DMABUF_RENDERER=1`
+(see the Linux notes above).
 
-### Linux / Wayland notes
-
-- **WebKitGTK rendering:** on some Wayland compositors (e.g. KDE Plasma / KWin),
-  WebKitGTK's DMABUF renderer crashes ("Gdk Error 71 Protocol error"). If the
-  window fails to render, launch with:
-  ```bash
-  WEBKIT_DISABLE_DMABUF_RENDERER=1 npm run tauri dev
-  # and for a packaged build:
-  WEBKIT_DISABLE_DMABUF_RENDERER=1 ./ChessMenthol
-  ```
-- **Screen capture:** on Wayland compositors without `wlr-screencopy`
-  (KWin/Mutter), ChessMenthol shells out to a screenshot tool for capture.
-  Install one of: **`spectacle`** (KDE), **`grim`** (wlroots), or
-  **`gnome-screenshot`** (GNOME). X11, Windows, and macOS capture directly.
-
-## Test
+**Test & type-check**
 
 ```bash
-cd frontend
-npm run test            # Vitest (engine, orchestrator, classify, vision parity)
-npx tsc -p tsconfig.app.json --noEmit
-npx svelte-check --tsconfig ./tsconfig.app.json
+cd app
+npm run test    # Vitest (engine, orchestrator, classify, vision parity)
+npm run check   # svelte-check + tsc
 ```
 
-## Build installers
+**Build installers**
 
 ```bash
-cd frontend
-npm run tauri build
+cd app
+npm run tauri build   # -> app/src-tauri/target/release/bundle/
 ```
 
-Produces native installers under `frontend/src-tauri/target/release/bundle/`:
-Windows `.msi`/`.exe`, macOS `.dmg`/`.app`, Linux `.AppImage`/`.deb`.
-
-> Installers are **unsigned**. macOS Gatekeeper / Windows SmartScreen will warn on
-> first launch; allow the app manually (right-click → Open on macOS).
-
-> Linux `.AppImage` bundling runs `linuxdeploy`, which needs **FUSE**. On a host
-> without FUSE, prefix the build with `APPIMAGE_EXTRACT_AND_RUN=1` (CI runners
-> already have FUSE). The `.deb`/`.rpm` bundles don't need it.
-
-## Release
-
-Push a version tag and CI builds + uploads all three OSes' installers to a draft
-GitHub Release:
-
-```bash
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-The matrix is defined in `.github/workflows/release.yml`; PRs and branch pushes
-run `.github/workflows/ci.yml` (tests + a build-only smoke).
+Pushing a `v*` tag builds and uploads installers for all three OSes to a draft GitHub Release
+(`.github/workflows/release.yml`); PRs and branch pushes run `ci.yml`.
 
 ## License
 
-GPL-3.0-or-later. See [`LICENSE`](LICENSE) and [`NOTICE.md`](NOTICE.md).
+[GPL-3.0-or-later](LICENSE). Third-party components and vendored assets are credited in
+[`NOTICE.md`](NOTICE.md).

@@ -21,11 +21,11 @@ same renderer, minus the Tauri-only features. Guard native features with `isTaur
 
 ## Commands
 
-All commands run from `frontend/` (that is the npm project root; the repo root has no
+All commands run from `app/` (that is the npm project root; the repo root has no
 package.json).
 
 ```bash
-cd frontend
+cd app
 npm install
 
 npm run tauri dev     # desktop app (Tauri + WebKit) — vision + native engine enabled
@@ -60,16 +60,16 @@ fails to load in dev, re-run `npm run copy-engine` / `npm run copy-vision-assets
 ### The command → frame loop (start here)
 
 UI never touches the engine or board directly. It calls `send(command)` and reads reactive
-stores. `frontend/src/lib/engineClient.ts` is the hub: it owns the Svelte stores (`state`,
+stores. `app/src/lib/engineClient.ts` is the hub: it owns the Svelte stores (`state`,
 `report`, `regionShot`, `lastError`, …), instantiates the `Orchestrator`, and routes emitted
 frames back into those stores. It is a drop-in replacement for the old WebSocket client
 (`ws.ts`), so the `send(Command)` / store surface deliberately mirrors a network protocol even
 though everything is in-process.
 
 - **Commands** and **frames** (the whole UI↔core contract) are the discriminated unions in
-  `frontend/src/lib/types.ts` — `Command`, `ServerFrame` (`StateFrame | ReportFrame |
+  `app/src/lib/types.ts` — `Command`, `ServerFrame` (`StateFrame | ReportFrame |
   RegionShotFrame | ErrorFrame`), and the DTO shapes.
-- `frontend/src/core/orchestrator.ts` is the state machine: it owns the working board,
+- `app/src/core/orchestrator.ts` is the state machine: it owns the working board,
   settings, analysis session, and vision tracker; turns each command into new `StateFrame`s.
 
 `App.svelte` is a single-board app with screens `home | analysis | edit | report | review`

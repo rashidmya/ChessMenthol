@@ -30,7 +30,7 @@ jobs:
         with:
           node-version: lts/*
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: app/package-lock.json
 
       - name: Install Rust (stable)
         uses: dtolnay/rust-toolchain@stable
@@ -40,7 +40,7 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: ./frontend/src-tauri -> target
+          workspaces: ./app/src-tauri -> target
 
       - name: Install Linux build deps
         if: matrix.platform == 'ubuntu-22.04'
@@ -54,7 +54,7 @@ jobs:
             libappindicator3-dev
 
       - name: Install frontend dependencies
-        working-directory: frontend
+        working-directory: app
         run: npm ci
 
       - name: Build and release (tauri-action)
@@ -62,7 +62,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          projectPath: frontend
+          projectPath: app
           tagName: ${{ github.ref_name }}
           releaseName: 'ChessMenthol ${{ github.ref_name }}'
           releaseBody: 'See the assets below to download and install ChessMenthol.'
