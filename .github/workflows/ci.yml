@@ -67,6 +67,9 @@ jobs:
       - name: Install frontend dependencies
         working-directory: app
         run: npm ci
+      - name: Provision Stockfish sidecar + net (host triple)
+        working-directory: app
+        run: node scripts/fetch-sidecar.mjs
       - name: Build (no bundle)
         working-directory: app
         run: npx tauri build --no-bundle

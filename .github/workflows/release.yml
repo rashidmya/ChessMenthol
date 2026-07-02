@@ -16,10 +16,13 @@ jobs:
         include:
           - platform: macos-latest
             args: '--target universal-apple-darwin'
+            sidecars: 'aarch64-apple-darwin x86_64-apple-darwin'
           - platform: ubuntu-22.04
             args: ''
+            sidecars: ''
           - platform: windows-latest
             args: ''
+            sidecars: ''
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -56,6 +59,10 @@ jobs:
       - name: Install frontend dependencies
         working-directory: app
         run: npm ci
+
+      - name: Provision Stockfish sidecar(s) + net
+        working-directory: app
+        run: node scripts/fetch-sidecar.mjs ${{ matrix.sidecars }}
 
       - name: Build and release (tauri-action)
         uses: tauri-apps/tauri-action@v0
