@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import MoveStepper from './MoveStepper.svelte';
   export let currentPly: number = 0;
   export let total: number = 0;
   export let onNavigate: (ply: number) => void = () => {};
@@ -12,16 +13,7 @@
   $: pct = reportProgress ? Math.round((reportProgress.done / (reportProgress.total || 1)) * 100) : 0;
 </script>
 
-<div class="nav">
-  <button type="button" class="navbtn" title="First move"
-    on:click={() => onNavigate(0)}><Icon name="JumpFirst" /></button>
-  <button type="button" class="navbtn" title="Previous move"
-    on:click={() => onNavigate(currentPly - 1)}><Icon name="JumpPrev" /></button>
-  <button type="button" class="navbtn" title="Next move"
-    on:click={() => onNavigate(currentPly + 1)}><Icon name="JumpNext" /></button>
-  <button type="button" class="navbtn" title="Last move"
-    on:click={() => onNavigate(total)}><Icon name="JumpLast" /></button>
-</div>
+<MoveStepper {currentPly} {total} {onNavigate} />
 
 {#if reportProgress}
   <div class="analyzing" data-testid="analysis-progress">
@@ -41,14 +33,6 @@
 </div>
 
 <style>
-  .nav { display: flex; align-items: center; gap: 10px; padding: 14px 16px 10px; }
-  .navbtn {
-    flex: 1; display: grid; place-items: center; height: 50px;
-    font-family: var(--serif); font-size: 24px; color: var(--ink-2);
-    background: var(--paper-2); border: 1px solid var(--keyline-2); border-radius: 10px;
-    cursor: pointer; transition: .15s; line-height: 1;
-  }
-  .navbtn:hover { border-color: var(--green); color: var(--green); background: #fff; }
   .analyzing { display: flex; flex-direction: column; gap: 8px; padding: 2px 16px 6px; }
   .bar { height: 8px; border-radius: 5px; background: var(--keyline); overflow: hidden; }
   .fill { height: 100%; background: var(--green); transition: width .2s; }
