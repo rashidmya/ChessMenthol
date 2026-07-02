@@ -64,7 +64,12 @@ jobs:
             librsvg2-dev \
             patchelf \
             libayatana-appindicator3-dev \
-            libpipewire-0.3-dev
+            libpipewire-0.3-dev \
+            libgbm-dev \
+            libegl-dev \
+            libwayland-dev \
+            libdrm-dev \
+            libxcb1-dev
       - name: Install frontend dependencies
         working-directory: app
         run: npm ci
