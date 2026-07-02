@@ -389,6 +389,8 @@
   /* Only the move-history section grows to absorb the card's remaining height,
      letting its inner .movehist-sec (flex:1) and .movehist (overflow-y:auto) scroll. */
   .grow { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  /* The eval graph brings no padding of its own, so its review-card section needs it. */
+  .evalsec { padding: 14px 16px; }
 
   /* ===== review-card header ===== */
   .pbar { display: flex; align-items: center; gap: 10px; padding: 11px 15px; border-bottom: 1px solid var(--keyline); }
