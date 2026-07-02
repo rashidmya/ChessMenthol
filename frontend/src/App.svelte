@@ -226,7 +226,8 @@
           onFlip={onFlip} onReset={onEditReset} onClear={onEditClear}
           onFenInput={onEditFenInput} onLoad={onEditLoad} onBack={onEditBack} />
       {:else if screen === 'report' && rpt}
-        <GameReportSummary report={rpt} {onStartReview} {onBackToAnalysis} {onNew} />
+        <GameReportSummary report={rpt} moveList={s?.moveList ?? []} currentPly={s?.currentPly ?? 0}
+          {onNavigate} {onStartReview} {onBackToAnalysis} {onNew} />
       {:else if screen === 'review' && rpt}
         <section class="card" data-testid="review-card">
           <div class="pbar">
