@@ -5,7 +5,7 @@ import type { GameReportDto } from '../lib/types';
 
 function pr(over: Partial<import('../lib/types').PlayerReportDto> = {}) {
   return { accuracy: 88, acpl: 20, brilliant: 0, great: 1, best: 18, excellent: 14, good: 2,
-    book: 1, inaccuracy: 2, mistake: 1, blunder: 0, miss: 0, ...over };
+    inaccuracy: 2, mistake: 1, blunder: 0, miss: 0, ...over };
 }
 const report: GameReportDto = {
   white: pr({ accuracy: 88, acpl: 17 }), black: pr({ accuracy: 82, acpl: 29, blunder: 3 }),

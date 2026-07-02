@@ -15,7 +15,7 @@ import type { ServerFrame, StateFrame } from '../lib/types';
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
 const CLASS_LABELS = new Set([
-  'best', 'great', 'excellent', 'good', 'brilliant', 'book',
+  'best', 'great', 'excellent', 'good', 'brilliant',
   'inaccuracy', 'mistake', 'blunder', 'miss',
 ]);
 

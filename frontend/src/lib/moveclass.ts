@@ -4,7 +4,7 @@ import { glyphFor } from './glyphs';
 // The move-history list highlights only "notable" moves, matching Lichess's
 // approach of never tinting a move just for being the engine's best/ordinary
 // choice. We color the bad moves (inaccuracy/mistake/miss/blunder) and the two
-// exceptional good ones (great/brilliant); best/good/excellent/book stay
+// exceptional good ones (great/brilliant); best/good/excellent stay
 // neutral. Colors come from glyphs.ts (the single source of truth) so the list
 // matches the board badges.
 const COLORED = new Set(['brilliant', 'great', 'inaccuracy', 'mistake', 'miss', 'blunder']);

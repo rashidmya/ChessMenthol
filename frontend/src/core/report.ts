@@ -1,14 +1,14 @@
 import type { ClassificationDto, GameReportDto, PlyReportDto } from '../lib/types';
 
-/** Count of each of the 10 move classes for one side. Keys are MoveClass string values. */
+/** Count of each of the 9 move classes for one side. Keys are MoveClass string values. */
 export interface ClassCounts {
   brilliant: number; great: number; best: number; excellent: number; good: number;
-  book: number; inaccuracy: number; mistake: number; blunder: number; miss: number;
+  inaccuracy: number; mistake: number; blunder: number; miss: number;
 }
 
 export function emptyClassCounts(): ClassCounts {
   return { brilliant: 0, great: 0, best: 0, excellent: 0, good: 0,
-           book: 0, inaccuracy: 0, mistake: 0, blunder: 0, miss: 0 };
+           inaccuracy: 0, mistake: 0, blunder: 0, miss: 0 };
 }
 
 /** One point on the eval graph: White-POV win% (0..100), the White-POV eval text

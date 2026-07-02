@@ -27,12 +27,11 @@
  * best-vs-2nd gap (which fired on every forced recapture once the report runs at
  * MultiPV 2). It requires the second-best line to drop at least a blunder's
  * worth of winning chances, the mover not to be already winning, and the move
- * not to be an obvious material-winning capture. Rules 1, 4-5 (Book, Best, Miss)
+ * not to be an obvious material-winning capture. Rules 3-4 (Best, Miss)
  * and the Excellent/Good ranking are unchanged.
  */
 
 import { type Chess, type Role, type SquareName, playUci, roleAt, seeCapture } from './chess';
-import { type BookLookup, NoBook } from './book';
 import { type AnalysisInfo, bestLine, evalPov, lineMove } from '../engine/types';
 import { cpFromEval, winningChances } from './accuracy';
 
@@ -44,7 +43,6 @@ export enum MoveClass {
   BEST       = 'best',
   EXCELLENT  = 'excellent',
   GOOD       = 'good',
-  BOOK       = 'book',
   INACCURACY = 'inaccuracy',
   MISTAKE    = 'mistake',
   BLUNDER    = 'blunder',
@@ -177,13 +175,12 @@ export function isWinningOrEvenCapture(
  *   • `analysisBefore` has no lines, or its first line has no move in its PV.
  *   • `analysisAfter` has no lines.
  *
- * @param posBefore      Position BEFORE the move (used for turn color, book lookup,
- *                       and sacrifice detection).
+ * @param posBefore      Position BEFORE the move (used for turn color and
+ *                       sacrifice detection).
  * @param uci            The played move in UCI notation (e.g. `'e2e4'`).
  * @param analysisBefore Engine analysis of the position before the move.
  * @param analysisAfter  Engine analysis of the position after the move
  *                       (used to measure the eval after the played move).
- * @param book           Optional opening-book implementation; defaults to NoBook.
  * @param thresholds     Optional threshold overrides; defaults to DEFAULT_THRESHOLDS.
  */
 export function classifyMove(
@@ -191,11 +188,9 @@ export function classifyMove(
   uci:            string,
   analysisBefore: AnalysisInfo,
   analysisAfter:  AnalysisInfo,
-  book?:          BookLookup,
   thresholds?:    Thresholds,
 ): Classification {
   const t  = thresholds ?? DEFAULT_THRESHOLDS;
-  const bk = book ?? new NoBook();
 
   const moverWhite = posBefore.turn === 'white';
 
@@ -230,14 +225,10 @@ export function classifyMove(
     secondWcDrop = bestWc - secondWc;
   }
 
-  // ── ordered classification rules (exact Python ordering) ─────────────────
+  // ── ordered classification rules (Python ordering, sans the dropped
+  //    opening-book rule — we ship no opening book) ─────────────────────────
 
-  // 1. Book
-  if (bk.containsMove(posBefore, uci)) {
-    return { label: MoveClass.BOOK, cpl, isBest };
-  }
-
-  // 2. Brilliant (chess.com parity): a sound sacrifice — near-best, not losing
+  // 1. Brilliant (chess.com parity): a sound sacrifice — near-best, not losing
   //    afterwards, not already clearly winning beforehand, and the opponent can
   //    genuinely win material on the square (defender-aware SEE in isSacrifice,
   //    so defended pieces / equal trades / recaptures don't qualify).
@@ -248,7 +239,7 @@ export function classifyMove(
     return { label: MoveClass.BRILLIANT, cpl, isBest };
   }
 
-  // 3. Great (chess.com parity): the only good move in a still-competitive
+  // 2. Great (chess.com parity): the only good move in a still-competitive
   //    position — isBest, every alternative drops at least a blunder's worth of
   //    winning chances, you were not already winning, and it isn't an obvious
   //    material-winning capture (recaptures / hanging grabs are Best, not Great).
@@ -262,12 +253,12 @@ export function classifyMove(
     return { label: MoveClass.GREAT, cpl, isBest };
   }
 
-  // 4. Plain best
+  // 3. Plain best
   if (isBest) {
     return { label: MoveClass.BEST, cpl, isBest };
   }
 
-  // 5. Miss: a win was available and got thrown away
+  // 4. Miss: a win was available and got thrown away
   if (bestMover >= t.missWin && playedMover < t.missKeep) {
     return { label: MoveClass.MISS, cpl, isBest };
   }

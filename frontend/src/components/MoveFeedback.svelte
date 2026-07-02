@@ -7,11 +7,12 @@
   export let onPlayBest: (uci: string) => void = () => {};
   export let gameOver: { result: string; reason: string } | null = null;
 
-  // phraseFor only runs in the played (non-best) row, so 'best'/'great' (which
-  // imply isBest) never reach it; the `?? label` fallback covers any unknown.
+  // phraseFor renders the class name in every row; 'best'/'great'/'brilliant'
+  // (which imply isBest) read their true label instead of collapsing to "best".
+  // The `?? label` fallback covers any unknown class.
   const PHRASE: Record<string, string> = {
-    brilliant: 'brilliant', excellent: 'excellent', good: 'good',
-    book: 'a book move', inaccuracy: 'an inaccuracy',
+    brilliant: 'brilliant', great: 'great', best: 'best', excellent: 'excellent', good: 'good',
+    inaccuracy: 'an inaccuracy',
     mistake: 'a mistake', blunder: 'a blunder', miss: 'a miss',
   };
   const phraseFor = (label: string) => PHRASE[label] ?? label;
@@ -56,10 +57,10 @@
     <div class="lm" data-testid="movefeedback">
       <div class="mrow" data-testid="row-gameover">
         <span class="badge {resultClass(gameOver.result)}">{resultText(gameOver.result)}</span>
-        <MoveBadge label={lastMove.classification.isBest ? 'best' : lastMove.classification.label} size={20} />
+        <MoveBadge label={lastMove.classification.label} size={20} />
         <span class="mtext">
           <span class="mname {lastMove.classification.isBest ? 'best' : 'mist'}">
-            <span class="san">{lastMove.played.san}</span> <span class="desc">{lastMove.classification.isBest ? 'is best' : 'is ' + phraseFor(lastMove.classification.label)}</span>
+            <span class="san">{lastMove.played.san}</span> <span class="desc">is {phraseFor(lastMove.classification.label)}</span>
           </span>
         </span>
       </div>
@@ -69,9 +70,9 @@
       {#if lastMove.classification.isBest}
         <div class="mrow" data-testid="row-best">
           <span class="badge {evalClass(lastMove.best.evalText)}">{lastMove.best.evalText}</span>
-          <MoveBadge label="best" size={20} />
+          <MoveBadge label={lastMove.classification.label} size={20} />
           <span class="mtext">
-            <span class="mname best"><span class="san">{lastMove.best.san}</span> <span class="desc">is best</span></span>
+            <span class="mname best"><span class="san">{lastMove.best.san}</span> <span class="desc">is {phraseFor(lastMove.classification.label)}</span></span>
             {#if lastMove.best.pv}<span class="cont">{lastMove.best.pv}</span>{/if}
           </span>
         </div>

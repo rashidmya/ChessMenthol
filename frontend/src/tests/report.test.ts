@@ -10,7 +10,7 @@ function ply(n: number, label: string | null): PlyReportDto {
 describe('perSideClassCounts', () => {
   it('starts every class at 0 for both sides', () => {
     const { white, black } = perSideClassCounts([]);
-    for (const c of ['brilliant','great','best','excellent','good','book','inaccuracy','mistake','blunder','miss'] as const) {
+    for (const c of ['brilliant','great','best','excellent','good','inaccuracy','mistake','blunder','miss'] as const) {
       expect(white[c]).toBe(0); expect(black[c]).toBe(0);
     }
   });
@@ -48,9 +48,9 @@ describe('perSideClassCounts', () => {
     expect(total(black)).toBe(0);
   });
 
-  it('emptyClassCounts has all 10 keys at 0', () => {
+  it('emptyClassCounts has all 9 keys at 0', () => {
     expect(Object.values(emptyClassCounts()).every((v) => v === 0)).toBe(true);
-    expect(Object.keys(emptyClassCounts())).toHaveLength(10);
+    expect(Object.keys(emptyClassCounts())).toHaveLength(9);
   });
 });
 

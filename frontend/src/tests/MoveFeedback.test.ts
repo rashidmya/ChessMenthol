@@ -56,6 +56,28 @@ describe('MoveFeedback', () => {
     expect(queryByTestId('play-best')).toBeNull();
   });
 
+  it('keeps the true class for a Great best move (not collapsed to "best")', () => {
+    const greatBestDto = {
+      classification: { label: 'great', cpl: 0, isBest: true },
+      played: { san: 'Nec5', uci: 'e6c5', evalText: '+2.27', pv: '' },
+      best: { san: 'Nec5', uci: 'e6c5', evalText: '+2.27', pv: '' },
+    };
+    const row = render(MoveFeedback, { lastMove: greatBestDto, onPlayBest: () => {} }).getByTestId('row-best');
+    expect(row.textContent).toContain('is great');
+    expect(row.textContent).not.toContain('is best');
+  });
+
+  it('keeps the true class for a Brilliant best move (not collapsed to "best")', () => {
+    const brilliantBestDto = {
+      classification: { label: 'brilliant', cpl: 0, isBest: true },
+      played: { san: 'Qxh7+', uci: 'd3h7', evalText: '+4.10', pv: '' },
+      best: { san: 'Qxh7+', uci: 'd3h7', evalText: '+4.10', pv: '' },
+    };
+    const row = render(MoveFeedback, { lastMove: brilliantBestDto, onPlayBest: () => {} }).getByTestId('row-best');
+    expect(row.textContent).toContain('is brilliant');
+    expect(row.textContent).not.toContain('is best');
+  });
+
   it('wadv class on positive eval, badv on negative eval', () => {
     const { container } = render(MoveFeedback, { lastMove: dto, onPlayBest: () => {} });
     const badges = container.querySelectorAll('.badge');

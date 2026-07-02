@@ -981,7 +981,7 @@ export class Orchestrator {
       accuracy: Math.round(accuracyVal),
       acpl: acpl(cpsPositions, startWhite, side),
       brilliant: c.brilliant, great: c.great, best: c.best, excellent: c.excellent, good: c.good,
-      book: c.book, inaccuracy: c.inaccuracy, mistake: c.mistake, blunder: c.blunder, miss: c.miss,
+      inaccuracy: c.inaccuracy, mistake: c.mistake, blunder: c.blunder, miss: c.miss,
     });
 
     return {

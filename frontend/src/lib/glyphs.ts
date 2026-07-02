@@ -1,4 +1,4 @@
-export type GlyphKind = 'text' | 'star' | 'thumb' | 'check' | 'cross' | 'book';
+export type GlyphKind = 'text' | 'star' | 'thumb' | 'check' | 'cross';
 
 export interface GlyphSpec {
   kind: GlyphKind;
@@ -16,7 +16,6 @@ export const GLYPHS: Record<string, GlyphSpec> = {
   best:       { kind: 'star',  symbol: '',   color: '#7cab3e' },
   excellent:  { kind: 'thumb', symbol: '',   color: '#95b94a' },
   good:       { kind: 'check', symbol: '',   color: '#b0b35c' },
-  book:       { kind: 'book',  symbol: '',   color: '#a98863' },
   inaccuracy: { kind: 'text',  symbol: '?!', color: '#efbf3b' },
   mistake:    { kind: 'text',  symbol: '?',  color: '#e58f2a' },
   miss:       { kind: 'cross', symbol: '',   color: '#d76b3a' },

@@ -12,7 +12,7 @@ describe('moveColor', () => {
   });
 
   it('leaves ordinary moves and unknowns neutral (null = no color)', () => {
-    for (const label of ['best', 'good', 'excellent', 'book']) {
+    for (const label of ['best', 'good', 'excellent']) {
       expect(moveColor({ label, cpl: 0, isBest: false })).toBeNull();
     }
     expect(moveColor({ label: 'nonsense', cpl: 0, isBest: false })).toBeNull();

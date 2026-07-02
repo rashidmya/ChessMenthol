@@ -98,7 +98,7 @@ const PRE_MATE_FEN = 'rnbqkbnr/pppp1ppp/8/4p3/6P1/5P2/PPPPP2P/RNBQKBNR b KQkq g3
 const STALEMATE_FEN = '7k/5Q2/6K1/8/8/8/8/8 b - - 0 1';
 
 const CLASS_LABELS = new Set([
-  'best', 'great', 'excellent', 'good', 'brilliant', 'book',
+  'best', 'great', 'excellent', 'good', 'brilliant',
   'inaccuracy', 'mistake', 'blunder', 'miss',
 ]);
 

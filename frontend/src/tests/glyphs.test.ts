@@ -4,7 +4,7 @@ import { GLYPHS, glyphFor } from '../lib/glyphs';
 // Mirror of the original Python chessmenthol/analysis/classify.py MoveClass values (removed in the Svelte+Tauri migration).
 const MOVE_CLASSES = [
   'brilliant', 'great', 'best', 'excellent', 'good',
-  'book', 'inaccuracy', 'mistake', 'blunder', 'miss',
+  'inaccuracy', 'mistake', 'blunder', 'miss',
 ];
 
 describe('glyphs', () => {

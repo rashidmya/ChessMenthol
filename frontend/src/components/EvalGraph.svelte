@@ -39,7 +39,7 @@
   $: tipLeftPct = hoverIdx !== null && n > 1 ? (hoverIdx / (n - 1)) * 100 : 0;
   $: tipTransform = tipLeftPct < 15 ? 'translateX(0)' : tipLeftPct > 85 ? 'translateX(-100%)' : 'translateX(-50%)';
   // Annotate the tooltip only for "notable" moves — moveColor returns null for
-  // ordinary/best/book moves, matching how the move list highlights (and Lichess).
+  // ordinary/best moves, matching how the move list highlights (and Lichess).
   $: hoverCls = hoverIdx !== null ? classes[hoverIdx] ?? null : null;
   $: hoverClsColor = moveColor(hoverCls);
   $: hoverClsName = hoverCls ? hoverCls.label.charAt(0).toUpperCase() + hoverCls.label.slice(1) : '';

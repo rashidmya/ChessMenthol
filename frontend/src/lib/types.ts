@@ -20,7 +20,7 @@ export interface PlyReportDto {
 export interface PlayerReportDto {
   accuracy: number; acpl: number;
   brilliant: number; great: number; best: number; excellent: number; good: number;
-  book: number; inaccuracy: number; mistake: number; blunder: number; miss: number;
+  inaccuracy: number; mistake: number; blunder: number; miss: number;
 }
 export interface GameReportDto {
   white: PlayerReportDto; black: PlayerReportDto;

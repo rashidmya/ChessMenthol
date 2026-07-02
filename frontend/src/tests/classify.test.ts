@@ -17,7 +17,6 @@ import {
   classifyMove,
   isSacrifice,
 } from '../core/classify';
-import type { BookLookup } from '../core/book';
 import type { AnalysisInfo, Eval, Line } from '../engine/types';
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
@@ -68,7 +67,6 @@ describe('MoveClass', () => {
     expect(MoveClass.BEST).toBe('best');
     expect(MoveClass.EXCELLENT).toBe('excellent');
     expect(MoveClass.GOOD).toBe('good');
-    expect(MoveClass.BOOK).toBe('book');
     expect(MoveClass.INACCURACY).toBe('inaccuracy');
     expect(MoveClass.MISTAKE).toBe('mistake');
     expect(MoveClass.MISS).toBe('miss');
@@ -203,17 +201,6 @@ describe('classifyMove', () => {
     const after  = mkAnalysis(afterFen,  [[cp(10), ['e7e5']]]);
     const result = classifyMove(pos, 'e2e4', before, after);
     expect(result.label).toBe(MoveClass.INACCURACY);
-  });
-
-  // Python: test_book_move_short_circuits
-  // AlwaysBook stub returns true → BOOK regardless of eval quality.
-  it('labels a book move as BOOK, short-circuiting all other rules', () => {
-    const [pos, afterFen] = startAndAfter('e2e4');
-    const before = mkAnalysis(START_FEN, [[cp(30), ['e2e4']]]);
-    const after  = mkAnalysis(afterFen,  [[cp(30), ['e7e5']]]);
-    const alwaysBook: BookLookup = { containsMove: () => true };
-    const result = classifyMove(pos, 'e2e4', before, after, alwaysBook);
-    expect(result.label).toBe(MoveClass.BOOK);
   });
 
   // Great is the only good move in a competitive position (winning-chances gap).
