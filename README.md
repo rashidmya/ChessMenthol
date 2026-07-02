@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="app/src/assets/logo.png" alt="ChessMenthol logo" width="420" />
+</p>
+
 # ChessMenthol
 
 A cross-platform desktop chess assistant. ChessMenthol watches a chess board on your screen,
