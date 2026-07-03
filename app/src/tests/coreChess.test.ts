@@ -42,12 +42,10 @@ describe('posFromFen', () => {
     expect(() => posFromFen(START_FEN)).not.toThrow();
   });
 
-  it('throws on an invalid FEN string', () => {
-    expect(() => posFromFen('not a fen')).toThrow();
-  });
-
-  it('throws on an empty string', () => {
-    expect(() => posFromFen('')).toThrow();
+  it('throws on an invalid or empty FEN', () => {
+    for (const bad of ['not a fen', '']) {
+      expect(() => posFromFen(bad)).toThrow();
+    }
   });
 });
 

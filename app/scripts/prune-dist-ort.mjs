@@ -4,7 +4,7 @@
 // pins the URL to /ort/ort-wasm-simd-threaded.wasm and the only execution provider is
 // 'wasm', so the jsep/webgpu variant is unreachable. Tauri ships all of dist, so this
 // dead file would bloat the bundle by ~26 MB. Prune any ort wasm under dist/assets.
-// (The real runtime wasm under dist/ort/ and Stockfish under dist/engine/ are untouched.)
+// (The real runtime wasm under dist/ort/ is untouched.)
 import { readdirSync, statSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';

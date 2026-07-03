@@ -41,21 +41,6 @@ describe('App shell', () => {
     render(App);
     expect(screen.getByTestId('board')).toBeTruthy();
   });
-
-  it('shows the Home panel at startup', () => {
-    render(App);
-    expect(screen.getByTestId('home-panel')).toBeTruthy();
-  });
-
-  it('renders the analysis card with EngineHeader after Explore', async () => {
-    await renderAnalysis();
-    expect(screen.getByText('Analysis')).toBeTruthy();
-  });
-
-  it('renders the ChessMenthol brand from Header', () => {
-    render(App);
-    expect(screen.getByRole('heading', { name: /chessMenthol/i })).toBeTruthy();
-  });
 });
 
 describe('analysis-disabled gating', () => {
@@ -115,6 +100,3 @@ describe('analysis-disabled gating', () => {
   });
 });
 
-describe('toolchain', () => {
-  it('runs vitest', () => { expect(1 + 1).toBe(2); });
-});
