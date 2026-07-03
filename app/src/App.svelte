@@ -27,6 +27,7 @@
   import Panel from './components/Panel.svelte';
   import Icon from './components/Icon.svelte';
   import Titlebar from './components/Titlebar.svelte';
+  import WindowResize from './components/WindowResize.svelte';
   import { isTauri } from '@tauri-apps/api/core';
   import { captureCommands, type Region } from './lib/region';
   import { hasNativeCapture } from './lib/capture';
@@ -210,7 +211,7 @@
 </script>
 
 <div class="app">
-  {#if isTauri()}<Titlebar />{/if}
+  {#if isTauri()}<Titlebar /><WindowResize />{/if}
   <Header />
   <main>
     <div class="board-col">
@@ -344,7 +345,7 @@
   .app {
     width: 100%;
     max-width: 1320px;
-    height: calc(100vh - 64px);
+    height: calc(100vh - var(--app-vpad, 64px));
     display: flex;
     flex-direction: column;
   }
