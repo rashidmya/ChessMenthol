@@ -23,6 +23,7 @@ import type { RgbaImage } from '../lib/capture';
 import { posFromFen, pieceCodeAt, fenOf, playUci } from '../core/chess';
 import type { SquareName } from '../core/chess';
 import { squareName } from '../vision/types';
+import type { Orientation } from '../vision/types';
 import { renderBoard } from './visionFixtures';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -61,6 +62,27 @@ class SeqClassifier implements ClassifierLike {
       piece: pieceCodeAt(pos, c.square as SquareName),
       confidence: 1.0,
     }));
+  }
+}
+
+/**
+ * Simulates a board physically rendered in `orientation` — the piece shown at a
+ * given geometric cell is the true piece of that cell under `orientation`. The
+ * crops handed to classify() are named in white_bottom (the geometric naming
+ * convention cropSquares uses), so we invert that name back to (col,row) and
+ * look up the true square under the physical orientation. Used to exercise
+ * auto-orientation without a user override.
+ */
+class OrientedFakeClassifier implements ClassifierLike {
+  constructor(private fen: string, private orientation: Orientation) {}
+  async classify(crops: SquareImage[]): Promise<SquareLabel[]> {
+    const pos = posFromFen(this.fen);
+    return crops.map((c) => {
+      const col = c.square.charCodeAt(0) - 'a'.charCodeAt(0);
+      const row = 8 - Number(c.square[1]);
+      const trueName = squareName(col, row, this.orientation);
+      return { piece: pieceCodeAt(pos, trueName as SquareName), confidence: 1.0 };
+    });
   }
 }
 
@@ -130,6 +152,20 @@ describe('Tracker', () => {
     const ap = await tracker.detectPosition(image);
     expect(ap).not.toBeNull();
     expect(ap!.orientation).toBe('black_bottom');
+  });
+
+  it('auto-detects black_bottom orientation from the piece layout (no override)', async () => {
+    // A board captured from Black's perspective (black pieces at the bottom).
+    // Without a user override the tracker must recover orientation from the
+    // pieces; a mis-detection assembles a 180°-rotated FEN → "plays backwards".
+    const occupied = occupiedSquares(START_FEN);
+    const { image } = renderBoard({ square: 48, margin: 24, pieces: occupied });
+    const tracker = new Tracker(new OrientedFakeClassifier(START_FEN, 'black_bottom'));
+    const ap = await tracker.detectPosition(image);
+    expect(ap).not.toBeNull();
+    expect(ap!.orientation).toBe('black_bottom');
+    // Placement must be the true start position, not its 180° rotation.
+    expect(ap!.fen.split(' ')[0]).toBe(START_FEN.split(' ')[0]);
   });
 
   it('infers e2e4 across two frames (SeqClassifier)', async () => {

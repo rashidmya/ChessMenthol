@@ -191,8 +191,13 @@ function checkerConfidence(grayMeans: number[][]): number {
   return clip(sep / (sep + CHECKER_SPREAD_WEIGHT * spread), 0, 1);
 }
 
-/** Orientation hint from the per-parity mean brightness; bottom-left (row7,col0)
- *  has parity 1 (odd), so a darker odd group => white_bottom. */
+/** Per-parity brightness "hint". NOTE: this cannot truly distinguish white_bottom
+ *  from black_bottom — a chessboard's coloring is symmetric under 180° rotation, so
+ *  bottom-left (row7,col0) is a dark square in BOTH orientations and this returns
+ *  'white_bottom' for any real board. It is therefore a constant default, not an
+ *  orientation detector: the piece-based `guessOrientation` (position.ts) is what
+ *  actually resolves a Black-side board in the tracker. Kept only as a last-resort
+ *  fallback and to name crops in a fixed geometric frame (the naming cancels out). */
 function orientationHint(grayMeans: number[][]): Orientation | null {
   const even: number[] = [];
   const odd: number[] = [];

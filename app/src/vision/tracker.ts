@@ -7,7 +7,7 @@
  *   → cropSquares(image, location)
  *   → classifier.classify(crops)              [async — ONNX in prod]
  *   → bridge: recover the geometric grid with location.orientationHint
- *   → resolve orientation (override ?? hint ?? guess ?? 'white_bottom')
+ *   → resolve orientation (override ?? guess ?? hint ?? 'white_bottom')
  *   → resolve side (_resolveSide: two-pass provisional assemble + guessSideToMove)
  *   → assemble(grid, { orientation, white: side, prevFen })
  *   → update prevFen when legal; return AssembledPosition.
@@ -87,10 +87,16 @@ export class Tracker {
       grid.push(gridRow);
     }
 
+    // Orientation resolution. The color-based `orientationHint` cannot actually
+    // tell white_bottom from black_bottom — a chessboard's square coloring is
+    // symmetric under 180° rotation, so the hint always reports 'white_bottom'.
+    // The piece-based `guessOrientation` is the only detector that can see a
+    // Black-side board, so it MUST win over the hint (which is only kept as a
+    // constant last-resort default for boards too sparse for guessOrientation).
     const orientation: Orientation =
       this.orientationOverride ??
-      location.orientationHint ??
       guessOrientation(grid) ??
+      location.orientationHint ??
       'white_bottom';
 
     const white = this._resolveSide(grid, orientation, location);
