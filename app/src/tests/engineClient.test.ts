@@ -53,7 +53,7 @@ describe('applyFrame routing', () => {
       engineId: 'stockfish',
       analyzing: false,
       eval: null, depth: 0, lines: [], lastMove: null,
-      visionStatus: 'idle' as const, detectedOrientation: null,
+      visionStatus: 'idle' as const, detectedOrientation: null, boardSide: 'auto' as const,
       lowConfidence: [], region: null,
       moveList: [], currentPly: 0, analysisEnabled: false,
       movetime: 10000, reportProgress: null, gameOver: null, annotating: false,

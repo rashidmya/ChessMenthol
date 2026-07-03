@@ -186,6 +186,7 @@ export class Orchestrator {
   _tracker: VisionTrackerLike | null;
   _visionStatus: 'idle' | 'found' | 'low_confidence' | 'no_board' = 'idle';
   _detectedOrientation: 'white' | 'black' | null = null;
+  _boardSide: 'auto' | 'white' | 'black' = 'auto';
   _lowConfidence: string[] = [];
   _region: { left: number; top: number; width: number; height: number } | null = null;
 
@@ -233,6 +234,7 @@ export class Orchestrator {
         case 'navigate': this.navigate(cmd.index); break;
         case 'reset': this.reset(); break;
         case 'set_analysis_enabled': this.setAnalysisEnabled(Boolean(cmd.enabled)); break;
+        case 'set_board_side': this.setBoardSide(cmd.side); break;
         case 'play_best': this.playBest(cmd.uci); break;
         case 'set_engine': this.setEngine(cmd.id); break;
         case 'set_options': this.setOptions(cmd); break;
@@ -338,6 +340,19 @@ export class Orchestrator {
     // Forward the user's side override to the tracker so the next detection
     // assembles with the correct side to move.
     this._tracker?.setSideOverride(white);
+  }
+
+  setBoardSide(side: 'auto' | 'white' | 'black'): void {
+    this._boardSide = side;
+    const o = side === 'white' ? 'white_bottom' : side === 'black' ? 'black_bottom' : null;
+    this._tracker?.setOrientationOverride(o);
+    // Apply immediately: re-detect the current region so the override takes
+    // visible effect at once (mirrors _setRegion). With no region, just re-emit.
+    if (this._region !== null) {
+      void this._captureNow();
+    } else {
+      this._send(this._stateFrame(this._lastAnalysis));
+    }
   }
 
   makeMove(uci: string): void {
@@ -1016,6 +1031,7 @@ export class Orchestrator {
       // ---- live vision state (Phase 2) ----
       visionStatus: this._visionStatus,
       detectedOrientation: this._detectedOrientation,
+      boardSide: this._boardSide,
       lowConfidence: this._lowConfidence,
       region: this._region,
       // ---- history ----

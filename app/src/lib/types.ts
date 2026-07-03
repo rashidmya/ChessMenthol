@@ -42,6 +42,7 @@ export interface StateFrame {
   lastMove: LastMoveDto | null;
   visionStatus: 'idle' | 'found' | 'no_board' | 'low_confidence';
   detectedOrientation: 'white' | 'black' | null; lowConfidence: string[];
+  boardSide: 'auto' | 'white' | 'black';
   region: { left: number; top: number; width: number; height: number } | null;
   moveList: MoveEntryDto[];
   currentPly: number;
@@ -70,6 +71,7 @@ export type Command =
   | { type: 'request_region_shot' }
   | { type: 'set_region'; left: number; top: number; width: number; height: number }
   | { type: 'clear_region' }
+  | { type: 'set_board_side'; side: 'auto' | 'white' | 'black' }
   | { type: 'play_best'; uci: string }
   | { type: 'navigate'; index: number }
   | { type: 'reset' }

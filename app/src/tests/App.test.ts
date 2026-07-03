@@ -86,7 +86,7 @@ describe('App report flow', () => {
     return {
       type: 'state', fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
       sideToMove: 'white', engineId: 'stockfish', analyzing: false, eval: null, depth: 0, lines: [],
-      lastMove: null, visionStatus: 'idle', detectedOrientation: null, lowConfidence: [], region: null,
+      lastMove: null, visionStatus: 'idle', detectedOrientation: null, boardSide: 'auto', lowConfidence: [], region: null,
       moveList, currentPly: moveList.length, analysisEnabled: true, movetime: null,
       reportProgress: null, gameOver: null, annotating: false,
     };
@@ -134,7 +134,7 @@ describe('Review screen', () => {
     return {
       type: 'state', fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
       sideToMove: 'white', engineId: 'stockfish', analyzing: false, eval: null, depth: 0, lines: [],
-      lastMove: null, visionStatus: 'idle', detectedOrientation: null, lowConfidence: [], region: null,
+      lastMove: null, visionStatus: 'idle', detectedOrientation: null, boardSide: 'auto', lowConfidence: [], region: null,
       moveList, currentPly: moveList.length, analysisEnabled: true, movetime: null,
       reportProgress: null, gameOver: null, annotating: false,
     };

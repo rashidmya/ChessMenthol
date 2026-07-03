@@ -750,6 +750,45 @@ describe('orchestrator — vision', () => {
     expect(setSideOverride).toHaveBeenCalledWith(false);
   });
 
+  it('set_board_side forwards an orientation override and echoes boardSide', () => {
+    const frames: ServerFrame[] = [];
+    const calls: (string | null)[] = [];
+    const tracker = fakeTracker({ setOrientationOverride: (o) => calls.push(o) });
+    const orch = new Orchestrator((f) => frames.push(f), { engine: fakeEngine(), tracker });
+
+    orch.handle({ type: 'set_board_side', side: 'black' });
+    expect(calls).toEqual(['black_bottom']);
+    expect(lastState(frames).boardSide).toBe('black');
+
+    orch.handle({ type: 'set_board_side', side: 'white' });
+    expect(calls).toEqual(['black_bottom', 'white_bottom']);
+    expect(lastState(frames).boardSide).toBe('white');
+
+    orch.handle({ type: 'set_board_side', side: 'auto' });
+    expect(calls).toEqual(['black_bottom', 'white_bottom', null]);
+    expect(lastState(frames).boardSide).toBe('auto');
+  });
+
+  it('set_board_side re-captures when a region is set', async () => {
+    const frames: ServerFrame[] = [];
+    let detectCount = 0;
+    const tracker = fakeTracker({ detectPosition: async () => { detectCount++; return null; } });
+    const orch = new Orchestrator((f) => frames.push(f), { engine: fakeEngine(), tracker });
+    orch.handle({ type: 'set_region', left: 0, top: 0, width: 100, height: 100 });
+    await flush();
+    const before = detectCount; // 1, from set_region's own capture
+    orch.handle({ type: 'set_board_side', side: 'black' });
+    await flush();
+    expect(detectCount).toBe(before + 1); // re-detected to apply the new override
+  });
+
+  it('defaults boardSide to auto', () => {
+    const frames: ServerFrame[] = [];
+    const orch = new Orchestrator((f) => frames.push(f), { engine: fakeEngine(), tracker: fakeTracker() });
+    orch.handle({ type: 'stop' }); // any command to emit a state frame
+    expect(lastState(frames).boardSide).toBe('auto');
+  });
+
   it('no tracker injected -> vision commands re-emit state and never throw', async () => {
     const frames: ServerFrame[] = [];
     const orch = new Orchestrator((f) => frames.push(f), { engine: fakeEngine() });
