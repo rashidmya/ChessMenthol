@@ -49,7 +49,7 @@
   .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
   .pc {
     aspect-ratio: 1; display: grid; place-items: center; padding: 5px;
-    background: var(--paper-2); border: 1px solid var(--keyline-2); border-radius: 9px;
+    background: var(--btn); border: 1px solid var(--keyline-2); border-radius: 9px;
     cursor: pointer; transition: .14s;
   }
   .pc:hover { border-color: var(--green); background: #fff; }
@@ -58,7 +58,7 @@
   .eraser {
     display: flex; align-items: center; justify-content: center; gap: 8px; padding: 11px;
     font-family: var(--sans); font-weight: 600; font-size: 13px; color: var(--ink-3);
-    background: var(--paper-2); border: 1px solid var(--keyline-2); border-radius: 9px;
+    background: var(--btn); border: 1px solid var(--keyline-2); border-radius: 9px;
     cursor: pointer; transition: .14s;
   }
   .eraser:hover { border-color: var(--green); color: var(--green); background: #fff; }

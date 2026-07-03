@@ -33,6 +33,11 @@
 :root{
   --paper:#f1ede3; --paper-2:#faf7f0; --card:#fdfbf6; --ink:#1b1916; --ink-2:#46423a;
   --ink-3:#7d776b; --ink-faint:#a8a193; --keyline:#e0dacb; --keyline-2:#cfc7b3;
+  /* Right-panel surfaces, a warm tonal ladder DARKER than --paper (the app bg):
+     --panel is the card body, --panel-chrome the darker header/footer strips.
+     --btn is the neutral panel button/control chip — darker than both surfaces,
+     brightening to #fff (+ green) on hover (the shared panel-button hover). */
+  --panel:#e6dfcd; --panel-chrome:#d9d0bb; --btn:#c2b89d;
   --green:#2f5d3a; --green-soft:#3d7a4c; --amber:#b3641f;
   --best:#5b8a3c; --brill:#1a9e86; --good:#7a9a4e; --inacc:#caa01f; --mist:#cf7a1e; --blun:#c23b27;
   --sq-d:#b58863; --sq-l:#f0d9b5; --sq-hl:rgba(244,201,74,.50);

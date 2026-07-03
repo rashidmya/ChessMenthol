@@ -101,7 +101,7 @@
   }
   .counts tbody tr + tr td { border-top: 1px solid var(--keyline); }
   .gacts { display: flex; gap: 8px; padding: 14px 16px; }
-  .new { flex: 1; padding: 10px 16px; border: 1px solid var(--keyline-2); border-radius: 8px; background: var(--paper-2);
+  .new { flex: 1; padding: 10px 16px; border: 1px solid var(--keyline-2); border-radius: 8px; background: var(--btn);
     font-family: var(--sans); font-weight: 600; font-size: 13px; color: var(--ink-2); cursor: pointer; }
   .new:hover { border-color: var(--green); color: var(--green); background: #fff; }
   .review { flex: 2; padding: 10px 16px; border: none; border-radius: 9px; background: var(--green);

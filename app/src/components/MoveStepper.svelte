@@ -32,7 +32,7 @@
   .navbtn {
     flex: 1; display: grid; place-items: center; height: 50px;
     font-family: var(--serif); font-size: 24px; color: var(--ink-2);
-    background: var(--paper-2); border: 1px solid var(--keyline-2); border-radius: 10px;
+    background: var(--btn); border: 1px solid var(--keyline-2); border-radius: 10px;
     cursor: pointer; transition: .15s; line-height: 1;
   }
   .navbtn:hover { border-color: var(--green); color: var(--green); background: #fff; }

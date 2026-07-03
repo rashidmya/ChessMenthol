@@ -70,7 +70,7 @@
   .sel { flex: 1; padding: 11px 13px; border: 1px solid var(--keyline-2); border-radius: 9px; background: #fff;
     color: var(--ink-2); font-family: var(--sans); font-weight: 600; font-size: 13px; }
   .ico { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid var(--keyline);
-    border-radius: 8px; background: var(--paper-2); color: var(--ink-3); font-size: 16px; cursor: pointer; transition: .14s; }
+    border-radius: 8px; background: var(--btn); color: var(--ink-3); font-size: 16px; cursor: pointer; transition: .14s; }
   .ico:hover { border-color: var(--green); color: var(--green); background: #fff; }
   .castle { display: flex; gap: 20px; margin-bottom: 14px; }
   .castle .col { flex: 1; }

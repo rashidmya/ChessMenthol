@@ -114,11 +114,11 @@
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .orow input[type="number"], .orow input[type="text"], .orow select {
     width: 90px; font-family: var(--sans); font-size: 12px; color: var(--ink);
-    background: var(--paper-2); border: 1px solid var(--keyline-2); border-radius: 6px; padding: 4px 6px; }
+    background: var(--btn); border: 1px solid var(--keyline-2); border-radius: 6px; padding: 4px 6px; }
   .orow .btn { font-family: var(--mono); font-size: 9.5px; text-transform: uppercase;
-    border: 1px solid var(--keyline-2); background: var(--paper-2); border-radius: 6px; padding: 4px 8px; cursor: pointer; }
+    border: 1px solid var(--keyline-2); background: var(--btn); border-radius: 6px; padding: 4px 8px; cursor: pointer; }
   .orow .rst { flex: none; width: 22px; height: 22px; display: grid; place-items: center;
-    border: 1px solid var(--keyline-2); background: var(--paper-2); border-radius: 6px; cursor: pointer; color: var(--ink-3); }
+    border: 1px solid var(--keyline-2); background: var(--btn); border-radius: 6px; cursor: pointer; color: var(--ink-3); }
   .resetall { align-self: flex-start; font-family: var(--mono); font-size: 9.5px; text-transform: uppercase;
     color: var(--ink-2); background: transparent; border: 1px dashed var(--keyline-2); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
   .msg { font-family: var(--sans); font-size: 12px; color: var(--ink-3); padding: 4px 0; }

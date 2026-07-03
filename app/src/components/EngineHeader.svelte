@@ -80,13 +80,17 @@
   .hd .tag .eng { color: var(--ink-2); font-weight: 700; }
   .swwrap { display: flex; align-items: center; gap: 10px; }
   .cog { flex: none; width: 24px; height: 24px; display: grid; place-items: center;
-    border: 1px solid var(--keyline-2); background: var(--paper-2); border-radius: 6px;
+    border: 1px solid var(--keyline-2); background: var(--btn); border-radius: 6px;
     cursor: pointer; color: var(--ink-3); font-size: 13px; line-height: 1; transition: .14s; }
   .cog:hover, .cog.on { border-color: var(--green); color: var(--green); background: #fff; }
   .settings { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 30;
     background: var(--card); border: 1px solid var(--keyline-2); border-radius: 9px;
     padding: 12px 14px; box-shadow: 0 18px 44px -18px rgba(40,30,15,.55);
-    display: none; flex-direction: column; gap: 11px; }
+    display: none; flex-direction: column; gap: 11px;
+    /* A long engine-option list would overflow the card (overflow:hidden) and be
+       unreachable; cap the popover and scroll inside it. 60vh always clears the
+       popover's ~48px top offset within the board-height analysis card. */
+    max-height: min(60vh, 520px); overflow-y: auto; }
   .settings.open { display: flex; animation: rise .16s ease both; }
   .settings.menu { gap: 2px; }
 </style>

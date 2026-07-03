@@ -113,7 +113,7 @@
   .erow { display: flex; align-items: center; gap: 6px; }
   .pick { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0;
     font-family: var(--sans); font-size: 12px; color: var(--ink);
-    background: var(--paper-2); border: 1px solid var(--keyline-2); border-radius: 6px;
+    background: var(--btn); border: 1px solid var(--keyline-2); border-radius: 6px;
     padding: 7px 10px; cursor: pointer; text-align: left; transition: .14s; }
   .pick:hover { border-color: var(--green); }
   .erow.sel .pick { border-color: var(--green); background: #fff; }
@@ -122,7 +122,7 @@
   .pick .path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     font-family: var(--mono); font-size: 9.5px; color: var(--ink-3); }
   .rm { flex: none; width: 22px; height: 22px; display: grid; place-items: center;
-    border: 1px solid var(--keyline-2); background: var(--paper-2); border-radius: 6px;
+    border: 1px solid var(--keyline-2); background: var(--btn); border-radius: 6px;
     cursor: pointer; color: var(--ink-3); font-size: 11px; line-height: 1; transition: .14s; }
   .rm:hover { border-color: #c0392b; color: #c0392b; background: #fff; }
   .validating { padding: 7px 10px; font-family: var(--sans); font-size: 12px; color: var(--ink-3); }

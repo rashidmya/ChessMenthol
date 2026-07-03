@@ -30,14 +30,14 @@
   .hbtn {
     width: 100%; display: flex; align-items: center; justify-content: center; gap: 13px;
     padding: 19px 16px; margin-bottom: 12px; font-family: var(--sans); font-weight: 600;
-    font-size: 15.5px; color: var(--ink-2); background: var(--paper-2);
+    font-size: 15.5px; color: var(--ink-2); background: var(--btn);
     border: 1px solid var(--keyline-2); border-radius: 10px; cursor: pointer; transition: .14s;
   }
   .hbtn:hover { border-color: var(--green); color: var(--green); background: #fff; }
   .hbtn .ic { font-size: 19px; }
   .hbtn.cap { border-style: dashed; }
   .area {
-    width: 100%; min-height: 150px; resize: vertical; margin: 6px 0 14px; padding: 14px;
+    width: 100%; flex: 1; min-height: 120px; resize: none; margin: 6px 0 14px; padding: 14px;
     border: 1px solid var(--keyline-2); border-radius: 10px; background: #fff;
     color: var(--ink-2); font-family: var(--mono); font-size: 12px;
   }
