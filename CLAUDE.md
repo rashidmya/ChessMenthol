@@ -123,8 +123,9 @@ region overlay, `RegionOverlay`, chosen before the capture fires). A
 180°-rotated position is itself legal, so the coordinate labels — not the pieces — are what
 disambiguate a sparse Black-side board. Side-to-move on a fresh capture is inferred from the
 last-move highlight: `detect.ts` finds it as the two strongest **warm-tinted** cells sampled at
-their corners (so a piece on the destination doesn't wash out the overlay, and red check/premove
-highlights are ignored), and `guessSideToMove` (`position.ts`) trusts it only when exactly one of
+their corners (so a piece on the destination doesn't wash out the overlay, and saturated-red
+check/premove highlights are dropped (warm oranges can slip through)), and `guessSideToMove`
+(`position.ts`) trusts it only when exactly one of
 the pair is occupied — the mover — else it falls back to White + the manual `TurnToggle`. The
 Rust `capture_frame` returns raw RGBA with an
 8-byte little-endian `[width][height]` header over binary IPC; `lib/capture.ts` decodes and

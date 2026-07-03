@@ -16,8 +16,9 @@ const DEFAULT_MIN_CONFIDENCE = 0.3;
 
 // Last-move-highlight detection. Corners are sampled (not the centre) so a piece on the
 // destination square doesn't wash out its translucent overlay; a "warm" gate keeps
-// yellow/green last-move tints and drops red check/premove highlights (thin overlays
-// like arrows are only diluted below the margin, not guaranteed rejected).
+// yellow/green last-move tints and drops SATURATED-red check/premove highlights; warm reds
+// (orange) and thin overlays like arrows are only diluted below the margin, not guaranteed
+// rejected.
 const HIGHLIGHT_CORNER_FRAC = 0.2; // corner patch size as a fraction of the cell
 const WARM_TINT_MARGIN = 8;        // R and G must each exceed B by this many levels (also the noise floor)
 

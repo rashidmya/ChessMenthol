@@ -306,4 +306,15 @@ describe('guessSideToMove', () => {
   it('defaults to white', () => {
     expect(guessSideToMove(START_FEN, {})).toBe('white');
   });
+
+  it('prefers the inferred move over a conflicting highlight (precedence)', () => {
+    // prevFen+move say White just moved -> Black to move. The (stale) highlight sits on
+    // an occupied BLACK piece, which ALONE would say White to move. The move path (checked
+    // first) must win, so the highlight is never consulted.
+    const afterFen = 'rnbqkbnr/pppp1ppp/8/4p3/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 2';
+    expect(guessSideToMove(afterFen, {
+      prevFen: START_FEN, move: 'e2e4',
+      highlightSquares: ['e7', 'e5'], // black pawn on e5 -> highlight-alone would give 'white'
+    })).toBe('black');
+  });
 });
