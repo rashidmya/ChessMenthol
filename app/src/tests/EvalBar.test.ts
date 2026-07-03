@@ -91,4 +91,12 @@ describe('EvalBar', () => {
     const fill = screen.getByTestId('eval-fill') as HTMLElement;
     expect(parseFloat(fill.style.height)).toBe(50);
   });
+
+  it('horizontal: fill uses width (not height) and the bar carries the horizontal class', () => {
+    const { getByTestId } = render(EvalBar, { props: { evalDto: { cp: 300, mate: null, text: '+3.00' }, horizontal: true } });
+    const fill = getByTestId('eval-fill') as HTMLElement;
+    expect(fill.style.width).not.toBe('');
+    expect(fill.style.height).toBe('');
+    expect(getByTestId('evalbar').classList.contains('horizontal')).toBe(true);
+  });
 });
