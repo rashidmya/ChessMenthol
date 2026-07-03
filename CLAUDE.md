@@ -12,8 +12,8 @@ great / best / … / blunder / miss).
 The chess logic and computer vision run inside a **Svelte 5 + TypeScript** renderer (vision in
 **Web Workers / WebAssembly** via onnxruntime-web). A thin **Tauri 2 (Rust)** shell does only
 what a web page cannot: capture the screen and bridge to a **native UCI engine process**. There
-is **no Python and no localhost server** — the previous FastAPI backend and its WebSocket
-protocol were removed in the Svelte + Tauri migration.
+is **no backend server** — no localhost, no WebSocket; the renderer drives the core in-process
+(the `send`/store surface just mirrors a network protocol).
 
 ChessMenthol is **desktop-only**: analysis (native engine) and screen capture both require the
 Tauri shell. The Svelte renderer still loads in a plain browser via `npm run dev` for fast UI
@@ -75,21 +75,20 @@ network protocol even though everything is in-process.
 `App.svelte` is a single-board app with screens `home | analysis | edit | report | review`
 (`type Screen` in `App.svelte`), all sharing one board and the store surface above.
 
-### `core/` — parity-ported chess logic (WASM-side, pure TS)
+### `core/` — the chess logic (WASM-side, pure TS)
 
 `orchestrator.ts`, `chess.ts`, `classify.ts`, `serialize.ts`, `pgn.ts`, `accuracy.ts`,
-`report.ts`. These are **line-by-line ports of the original Python** (`chessmenthol/server/*`,
-`chessmenthol/vision/*`), which was deleted in the migration. Two rules that the tests enforce:
+`report.ts`. Two rules that the tests enforce:
 
 - **All chess logic goes through `core/chess.ts`** (which wraps the `chessops` library).
   Do not import `chessops` anywhere else.
-- **The ports must stay at parity with the removed Python**, and the tests in `src/tests/` are
-  the executable spec. When changing classification / accuracy / serialization, expect a test
-  that pins the exact Lichess/chess.com-parity numbers.
+- **The tests in `src/tests/` are the executable spec.** When changing classification /
+  accuracy / serialization, expect a test that pins the exact Lichess/chess.com-parity
+  numbers — change a pinned number only when you mean to, and keep the suite green.
 
-Gotcha carried over from the port: **movetime is milliseconds throughout the TS code** (the
-Python stored seconds). See the header comment in `orchestrator.ts` for the runtime-model
-mapping (python-chess `Board` → chessops immutable positions rebuilt by replaying history).
+Gotcha: **movetime is milliseconds throughout the TS code.** See the header comment in
+`orchestrator.ts` for the runtime model — chessops immutable positions rebuilt by replaying
+move history.
 
 ### `engine/` — UCI plumbing
 
@@ -114,7 +113,7 @@ and overrides.
 
 Runs in `vision-worker.ts` (a Web Worker), driven from the main thread via
 `visionClient.ts` (`VisionWorkerClient` / `VisionTracker`). Pipeline: `detect.ts` (axis-aligned
-board detection via edge profiles + autocorrelation — a pure-array-math port of the Python, no
+board detection via edge profiles + autocorrelation — pure array math, no
 OpenCV) → `pieces.ts` (ONNX piece classifier via `onnxruntime-web`) → `position.ts` (assemble a
 FEN) → `tracker.ts` (temporal stabilization). Orientation is resolved in the tracker as
 `override ?? readOrientationFromLabels (coords.ts, reads the board's rank labels via
