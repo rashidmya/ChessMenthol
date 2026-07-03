@@ -59,3 +59,20 @@ describe('ActionBar', () => {
     expect(onNew).toHaveBeenCalled();
   });
 });
+
+describe('ActionBar narrow', () => {
+  const base = {
+    currentPly: 1, total: 5, onNavigate: () => {}, onNew: () => {},
+    onRequestAnalysis: () => {}, onCancelAnalysis: () => {},
+    reportProgress: null, hasReportForGame: false,
+  };
+  it('wide: renders 4 nav buttons + Request + New (6 buttons)', () => {
+    const { getAllByRole } = render(ActionBar, { props: { ...base, narrow: false } });
+    expect(getAllByRole('button').length).toBe(6);
+  });
+  it('narrow: omits the stepper, leaving Request + New (2 buttons)', () => {
+    const { getAllByRole, queryByTitle } = render(ActionBar, { props: { ...base, narrow: true } });
+    expect(getAllByRole('button').length).toBe(2);
+    expect(queryByTitle('First move')).toBeNull();
+  });
+});

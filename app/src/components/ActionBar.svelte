@@ -9,11 +9,15 @@
   export let onCancelAnalysis: () => void = () => {};
   export let reportProgress: { done: number; total: number } | null = null;
   export let hasReportForGame: boolean = false;
+  // On narrow layouts the nav arrows render under the board instead of here.
+  export let narrow = false;
 
   $: pct = reportProgress ? Math.round((reportProgress.done / (reportProgress.total || 1)) * 100) : 0;
 </script>
 
-<MoveStepper {currentPly} {total} {onNavigate} />
+{#if !narrow}
+  <MoveStepper {currentPly} {total} {onNavigate} />
+{/if}
 
 {#if reportProgress}
   <div class="analyzing" data-testid="analysis-progress">
