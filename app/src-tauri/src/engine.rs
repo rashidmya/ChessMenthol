@@ -131,7 +131,7 @@ pub struct EngineProbe {
 /// `id name` line and all `option …` lines until `uciok` (or timeout), then kill it.
 /// Used by "+ Add engine" (validation) and on-demand schema fetch for the options form.
 #[tauri::command]
-pub fn engine_probe(app: AppHandle, spec: EngineSpec) -> Result<EngineProbe, String> {
+pub fn engine_probe(spec: EngineSpec) -> Result<EngineProbe, String> {
     match spec {
         EngineSpec::External { path } => probe_path(&path, Duration::from_secs(10)),
         EngineSpec::Bundled => {
