@@ -102,7 +102,10 @@
   .side button { margin: 0; padding: 4px 9px; font: 11px system-ui; font-weight: 600;
     border: none; border-radius: 5px; background: transparent; color: #aeb2ba; cursor: pointer; }
   .side button.on { background: #11a26b; color: #04150e; }
-  .stage { position: relative; flex: 1; display: flex; min-height: 0; cursor: crosshair; }
+  /* overflow:hidden clips the .sel spotlight box-shadow to the stage so its
+     9999px spread can't bleed up over the toolbar (.bar) above it. */
+  .stage { position: relative; flex: 1; display: flex; min-height: 0; cursor: crosshair;
+    overflow: hidden; }
   img { max-width: 100vw; max-height: calc(100vh - 40px); object-fit: contain; user-select: none; }
   .sel { position: absolute; border: 2px solid #11a26b; background: rgba(17,162,107,0.18);
     box-shadow: 0 0 0 9999px rgba(0,0,0,0.55); pointer-events: none; }
