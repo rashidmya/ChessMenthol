@@ -12,6 +12,8 @@
   import RegionOverlay from './components/RegionOverlay.svelte';
   import Header from './components/Header.svelte';
   import BoardControls from './components/BoardControls.svelte';
+  import TurnToggle from './components/TurnToggle.svelte';
+  import { isNarrow } from './lib/viewport';
   import EngineHeader from './components/EngineHeader.svelte';
   import Lines from './components/Lines.svelte';
   import MoveFeedback from './components/MoveFeedback.svelte';
@@ -211,7 +213,11 @@
     <div class="board-col">
       <div class="board-wrap">
         {#if viewPrefs.evalBar && analysisEnabled}
-          <div class="evalbar-slot"><EvalBar evalDto={s?.eval ?? null} {orientation} gameOver={s?.gameOver ?? null} /></div>
+          {#if $isNarrow}
+            <div class="evalbar-h"><EvalBar horizontal evalDto={s?.eval ?? null} {orientation} gameOver={s?.gameOver ?? null} /></div>
+          {:else}
+            <div class="evalbar-slot"><EvalBar evalDto={s?.eval ?? null} {orientation} gameOver={s?.gameOver ?? null} /></div>
+          {/if}
         {/if}
         <Board bind:this={boardComp} {fen} {orientation} {onMove} revertSignal={$errorSeq}
           lastMove={lastMoveUci}
@@ -222,8 +228,18 @@
              the side-to-move dropdown + its own flip, so the board-column turn/flip
              control would only duplicate them. -->
         {#if screen === 'analysis'}
-          <BoardControls sideToMove={s?.sideToMove ?? 'white'}
-            onSetTurn={(white) => send({ type: 'set_turn', white })} onFlip={onFlip} />
+          {#if $isNarrow}
+            <div class="mobile-ctrls" data-testid="mobile-ctrls">
+              <MoveStepper compact currentPly={s?.currentPly ?? 0} total={s?.moveList?.length ?? 0} {onNavigate} />
+              <span class="ctrl-sep" aria-hidden="true"></span>
+              <TurnToggle sideToMove={s?.sideToMove ?? 'white'} onSetTurn={(white) => send({ type: 'set_turn', white })} />
+              <span class="ctrl-sep" aria-hidden="true"></span>
+              <button type="button" class="flipbtn" data-testid="flip-btn-mobile" title="Flip board" on:click={onFlip}><Icon name="ChasingArrows" /></button>
+            </div>
+          {:else}
+            <BoardControls sideToMove={s?.sideToMove ?? 'white'}
+              onSetTurn={(white) => send({ type: 'set_turn', white })} onFlip={onFlip} />
+          {/if}
         {/if}
       </div>
     </div>
@@ -309,7 +325,7 @@
 
           <!-- Action bar (footer) -->
           <ActionBar slot="footer" currentPly={s?.currentPly ?? 0} total={s?.moveList?.length ?? 0}
-            {onNavigate} onNew={onNew}
+            {onNavigate} onNew={onNew} narrow={$isNarrow}
             onRequestAnalysis={onRequestAnalysis} onCancelAnalysis={onCancelAnalysis}
             reportProgress={progress} {hasReportForGame} />
         </Panel>
@@ -384,4 +400,23 @@
   .grow { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   /* The eval graph brings no padding of its own, so its review-card section needs it. */
   .evalsec { padding: 14px 16px; }
+
+  /* ===== Narrow / mobile: single-column vertical stack ===== */
+  .evalbar-h { margin-bottom: 8px; }
+  .mobile-ctrls { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 12px; }
+  .mobile-ctrls .ctrl-sep { width: 1px; height: 22px; background: var(--keyline-2); margin: 0 8px; flex: none; }
+  .mobile-ctrls .flipbtn {
+    width: 33px; height: 33px; display: grid; place-items: center;
+    border: none; background: transparent; cursor: pointer; color: var(--ink-3); font-size: 18px;
+  }
+  .mobile-ctrls .flipbtn:hover { color: var(--green); }
+  @media (pointer: coarse) { .mobile-ctrls .flipbtn { min-width: 40px; min-height: 40px; } }
+
+  @media (max-width: 819.98px) {
+    .app { height: auto; min-height: calc(100dvh - 40px); }
+    main { flex-direction: column; align-items: stretch; gap: 12px; }
+    .board-col { flex: initial; align-self: stretch; }
+    .board-wrap { width: 100%; }
+    .panel { width: 100%; }
+  }
 </style>
