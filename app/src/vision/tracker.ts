@@ -1,6 +1,6 @@
 /**
  * vision/tracker.ts — Single-frame detection pipeline (classifier-injected).
- * MINUS the capturer. Capture lives in `lib/capture.ts`; this module only receives an RgbaImage.
+ * Capture is excluded — it lives in `lib/capture.ts`; this module only receives an RgbaImage.
  *
  * Pipeline: detectPosition(image)
  *   detect(image)

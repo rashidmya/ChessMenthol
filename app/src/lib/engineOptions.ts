@@ -31,7 +31,7 @@ const schemaListeners = new Set<SchemaListener>();
 
 /** Subscribe to schema-cache updates. Returns an unsubscribe fn. Fires with the engine
  *  id whenever its schema is (re)cached via setSchema — lets a mounted options form
- *  refresh when the engine schema is updated. */
+ *  refresh when the engine's schema is first captured (on initial analysis load). */
 export function onSchemaChange(cb: SchemaListener): () => void {
   schemaListeners.add(cb);
   return () => { schemaListeners.delete(cb); };
