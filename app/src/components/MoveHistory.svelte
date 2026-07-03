@@ -98,4 +98,18 @@
      tinted — ordinary/best moves stay neutral (--ink). */
   .mh-empty { color: var(--ink-faint); cursor: default; }
   .mh-empty:hover { background: transparent; }
+
+  /* ===== Narrow / mobile: compact inline move flow (wraps like text) ===== */
+  @media (max-width: 819.98px) {
+    .movehist-sec { flex: none; min-height: 0; }
+    .movehist { overflow: visible; padding: 2px 2px; line-height: 1.95; }
+    .mh-row { display: inline; background: none !important; }
+    .mh-no { display: inline; margin: 0 4px 0 7px; font-size: 10px; }
+    .mh-no:first-child { margin-left: 0; }
+    .mh-mv {
+      display: inline-flex; vertical-align: middle;
+      padding: 2px 5px; margin: 0 1px; font-size: 13px; border-radius: 5px;
+    }
+    .mh-empty { display: none; }
+  }
 </style>
