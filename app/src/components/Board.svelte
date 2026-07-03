@@ -137,4 +137,56 @@
 
 <style>
   .board { width: 100%; aspect-ratio: 1 / 1; }
+
+  /* Coordinate labels (chessground's runtime-created `coords`): pin them into the
+     board corners, keep the files lowercase, and make them larger + extrabold.
+     chessground's vendored base CSS centers/offsets the labels a few px off the
+     corners and uppercases the file letters; we override that here. Reaching
+     chessground's dynamically-inserted DOM needs `:global`, and the
+     `.board.cg-wrap` double class (chessground adds `cg-wrap` onto our `.board`
+     div) lifts specificity above the vendor rules so these win regardless of
+     stylesheet insertion order. Colors still come from chessground.brown.css. */
+  :global(.board.cg-wrap coords) {
+    font-size: 15px;
+    font-weight: 800;
+  }
+  /* rank numbers -> top-left corner of the left column (drop the -20px/translateY nudge) */
+  :global(.board.cg-wrap coords.ranks) {
+    top: 0;
+    left: 2px;
+  }
+  :global(.board.cg-wrap coords.ranks coord) {
+    transform: none;
+  }
+  /* file letters -> bottom-right corner of each column, lowercase (drop the 24px/-4px offset) */
+  :global(.board.cg-wrap coords.files) {
+    left: 0;
+    bottom: 5px;
+    text-transform: none;
+    text-align: right;
+  }
+  /* Pad each letter, NOT the row: padding on the container would shrink the
+     flexed row so the 8 slices no longer line up with the 8 board columns and
+     the offset accumulates rightward. Per-coord padding keeps every letter the
+     same distance from its own column's right edge. */
+  :global(.board.cg-wrap coords.files coord) {
+    padding-right: 5px;
+  }
+  /* Pinning the numbers into the corner lands each on its own rank's left-column
+     square, whose light/dark colour is the opposite of where chessground's default
+     label position sat -> the built-in parity (chessground.brown.css) gave the
+     numbers no contrast. Swap the two rank colours per orientation to restore the
+     alternation. Files already land on the correctly-coloured square, so untouched. */
+  :global(.board.cg-wrap.orientation-white coords.ranks coord:nth-child(odd)) {
+    color: rgba(255, 255, 255, 0.8);
+  }
+  :global(.board.cg-wrap.orientation-white coords.ranks coord:nth-child(even)) {
+    color: rgba(72, 72, 72, 0.8);
+  }
+  :global(.board.cg-wrap.orientation-black coords.ranks coord:nth-child(odd)) {
+    color: rgba(72, 72, 72, 0.8);
+  }
+  :global(.board.cg-wrap.orientation-black coords.ranks coord:nth-child(even)) {
+    color: rgba(255, 255, 255, 0.8);
+  }
 </style>
