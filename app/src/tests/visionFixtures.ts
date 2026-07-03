@@ -4,7 +4,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
 import type { RgbaImage } from '../lib/capture';
-import type { BoardLocation, Region } from '../vision/types';
+import type { BoardLocation, Region, Orientation } from '../vision/types';
 
 // RGB (Python BGR constants reversed per the colour-space convention).
 const LIGHT: [number, number, number] = [240, 217, 181];
@@ -25,6 +25,23 @@ function setPx(img: RgbaImage, x: number, y: number, [r, g, b]: [number, number,
 export interface RenderOpts {
   square?: number; margin?: number;
   pieces?: string[]; highlights?: string[];
+  coords?: Orientation;       // draw rank labels (dense '8' / sparse '1') for this orientation
+}
+
+// Fill `density` of the TOP-LEFT corner-cell of square (col,row) — where chess.com
+// draws the rank digit — with a colour that contrasts the square fill, so
+// inkFraction sees it as glyph ink. The reader only compares ink density, so the
+// exact glyph shape is irrelevant; a dense fill stands in for '8', a sparse one for '1'.
+function stampMark(img: RgbaImage, margin: number, square: number,
+                   col: number, row: number, density: number): void {
+  const isLight = (col + row) % 2 === 0;
+  const ink: [number, number, number] = isLight ? [30, 30, 30] : [235, 235, 235];
+  const corner = Math.floor(square * 0.3); // matches the reader's CORNER_FRAC
+  const target = Math.max(1, Math.floor(corner * corner * density));
+  const x0 = margin + col * square, y0 = margin + row * square;
+  let drawn = 0;
+  for (let dy = 0; dy < corner && drawn < target; dy++)
+    for (let dx = 0; dx < corner && drawn < target; dx++) { setPx(img, x0 + dx, y0 + dy, ink); drawn++; }
 }
 
 export function renderBoard(opts: RenderOpts = {}): { image: RgbaImage; truth: BoardLocation } {
@@ -62,6 +79,13 @@ export function renderBoard(opts: RenderOpts = {}): { image: RgbaImage; truth: B
     for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
       if (dx * dx + dy * dy <= r * r) setPx(image, cx + dx, cy + dy, PIECE);
     }
+  }
+  // coordinate labels: dense mark ('8') at the rank-8 corner, sparse ('1') at rank-1.
+  if (opts.coords) {
+    const eightRow = opts.coords === 'white_bottom' ? 0 : 7; // square showing rank 8
+    const oneRow = opts.coords === 'white_bottom' ? 7 : 0;   // square showing rank 1
+    stampMark(image, margin, square, 0, eightRow, 0.42);
+    stampMark(image, margin, square, 0, oneRow, 0.12);
   }
   const gridX = Array.from({ length: 9 }, (_, i) => margin + i * square);
   const gridY = gridX.slice();
