@@ -3,8 +3,12 @@
   import { toDesktopRegion, type Region } from '../lib/region';
   import Icon from './Icon.svelte';
   export let shot: RegionShotFrame | null = null;
-  export let onConfirm: (r: Region) => void = () => {};
+  export let onConfirm: (r: Region, side: 'auto' | 'white' | 'black') => void = () => {};
   export let onCancel: () => void = () => {};
+
+  // Capture-time board orientation. 'auto' lets the pipeline resolve it (coord-label
+  // OCR + piece heuristic); white/black force it. Applied when the capture fires.
+  let side: 'auto' | 'white' | 'black' = 'auto';
 
   let img: HTMLImageElement;
   let dragging = false;
@@ -46,7 +50,7 @@
       { width: paintedW, height: paintedH },
       { width: shot.width, height: shot.height },
     );
-    onConfirm(region);
+    onConfirm(region, side);
   }
   function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onCancel(); }
 
@@ -62,6 +66,12 @@
 <div class="overlay" data-testid="region-overlay">
   <div class="bar">
     <span><Icon name="Target" /> Drag a box over the chess board</span>
+    <div class="side" data-testid="overlay-side" title="Board side — the perspective the captured board is shown from">
+      <span class="lbl">Board side</span>
+      <button class:on={side === 'auto'} data-side="auto" on:click={() => (side = 'auto')}>Auto</button>
+      <button class:on={side === 'white'} data-side="white" on:click={() => (side = 'white')}>White</button>
+      <button class:on={side === 'black'} data-side="black" on:click={() => (side = 'black')}>Black</button>
+    </div>
     <button data-testid="overlay-use" on:click={confirmRegion}>Use region</button>
     <button data-testid="overlay-cancel" class="ghost" on:click={onCancel}>Cancel</button>
   </div>
@@ -83,9 +93,15 @@
     display: flex; flex-direction: column; align-items: center; }
   .bar { display: flex; gap: 10px; align-items: center; padding: 8px 12px; color: #e8e8e8;
     font: 12px system-ui; width: 100%; box-sizing: border-box; background: #1b1e24; }
-  .bar button { margin-left: auto; font: 12px system-ui; padding: 5px 12px; border-radius: 6px;
+  .bar > button { margin-left: 8px; font: 12px system-ui; padding: 5px 12px; border-radius: 6px;
     cursor: pointer; background: #11a26b; border: 1px solid #11a26b; color: #04150e; font-weight: 600; }
-  .bar button.ghost { margin-left: 0; background: #23262d; border-color: #3a3d44; color: #e8e8e8; }
+  .bar > button.ghost { background: #23262d; border-color: #3a3d44; color: #e8e8e8; }
+  .side { margin-left: auto; display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px; background: #23262d; border: 1px solid #3a3d44; border-radius: 6px; }
+  .side .lbl { color: #8b8f98; font-size: 11px; padding: 0 6px 0 4px; }
+  .side button { margin: 0; padding: 4px 9px; font: 11px system-ui; font-weight: 600;
+    border: none; border-radius: 5px; background: transparent; color: #aeb2ba; cursor: pointer; }
+  .side button.on { background: #11a26b; color: #04150e; }
   .stage { position: relative; flex: 1; display: flex; min-height: 0; cursor: crosshair; }
   img { max-width: 100vw; max-height: calc(100vh - 40px); object-fit: contain; user-select: none; }
   .sel { position: absolute; border: 2px solid #11a26b; background: rgba(17,162,107,0.18);

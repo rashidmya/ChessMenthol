@@ -45,8 +45,12 @@
   const hasCapture = hasNativeCapture(); // true inside Tauri; false in a plain browser
   let pickingRegion = false;
   function onPickRegion() { regionShot.set(null); pickingRegion = true; send({ type: 'request_region_shot' }); }
-  function onConfirmRegion(r: Region) {
+  function onConfirmRegion(r: Region, side: 'auto' | 'white' | 'black') {
     pickingRegion = false;
+    // Apply the chosen capture orientation BEFORE the capture fires. The region is
+    // not set yet, so set_board_side only stores the tracker override (no capture);
+    // captureCommands' set_region then runs the capture with it already applied.
+    send({ type: 'set_board_side', side });
     for (const c of captureCommands(r)) send(c);
     enterAnalysis();
   }
@@ -219,9 +223,7 @@
              control would only duplicate them. -->
         {#if screen === 'analysis'}
           <BoardControls sideToMove={s?.sideToMove ?? 'white'}
-            onSetTurn={(white) => send({ type: 'set_turn', white })} onFlip={onFlip}
-            boardSide={s?.boardSide ?? 'auto'}
-            onSetBoardSide={(side) => send({ type: 'set_board_side', side })} />
+            onSetTurn={(white) => send({ type: 'set_turn', white })} onFlip={onFlip} />
         {/if}
       </div>
     </div>

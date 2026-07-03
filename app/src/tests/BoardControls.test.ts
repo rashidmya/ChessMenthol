@@ -12,18 +12,4 @@ describe('BoardControls', () => {
     await fireEvent.click(getByTestId('flip-btn'));
     expect(onFlip).toHaveBeenCalled();
   });
-
-  it('marks the active board side', () => {
-    const { getByTestId } = render(BoardControls, { props: { boardSide: 'black' } });
-    const seg = getByTestId('side-seg');
-    expect(seg.querySelector('[data-side="black"]')!.classList.contains('on')).toBe(true);
-  });
-
-  it('sends the chosen board side on click', async () => {
-    const onSetBoardSide = vi.fn();
-    const { getByTestId } = render(BoardControls, { props: { boardSide: 'auto', onSetBoardSide } });
-    const seg = getByTestId('side-seg');
-    await fireEvent.click(seg.querySelector('[data-side="black"]')!);
-    expect(onSetBoardSide).toHaveBeenCalledWith('black');
-  });
 });

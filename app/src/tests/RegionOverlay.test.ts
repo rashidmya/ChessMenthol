@@ -38,7 +38,29 @@ describe('RegionOverlay', () => {
     await fireEvent.mouseUp(window, { clientX: 150, clientY: 75 });
     await fireEvent.click(screen.getByTestId('overlay-use'));
     // 50..150 displayed *2 -> 100..300 true; 25..75 *2 -> 50..150 true.
-    expect(onConfirm).toHaveBeenCalledWith({ left: 100, top: 50, width: 200, height: 100 });
+    expect(onConfirm).toHaveBeenCalledWith({ left: 100, top: 50, width: 200, height: 100 }, 'auto');
+  });
+
+  it('defaults the board side to auto and passes the chosen side to onConfirm', async () => {
+    const onConfirm = vi.fn();
+    render(RegionOverlay, { props: { shot, onConfirm, onCancel: vi.fn() } as any });
+    const img = screen.getByTestId('overlay-img') as HTMLImageElement;
+    img.getBoundingClientRect = () => ({ left: 0, top: 0, width: 500, height: 250,
+      right: 500, bottom: 250, x: 0, y: 0, toJSON: () => {} }) as DOMRect;
+    Object.defineProperty(img, 'naturalWidth', { value: 1000, configurable: true });
+    Object.defineProperty(img, 'naturalHeight', { value: 500, configurable: true });
+
+    const sideSeg = screen.getByTestId('overlay-side');
+    // Auto is the default active choice.
+    expect(sideSeg.querySelector('[data-side="auto"]')!.classList.contains('on')).toBe(true);
+    // Pick Black, then drag + Use.
+    await fireEvent.click(sideSeg.querySelector('[data-side="black"]')!);
+    expect(sideSeg.querySelector('[data-side="black"]')!.classList.contains('on')).toBe(true);
+    await fireEvent.mouseDown(img, { clientX: 50, clientY: 25 });
+    await fireEvent.mouseMove(window, { clientX: 150, clientY: 75 });
+    await fireEvent.mouseUp(window, { clientX: 150, clientY: 75 });
+    await fireEvent.click(screen.getByTestId('overlay-use'));
+    expect(onConfirm).toHaveBeenCalledWith({ left: 100, top: 50, width: 200, height: 100 }, 'black');
   });
 
   it('maps relative to the painted image rect when the element is letterboxed', async () => {
@@ -59,7 +81,7 @@ describe('RegionOverlay', () => {
     await fireEvent.click(screen.getByTestId('overlay-use'));
     // painted=500x250, offY=125. box {x:50,y:150,w:100,h:100} -> painted {50,25,100,100}
     // -> *2 (1000/500, 500/250) -> { left:100, top:50, width:200, height:200 }.
-    expect(onConfirm).toHaveBeenCalledWith({ left: 100, top: 50, width: 200, height: 200 });
+    expect(onConfirm).toHaveBeenCalledWith({ left: 100, top: 50, width: 200, height: 200 }, 'auto');
   });
 
   it('Esc key calls onCancel', async () => {

@@ -3,8 +3,7 @@
   export let sideToMove: 'white' | 'black' = 'white';
   export let onSetTurn: (white: boolean) => void = () => {};
   export let onFlip: () => void = () => {};
-  export let boardSide: 'auto' | 'white' | 'black' = 'auto';
-  export let onSetBoardSide: (side: 'auto' | 'white' | 'black') => void = () => {};
+  // Board (capture) orientation is chosen at capture time in RegionOverlay, not here.
 </script>
 
 <div class="board-controls">
@@ -13,14 +12,6 @@
       on:click={() => onSetTurn(true)}><span class="disc"></span>White</button>
     <button class:on={sideToMove === 'black'} data-turn="b"
       on:click={() => onSetTurn(false)}><span class="disc"></span>Black</button>
-  </div>
-  <div class="seg" data-testid="side-seg" title="Board side (capture orientation)">
-    <button class:on={boardSide === 'auto'} data-side="auto"
-      on:click={() => onSetBoardSide('auto')}>Auto</button>
-    <button class:on={boardSide === 'white'} data-side="white"
-      on:click={() => onSetBoardSide('white')}>White</button>
-    <button class:on={boardSide === 'black'} data-side="black"
-      on:click={() => onSetBoardSide('black')}>Black</button>
   </div>
   <button class="icobtn" data-testid="flip-btn" title="Flip board" on:click={onFlip}>
     <Icon name="ChasingArrows" />
