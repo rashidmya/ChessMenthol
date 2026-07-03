@@ -163,6 +163,14 @@ Two shared "single source of truth" abstractions to reuse rather than re-derive:
   `hasNativeCapture()` (in a browser, requesting analysis rejects with a "desktop app required"
   error). Vision handlers in the orchestrator degrade gracefully (re-emit state, never throw)
   when no tracker is injected.
+- **Custom titlebar (frameless window).** The window is frameless
+  (`decorations:false` in `tauri.conf.json`); `components/Titlebar.svelte` draws a
+  fixed top strip with minimize/maximize/close driving `getCurrentWindow()` IPC
+  (needs `core:window:allow-{minimize,toggle-maximize,close,start-dragging,is-maximized}`
+  in `capabilities/default.json`). It is mounted only behind `isTauri()`, and toggles
+  a `body.has-titlebar` class so `app.css` reserves top padding (the plain-browser dev
+  path keeps its normal spacing). The window-chrome glyphs are inline SVGs, **not** the
+  Lichess `<Icon>` webfont — that set is chess/UI-domain and has no min/max/close glyph.
 - **Tests are the spec.** Classification, accuracy, and serialization changes must keep the
   parity numbers pinned in `src/tests/`.
 - **Responsive layout** reflows the desktop UI into a single vertical scroll below **819.98px**
