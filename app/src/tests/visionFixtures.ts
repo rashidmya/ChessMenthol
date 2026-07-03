@@ -11,6 +11,7 @@ const LIGHT: [number, number, number] = [240, 217, 181];
 const DARK: [number, number, number] = [181, 136, 99];
 const BG: [number, number, number] = [60, 60, 60];
 const HIGHLIGHT: [number, number, number] = [230, 200, 90];
+const PREMOVE: [number, number, number] = [200, 70, 70]; // red — check/premove highlight
 const PIECE: [number, number, number] = [20, 20, 20];
 
 function squareToColRow(sq: string): [number, number] {
@@ -24,7 +25,7 @@ function setPx(img: RgbaImage, x: number, y: number, [r, g, b]: [number, number,
 
 export interface RenderOpts {
   square?: number; margin?: number;
-  pieces?: string[]; highlights?: string[];
+  pieces?: string[]; highlights?: string[]; premove?: string[];
   coords?: Orientation;       // labels inside the corner squares (chess.com)
   marginCoords?: Orientation; // labels in the left margin (lichess)
 }
@@ -90,6 +91,17 @@ export function renderBoard(opts: RenderOpts = {}): { image: RgbaImage; truth: B
       const i = (y * image.width + x) * 4;
       for (let c = 0; c < 3; c++) {
         image.data[i + c] = Math.trunc(0.5 * image.data[i + c] + 0.5 * HIGHLIGHT[c]);
+      }
+    }
+  }
+  // premove/check: 0.5 blend with a RED tint (must NOT read as a last-move highlight)
+  for (const sq of opts.premove ?? []) {
+    const [col, row] = squareToColRow(sq);
+    for (let dy = 0; dy < square; dy++) for (let dx = 0; dx < square; dx++) {
+      const x = margin + col * square + dx, y = margin + row * square + dy;
+      const i = (y * image.width + x) * 4;
+      for (let c = 0; c < 3; c++) {
+        image.data[i + c] = Math.trunc(0.5 * image.data[i + c] + 0.5 * PREMOVE[c]);
       }
     }
   }
