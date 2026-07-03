@@ -219,7 +219,9 @@
              control would only duplicate them. -->
         {#if screen === 'analysis'}
           <BoardControls sideToMove={s?.sideToMove ?? 'white'}
-            onSetTurn={(white) => send({ type: 'set_turn', white })} onFlip={onFlip} />
+            onSetTurn={(white) => send({ type: 'set_turn', white })} onFlip={onFlip}
+            boardSide={s?.boardSide ?? 'auto'}
+            onSetBoardSide={(side) => send({ type: 'set_board_side', side })} />
         {/if}
       </div>
     </div>
