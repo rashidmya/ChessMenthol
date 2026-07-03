@@ -30,4 +30,16 @@ describe('MoveStepper', () => {
     await rerender({ currentPly: 0, total: 4, onNavigate: () => {}, onTogglePlay, playing: true });
     expect(getByTestId('autoplay').getAttribute('title')).toBe('Pause');
   });
+
+  it('compact variant renders the 4 nav buttons and still navigates', async () => {
+    const onNavigate = vi.fn();
+    const { getAllByRole, container } = render(MoveStepper, {
+      props: { currentPly: 3, total: 8, onNavigate, compact: true },
+    });
+    expect(container.querySelector('.nav.compact')).not.toBeNull();
+    const btns = getAllByRole('button');
+    expect(btns.length).toBe(4);
+    await fireEvent.click(btns[0]); expect(onNavigate).toHaveBeenCalledWith(0);
+    await fireEvent.click(btns[3]); expect(onNavigate).toHaveBeenCalledWith(8);
+  });
 });

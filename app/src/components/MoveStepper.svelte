@@ -6,9 +6,11 @@
   // When onTogglePlay is provided, a play/pause button appears between prev and next.
   export let playing: boolean = false;
   export let onTogglePlay: (() => void) | null = null;
+  // Compact, flat variant used in the mobile under-board control row.
+  export let compact = false;
 </script>
 
-<div class="nav">
+<div class="nav" class:compact>
   <button type="button" class="navbtn" title="First move"
     on:click={() => onNavigate(0)}><Icon name="JumpFirst" /></button>
   <button type="button" class="navbtn" title="Previous move"
@@ -35,4 +37,12 @@
   }
   .navbtn:hover { border-color: var(--green); color: var(--green); background: #fff; }
   .navbtn.play { color: var(--green); }
+
+  .nav.compact { gap: 4px; padding: 0; }
+  .nav.compact .navbtn {
+    flex: 0 0 auto; width: 33px; height: 33px;
+    font-size: 18px; background: transparent; border: none; border-radius: 8px;
+  }
+  .nav.compact .navbtn:hover { background: transparent; color: var(--green); }
+  @media (pointer: coarse) { .nav.compact .navbtn { min-width: 40px; min-height: 40px; } }
 </style>
