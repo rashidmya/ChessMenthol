@@ -7,7 +7,7 @@
  *   → cropSquares(image, location)
  *   → classifier.classify(crops)              [async — ONNX in prod]
  *   → bridge: recover the geometric grid with location.orientationHint
- *   → resolve orientation (override ?? guess ?? hint ?? 'white_bottom')
+ *   → resolve orientation (override ?? OCR labels ?? guess ?? hint ?? 'white_bottom')
  *   → resolve side (_resolveSide: two-pass provisional assemble + guessSideToMove)
  *   → assemble(grid, { orientation, white: side, prevFen })
  *   → update prevFen when legal; return AssembledPosition.
@@ -17,6 +17,7 @@
  */
 
 import { detect, cropSquares } from './detect';
+import { readOrientationFromLabels } from './coords';
 import { assemble, guessOrientation, guessSideToMove } from './position';
 import type { AssembledPosition, SquareLabel } from './position';
 import { squareName } from './types';
@@ -87,14 +88,15 @@ export class Tracker {
       grid.push(gridRow);
     }
 
-    // Orientation resolution. The color-based `orientationHint` cannot actually
-    // tell white_bottom from black_bottom — a chessboard's square coloring is
-    // symmetric under 180° rotation, so the hint always reports 'white_bottom'.
-    // The piece-based `guessOrientation` is the only detector that can see a
-    // Black-side board, so it MUST win over the hint (which is only kept as a
-    // constant last-resort default for boards too sparse for guessOrientation).
+    // Orientation resolution. The color-based `orientationHint` cannot distinguish
+    // white_bottom from black_bottom (chessboard coloring is symmetric under 180°
+    // rotation), so it is only a last-resort constant. Prefer, in order: an explicit
+    // user override; the board's coordinate labels (readOrientationFromLabels — the
+    // one signal that resolves a *sparse* Black-side board); then the piece-based
+    // guess; then the degenerate hint.
     const orientation: Orientation =
       this.orientationOverride ??
+      readOrientationFromLabels(image, location) ??
       guessOrientation(grid) ??
       location.orientationHint ??
       'white_bottom';

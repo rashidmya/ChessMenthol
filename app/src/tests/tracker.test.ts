@@ -210,6 +210,27 @@ describe('Tracker', () => {
     expect(ap!.lowConfidence).toContain('e2');
   });
 
+  it('resolves orientation from coordinate labels when the layout is too sparse to guess', async () => {
+    // Two kings only -> guessOrientation returns null; the black_bottom coord labels
+    // must decide it via OCR.
+    const fen = '8/8/8/8/4k3/8/8/4K3 w - - 0 1';
+    const occupied = occupiedSquares(fen);
+    const { image } = renderBoard({ square: 48, margin: 24, pieces: occupied, coords: 'black_bottom' });
+    const tracker = new Tracker(new FakeClassifier(fen));
+    const ap = await tracker.detectPosition(image);
+    expect(ap).not.toBeNull();
+    expect(ap!.orientation).toBe('black_bottom');
+  });
+
+  it('a manual override beats coordinate-label OCR', async () => {
+    const occupied = occupiedSquares(START_FEN);
+    const { image } = renderBoard({ square: 48, margin: 24, pieces: occupied, coords: 'black_bottom' });
+    const tracker = new Tracker(new FakeClassifier(START_FEN));
+    tracker.setOrientationOverride('white_bottom'); // user forces White
+    const ap = await tracker.detectPosition(image);
+    expect(ap!.orientation).toBe('white_bottom'); // override wins over OCR's black_bottom
+  });
+
   it('reset() clears prevFen (no move inferred after reset)', async () => {
     // Not in test_tracker.py but guards the reset() contract.
     const occupied = occupiedSquares(START_FEN);
