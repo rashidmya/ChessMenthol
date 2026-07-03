@@ -31,7 +31,7 @@ const schemaListeners = new Set<SchemaListener>();
 
 /** Subscribe to schema-cache updates. Returns an unsubscribe fn. Fires with the engine
  *  id whenever its schema is (re)cached via setSchema — lets a mounted options form
- *  refresh when the wasm engine's schema is captured on first analysis load (web parity). */
+ *  refresh when the engine schema is updated. */
 export function onSchemaChange(cb: SchemaListener): () => void {
   schemaListeners.add(cb);
   return () => { schemaListeners.delete(cb); };
@@ -71,10 +71,8 @@ export function clear(id: string): void {
 }
 
 /** Ensure a schema is cached for `id`; probe via Tauri if missing. Never throws.
- *  In a plain browser there is no probe command, and a one-shot wasm load would build
- *  a Worker (unsupported under jsdom and wasteful), so we return [] — the controller
- *  caches the wasm engine's schema on its first real load instead. Desktop (the primary
- *  target) always has engine_probe, satisfying "options available before analysis". */
+ *  In a plain browser there is no native engine (analysis is desktop-only), so we
+ *  return []. Desktop always has engine_probe, satisfying "options available before analysis". */
 export async function ensureSchema(id: string): Promise<UciOption[]> {
   const cached = getSchema(id);
   if (cached) return cached;

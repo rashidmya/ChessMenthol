@@ -1,10 +1,6 @@
 /**
- * core/serialize.ts — Ported from the original Python chessmenthol/server/serialize.py (removed in the Svelte+Tauri migration).
- *
- * The Python source is the line-by-line spec.  Output DTO shapes match
- * app/src/lib/types.ts exactly (the UI consumes them).
- *
- * All chess logic goes through core/chess.ts; chessops is never imported here.
+ * core/serialize.ts — Serialises engine analysis + position data to UI DTO shapes.
+ * Tests are the spec. All chess logic goes through core/chess.ts.
  */
 
 import type { RgbaImage } from '../lib/capture';
@@ -24,7 +20,6 @@ export const PV_PLIES = 3;
 
 /**
  * Serialise an Eval to an EvalDto.
- * Python: eval_to_dict(ev)
  */
 export function evalToDict(ev: Eval): EvalDto {
   return { cp: ev.cp, mate: ev.mate, text: formatWhiteEval(ev) };
@@ -34,7 +29,6 @@ export function evalToDict(ev: Eval): EvalDto {
 
 /**
  * Serialise a Line (with the position it was computed for) to a LineDto.
- * Python: line_to_dict(line, board)
  *
  * line.pv is already string[] UCI — no conversion needed.
  */
@@ -53,7 +47,6 @@ export function lineToDict(line: Line, pos: Chess): LineDto {
 
 /**
  * Serialise an AnalysisInfo (with the position it was computed for).
- * Python: analysis_to_dict(analysis, board)
  */
 export function analysisToDict(
   analysis: AnalysisInfo,
@@ -71,7 +64,6 @@ export function analysisToDict(
 
 /**
  * Serialise a Classification to a ClassificationDto.
- * Python: classification_to_dict(c)
  *
  * c.label is already a lowercase string (MoveClass enum value) — no .value needed.
  */
@@ -84,7 +76,6 @@ export function classificationToDict(c: Classification): ClassificationDto {
 /**
  * SAN of the first `plies` plies of `pv` from `posAfter`, with a trailing
  * ' …' (U+2026) when the real variation is longer. Empty string for an empty pv.
- * Python: _continuation_san(board_after, pv, plies)
  */
 function continuationSan(posAfter: Chess, pv: string[], plies: number = PV_PLIES): string {
   if (!pv.length) return '';
@@ -97,7 +88,6 @@ function continuationSan(posAfter: Chess, pv: string[], plies: number = PV_PLIES
 
 /**
  * Enriched `lastMove` payload comparing the played move to the engine's best.
- * Python: last_move_to_dict(c, board_before, move, before_a, after_a, *, plies)
  *
  * Preconditions (guaranteed by the caller):
  *   - bestLine(beforeA) is not null and has at least one move in its PV
@@ -144,7 +134,7 @@ export function lastMoveToDict(
       san:      sanOf(posBefore, uci),
       uci,
       evalText: formatWhiteEval(bestLineAfter.eval),
-      // Full after-best pv (Python: after_a.best.pv)
+      // Full after-best pv
       pv:       continuationSan(afterPlayed, bestLineAfter.pv, plies),
     },
     best: {
@@ -152,7 +142,6 @@ export function lastMoveToDict(
       uci:      bestMoveUci,
       evalText: formatWhiteEval(bestLineBefore.eval),
       // Best pv WITHOUT its first move — already the row's name
-      // Python: best_line.pv[1:]
       pv:       continuationSan(afterBest, bestLineBefore.pv.slice(1), plies),
     },
   };
@@ -185,7 +174,6 @@ export async function offscreenJpegEncoder(width: number, height: number, src: R
 const MAX_WIDTH = 2560;
 
 /**
- * Port of serialize.py::region_shot_to_dict.
  * Downscales to ≤2560 width (no upscale), JPEG q80 via the injected encoder,
  * and returns the TRUE (original) desktop dimensions in the frame.
  */

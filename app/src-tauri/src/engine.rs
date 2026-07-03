@@ -171,7 +171,7 @@ fn bundled_sidecar_path() -> Result<String, String> {
 }
 
 /// Spawn `path`, send `uci`, collect `id name` + `option …` lines until `uciok`/timeout,
-/// kill. Timeout-parameterized for fast unit tests. (Same shape as the old validate_engine.)
+/// kill. Timeout-parameterized for fast unit tests.
 fn probe_path(path: &str, timeout: Duration) -> Result<EngineProbe, String> {
     let mut child = Command::new(path)
         .stdin(Stdio::piped())

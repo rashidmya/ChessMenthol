@@ -1,9 +1,7 @@
 /**
- * vision/position.ts — assemble an 8x8 grid of classified squares into a
- * concrete chess position, plus orientation / side-to-move / last-move inference.
- *
- * Faithful TS port of the original Python chessmenthol/position.py (removed in the Svelte+Tauri migration). Built entirely on the
- * `core/chess.ts` wrapper layer — this module NEVER imports chessops directly.
+ * vision/position.ts — Assembles classified squares into a chess position,
+ * plus orientation / side-to-move / last-move inference.
+ * Built entirely on the `core/chess.ts` wrapper layer — never imports chessops directly.
  *
  * `AssembledPosition` is PLAIN DATA (no chessops object held) so it can be
  * structured-cloned across a Web Worker boundary. The tracker keeps `prevFen`
@@ -122,7 +120,7 @@ export function assemble(
   // Project the (possibly black_bottom) grid into the white_bottom geometric
   // frame that assembleFromGrid expects: place each label at the white_bottom
   // cell of its algebraic square (squareName(col,row,orientation)). This mirrors
-  // position.py placing pieces via parse_square(square_name(col,row,orientation)).
+  // the Python original placing pieces via parse_square(square_name(col,row,orientation)).
   // assembleFromGrid's own squareNameGeom treats row 0 as rank 8 (white_bottom
   // only), so a black_bottom grid must be remapped here — effectively a 180°
   // rotation — before handing it over.

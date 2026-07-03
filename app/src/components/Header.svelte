@@ -12,7 +12,6 @@
 </header>
 
 <style>
-  /* ported from MOCKUP lines 36-44 */
   header {
     display: flex;
     align-items: flex-end;

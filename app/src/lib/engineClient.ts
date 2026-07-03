@@ -1,8 +1,6 @@
 /**
- * lib/engineClient.ts — drop-in replacement for lib/ws.ts.
- *
- * Drives the in-browser Orchestrator directly (no WebSocket). Exports the same
- * store surface + send(cmd) API as ws.ts so UI components are untouched.
+ * lib/engineClient.ts — Drives the in-browser Orchestrator directly (no WebSocket).
+ * Exports the store surface + send(cmd) API so UI components are untouched.
  *
  * Key behaviours:
  * - Stockfish is loaded lazily: only when analysis is first enabled, which

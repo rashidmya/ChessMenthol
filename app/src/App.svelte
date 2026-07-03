@@ -216,7 +216,7 @@
         {#if !editing}<BoardBadge lastMove={s?.lastMove ?? null} {orientation} />{/if}
         <!-- Analysis-only: Home is a clean start screen, and in Edit the EditPanel owns
              the side-to-move dropdown + its own flip, so the board-column turn/flip
-             control would only duplicate them (mockup v3). -->
+             control would only duplicate them. -->
         {#if screen === 'analysis'}
           <BoardControls sideToMove={s?.sideToMove ?? 'white'}
             onSetTurn={(white) => send({ type: 'set_turn', white })} onFlip={onFlip} />
@@ -261,7 +261,7 @@
         </Panel>
       {:else}
         <Panel title="Analysis" testid="analysis-card">
-          <!-- 1. Engine header + engine lines (one section) -->
+          <!-- Engine header + engine lines (one section) -->
           <!-- NOTE: EngineSettings search-time slider defaults to index 2 (10s), which already
                matches the backend default movetime (10s). Initializing the slider from s.movetime
                is deliberately deferred — defaults align and no prop plumbing is needed yet. -->
@@ -285,7 +285,7 @@
             {/if}
           </div>
 
-          <!-- 3. Move feedback — hidden until there's a move to describe, so no empty divider -->
+          <!-- Move feedback — hidden until there's a move to describe, so no empty divider -->
           {#if viewPrefs.feedback && analysisEnabled && (s?.lastMove || s?.annotating)}
             <div class="sec" data-testid="feedback-section">
               <div class="bd">
@@ -297,14 +297,14 @@
             </div>
           {/if}
 
-          <!-- 4. Move history (renders its own .movehist-sec; wrap in a growing .sec
+          <!-- Move history (renders its own .movehist-sec; wrap in a growing .sec
                so the history list absorbs the card's remaining height and scrolls) -->
           <div class="sec grow">
             <MoveHistory moveList={s?.moveList ?? []} currentPly={s?.currentPly ?? 0}
               {onNavigate} />
           </div>
 
-          <!-- 5. Action bar (footer) -->
+          <!-- Action bar (footer) -->
           <ActionBar slot="footer" currentPly={s?.currentPly ?? 0} total={s?.moveList?.length ?? 0}
             {onNavigate} onNew={onNew}
             onRequestAnalysis={onRequestAnalysis} onCancelAnalysis={onCancelAnalysis}

@@ -1,6 +1,4 @@
-// app/src/engine/types.ts
-// White's-point-of-view analysis types. Ported from the original Python chessmenthol/engine/types.py (removed in the Svelte+Tauri migration).
-// Plain data (no classes) so values survive structured clone / Svelte stores.
+// engine/types.ts — White's-POV analysis types. Plain data (no classes) so values survive structured clone / Svelte stores.
 
 export interface Eval {
   cp: number | null;   // centipawns, White POV (null when forced mate)

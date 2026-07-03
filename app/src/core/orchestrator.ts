@@ -1,9 +1,6 @@
 /**
- * core/orchestrator.ts — Ported from the original Python chessmenthol/server/orchestrator.py (removed in the Svelte+Tauri migration).
- *
- * The committed Python is the line-by-line parity spec. This module owns the
- * working board + settings + analysis session and turns commands into state
- * frames pushed via `send`.
+ * core/orchestrator.ts — Owns the working board + settings + analysis session;
+ * turns commands into state frames pushed via `send`.
  *
  * Runtime-model mapping (python-chess -> our TS):
  *   - chess.Board                -> chessops `Chess` (via core/chess.ts)
@@ -339,7 +336,7 @@ export class Orchestrator {
     this._resetMoveState();
     this._restart();
     // Forward the user's side override to the tracker so the next detection
-    // assembles with the correct side to move (mirrors orchestrator.py set_turn).
+    // assembles with the correct side to move.
     this._tracker?.setSideOverride(white);
   }
 
@@ -528,8 +525,7 @@ export class Orchestrator {
   }
 
   // ──────────────────────────────────────────────────────────────────────────
-  // vision (on-demand) — port of orchestrator.py _capture_now / _request_region_shot
-  // / _set_region / _clear_region / _apply_detection. No tracker ⇒ graceful re-emit.
+  // vision (on-demand) handlers. No tracker ⇒ graceful re-emit.
   // ──────────────────────────────────────────────────────────────────────────
 
   private async _captureNow(): Promise<void> {

@@ -7,9 +7,8 @@ export interface GlyphSpec {
   color: string;
 }
 
-/** Single source of truth for move-quality badge artwork, keyed by the backend
- *  MoveClass value from the original Python chessmenthol/analysis/classify.py (removed in the Svelte+Tauri migration). Colors/symbols live ONLY
- *  here — components read from this map, never hard-code their own. */
+/** Single source of truth for move-quality badge artwork, keyed by MoveClass.
+ *  Colors/symbols live ONLY here — components read from this map, never hard-code their own. */
 export const GLYPHS: Record<string, GlyphSpec> = {
   brilliant:  { kind: 'text',  symbol: '!!', color: '#1aa99c' },
   great:      { kind: 'text',  symbol: '!',  color: '#5a87b0' },

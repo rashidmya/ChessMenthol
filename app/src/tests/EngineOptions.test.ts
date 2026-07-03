@@ -102,7 +102,7 @@ describe('EngineOptions', () => {
     isTauriMock.mockReturnValue(false); // browser: ensureSchema returns [] initially
     const { findByText, findByLabelText } = render(EngineOptions, { props: { engineId: 'stockfish', onCommand: vi.fn() } });
     expect(await findByText(/options unavailable/i)).toBeTruthy();   // initially empty
-    setSchema('stockfish', schema as never);                         // controller caches wasm schema later
+    setSchema('stockfish', schema as never);                         // controller caches native schema later
     expect(await findByLabelText('Threads')).toBeTruthy();           // form auto-populates, no remount/reload
   });
 

@@ -1,12 +1,10 @@
-// app/src/vision/pieces.ts
-// Ported from the original Python chessmenthol/vision/pieces.py — the piece classifier (removed in the Svelte+Tauri migration).
+// vision/pieces.ts — Piece classifier.
 //
 // Reproduces cv2.dnn.blobFromImages with a hand-rolled OpenCV INTER_LINEAR
 // bilinear resize (cross-platform determinism: the same crop classifies
 // identically on every OS, unlike <canvas> which is GPU/driver dependent),
-// /255 scaling, NCHW [N,3,32,32], RGB plane order (no channel swap — see the
-// colour-space parity convention, rule 3: our crops are already RGB), the
-// chess-cv class order, and a per-row softmax postprocess.
+// /255 scaling, NCHW [N,3,32,32], RGB plane order (no channel swap — our crops are already RGB),
+// the chess-cv class order, and a per-row softmax postprocess.
 //
 // PieceClassifier is decoupled from the ONNX runtime via an injected `Runner`
 // closure, so the SAME class drives onnxruntime-web (in the vision worker) and

@@ -31,7 +31,6 @@
 </div>
 
 <style>
-  /* ported from MOCKUP lines 57-64 */
   .evalbar {
     position: relative;
     width: 30px;

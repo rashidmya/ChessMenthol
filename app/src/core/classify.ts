@@ -1,12 +1,5 @@
 /**
- * core/classify.ts — Ported from the original Python chessmenthol/analysis/classify.py (removed in the Svelte+Tauri migration).
- *
- * Faithful line-by-line port; the Python source is the spec.  See the
- * "Preserve these faithful quirks" note in the task brief for intentional
- * edge-case behaviour (en-passant gain=0, promotion risked = promoted piece).
- *
- * All chess logic is routed through core/chess.ts; chessops is never imported
- * directly here.
+ * core/classify.ts — Move classifier. Tests are the spec. All chess logic goes through core/chess.ts.
  *
  * DELIBERATE DIVERGENCE from the Python port (PGN-import / computer-analysis
  * report feature): the final band decision for Inaccuracy / Mistake / Blunder

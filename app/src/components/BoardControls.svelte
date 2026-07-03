@@ -18,7 +18,6 @@
 </div>
 
 <style>
-  /* ported from MOCKUP line 66 + lines 214-225 */
   .board-controls {
     display: flex;
     align-items: center;

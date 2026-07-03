@@ -39,8 +39,7 @@ pub fn run() {
 /// Wayland needs special handling: `xcap` relies on the `wlr-screencopy`
 /// protocol, which KWin/Mutter do NOT expose (capture fails with "Cannot find
 /// required wayland protocol"). So on Wayland we shell out to a desktop
-/// screenshot tool and decode the PNG — mirroring the original Python
-/// `WaylandShotBackend`. X11/Windows/macOS capture directly via `xcap`.
+/// screenshot tool and decode the PNG. X11/Windows/macOS capture directly via `xcap`.
 #[tauri::command]
 fn capture_frame() -> Result<tauri::ipc::Response, String> {
     let (width, height, rgba) = if is_wayland() {
@@ -82,9 +81,8 @@ fn capture_xcap() -> Result<(u32, u32, Vec<u8>), String> {
 }
 
 /// Wayland fallback: run a desktop screenshot CLI to a temp PNG, then decode it
-/// to RGBA. Candidates in priority order (matching the proven Python backend):
-/// spectacle (KDE) -> grim (wlroots) -> gnome-screenshot (GNOME). The fullscreen
-/// flags grab the whole (multi-monitor) desktop.
+/// to RGBA. Candidates in priority order: spectacle (KDE) -> grim (wlroots) -> gnome-screenshot (GNOME).
+/// The fullscreen flags grab the whole (multi-monitor) desktop.
 fn capture_wayland_cli() -> Result<(u32, u32, Vec<u8>), String> {
     let path = std::env::temp_dir().join(format!("chessmenthol_shot_{}.png", std::process::id()));
     let path_str = path.to_string_lossy().to_string();

@@ -1,8 +1,6 @@
 /**
- * vision/tracker.ts — single-frame pipeline (classifier-injected).
- *
- * Faithful TS port of the original Python chessmenthol/vision/tracker.py (removed in the Svelte+Tauri migration) MINUS the capturer.
- * Capture lives in `lib/capture.ts`; this module only receives an RgbaImage.
+ * vision/tracker.ts — Single-frame detection pipeline (classifier-injected).
+ * MINUS the capturer. Capture lives in `lib/capture.ts`; this module only receives an RgbaImage.
  *
  * Pipeline: detectPosition(image)
  *   detect(image)
