@@ -3,8 +3,8 @@
  *
  * Tests for lib/engineClient.ts — the no-WebSocket Orchestrator client.
  *
- * Analysis is never enabled here, so loadStockfish() is never called.
- * jsdom has no WASM worker; keeping analysis off is the critical isolation boundary.
+ * Analysis is never enabled here, so no engine is ever loaded.
+ * jsdom has no native engine; keeping analysis off is the critical isolation boundary.
  *
  * The module exports a singleton orchestrator. Between tests we call
  * send({ type: 'reset' }) to return the orchestrator to the start position.

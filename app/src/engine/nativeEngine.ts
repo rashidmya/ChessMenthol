@@ -1,8 +1,8 @@
 // app/src/engine/nativeEngine.ts
 // UciEngine implementation backed by a native UCI engine process (Tauri only):
-// the bundled Stockfish sidecar OR a user-provided external binary. Mirrors
-// WorkerEngine's contract: resolves once the engine answers `uciok`, splits
-// batched output into trimmed lines, and routes them to the registered listener.
+// the bundled Stockfish sidecar OR a user-provided external binary. Honors the
+// UciEngine contract: resolves once the engine answers `uciok`, splits batched
+// output into trimmed lines, and routes them to the registered listener.
 import { invoke, Channel } from '@tauri-apps/api/core';
 import type { UciEngine } from './engine';
 import { parseOptions } from './uciOptions';
@@ -58,6 +58,6 @@ export async function loadNativeEngine(spec: EngineSpec, timeoutMs = 10_000): Pr
 
   // After uciok, `listener` is still the inert handshake handler until the caller
   // registers their own via onLine() — lines arriving in that window are dropped,
-  // matching WorkerEngine's contract.
+  // matching the UciEngine contract.
   return engine;
 }
