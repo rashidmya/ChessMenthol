@@ -116,7 +116,12 @@ Runs in `vision-worker.ts` (a Web Worker), driven from the main thread via
 `visionClient.ts` (`VisionWorkerClient` / `VisionTracker`). Pipeline: `detect.ts` (axis-aligned
 board detection via edge profiles + autocorrelation — a pure-array-math port of the Python, no
 OpenCV) → `pieces.ts` (ONNX piece classifier via `onnxruntime-web`) → `position.ts` (assemble a
-FEN) → `tracker.ts` (temporal stabilization). The Rust `capture_frame` returns raw RGBA with an
+FEN) → `tracker.ts` (temporal stabilization). Orientation is resolved in the tracker as
+`override ?? readOrientationFromLabels (coords.ts, reads the board's rank labels via
+ink-density) ?? guessOrientation (pieces) ?? hint`; the user override is driven by the
+`set_board_side` command (the Board side: Auto/White/Black control in `BoardControls`). A
+180°-rotated position is itself legal, so the coordinate labels — not the pieces — are what
+disambiguate a sparse Black-side board. The Rust `capture_frame` returns raw RGBA with an
 8-byte little-endian `[width][height]` header over binary IPC; `lib/capture.ts` decodes and
 crops it.
 
