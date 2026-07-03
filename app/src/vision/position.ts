@@ -218,10 +218,17 @@ export function guessSideToMove(
     return posFromFen(prevFen).turn === 'white' ? 'black' : 'white';
   }
   if (opts.highlightSquares && opts.highlightSquares.length > 0) {
+    // Trust the highlight only when the pair looks like a completed move: exactly one
+    // square occupied (the destination) and the other empty (the origin). The piece on
+    // the destination is the mover, so the other side is to move. Any other shape
+    // (0 or >1 occupied) is ambiguous — decline and fall through to the default.
     const pos = posFromFen(fen);
-    for (const name of opts.highlightSquares) {
-      const code = pieceCodeAt(pos, name as SquareName);
-      if (code !== null) return code[0] === 'w' ? 'black' : 'white';
+    const occupied = opts.highlightSquares.filter(
+      (name) => pieceCodeAt(pos, name as SquareName) !== null,
+    );
+    if (occupied.length === 1) {
+      const code = pieceCodeAt(pos, occupied[0] as SquareName) as string;
+      return code[0] === 'w' ? 'black' : 'white';
     }
   }
   return 'white';

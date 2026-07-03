@@ -292,6 +292,17 @@ describe('guessSideToMove', () => {
     expect(guessSideToMove(fen, { highlightSquares: ['e2', 'e4'] })).toBe('black');
   });
 
+  it('declines (defaults white) when both highlighted squares are occupied', () => {
+    // Not a completed normal move -> ambiguous -> keep the default rather than guess wrong.
+    const fen = '4k3/8/8/8/4P3/8/4P3/4K3 w - - 0 1'; // pawns on e4 AND e2
+    expect(guessSideToMove(fen, { highlightSquares: ['e2', 'e4'] })).toBe('white');
+  });
+
+  it('declines (defaults white) when neither highlighted square is occupied', () => {
+    const fen = '4k3/8/8/8/8/8/8/4K3 w - - 0 1'; // e2 and e4 both empty
+    expect(guessSideToMove(fen, { highlightSquares: ['e2', 'e4'] })).toBe('white');
+  });
+
   it('defaults to white', () => {
     expect(guessSideToMove(START_FEN, {})).toBe('white');
   });
