@@ -42,6 +42,29 @@ describe('detect — synthetic golden boards', () => {
     expect(detect(renderBoard({ square: 40, margin: 24 }).image)!.highlightSquares).toEqual([]);
   });
 
+  it('detects the highlight under a piece on the destination square', () => {
+    // e4 is highlighted AND occupied (a real last-move destination). Centre sampling
+    // is dominated by the piece; corner sampling still sees the overlay.
+    const loc = detect(renderBoard({
+      square: 40, margin: 24, highlights: ['e2', 'e4'], pieces: ['e4'],
+    }).image)!;
+    expect(new Set(loc.highlightSquares)).toEqual(new Set(['e2', 'e4']));
+  });
+
+  it('ignores a red check/premove pair (warm-tint gate)', () => {
+    const loc = detect(renderBoard({
+      square: 40, margin: 24, premove: ['e7', 'e8'],
+    }).image)!;
+    expect(loc.highlightSquares).toEqual([]);
+  });
+
+  it('prefers the yellow last-move pair over a red premove pair', () => {
+    const loc = detect(renderBoard({
+      square: 40, margin: 24, highlights: ['e2', 'e4'], premove: ['a7', 'a8'],
+    }).image)!;
+    expect(new Set(loc.highlightSquares)).toEqual(new Set(['e2', 'e4']));
+  });
+
   it('robustness: IoU > 0.95 across geometry + theme variants', () => {
     for (const [square, margin] of [[24, 8], [32, 16], [40, 24], [56, 4], [64, 40]] as const) {
       const { image, truth } = renderBoard({ square, margin });

@@ -14,6 +14,12 @@ const CHECKER_SPREAD_WEIGHT = 2.0; // how strongly within-group color spread pen
 // the occluded-board and noise confidence floors.
 const DEFAULT_MIN_CONFIDENCE = 0.3;
 
+// Last-move-highlight detection. Corners are sampled (not the centre) so a piece on the
+// destination square doesn't wash out its translucent overlay; a "warm" gate keeps
+// yellow/green last-move tints and drops red check/premove highlights and arrows.
+const HIGHLIGHT_CORNER_FRAC = 0.2; // corner patch size as a fraction of the cell
+const WARM_TINT_MARGIN = 8;        // R and G must each exceed B by this many levels (also the noise floor)
+
 // --- small numeric helpers (numpy parity: population std ddof=0, banker's round) ---
 
 function mean(a: number[]): number {
@@ -171,6 +177,39 @@ function cellMeans(image: RgbaImage, gridX: number[], gridY: number[]): number[]
   return means;
 }
 
+/** Per-cell mean RGB over the four corner sub-patches (HIGHLIGHT_CORNER_FRAC of the cell).
+ *  The corners fall outside a centred piece's footprint, so an occupied square still
+ *  reports its translucent last-move overlay — which cellMeans' centre sample washes out.
+ *  8×8×3 (out[row][col] = [R,G,B]). */
+function cornerMeans(image: RgbaImage, gridX: number[], gridY: number[]): number[][][] {
+  const { data, width } = image;
+  const out: number[][][] = [];
+  for (let row = 0; row < 8; row++) {
+    const rowOut: number[][] = [];
+    for (let col = 0; col < 8; col++) {
+      const x0 = gridX[col], x1 = gridX[col + 1];
+      const y0 = gridY[row], y1 = gridY[row + 1];
+      const pw = Math.max(1, Math.floor((x1 - x0) * HIGHLIGHT_CORNER_FRAC));
+      const ph = Math.max(1, Math.floor((y1 - y0) * HIGHLIGHT_CORNER_FRAC));
+      const corners: [number, number][] = [
+        [x0, y0], [x1 - pw, y0], [x0, y1 - ph], [x1 - pw, y1 - ph],
+      ];
+      let sr = 0, sg = 0, sb = 0, cnt = 0;
+      for (const [cx, cy] of corners) {
+        for (let y = cy; y < cy + ph; y++) {
+          let i = (y * width + cx) * 4;
+          for (let x = cx; x < cx + pw; x++, i += 4) {
+            sr += data[i]; sg += data[i + 1]; sb += data[i + 2]; cnt++;
+          }
+        }
+      }
+      rowOut.push(cnt > 0 ? [sr / cnt, sg / cnt, sb / cnt] : [0, 0, 0]);
+    }
+    out.push(rowOut);
+  }
+  return out;
+}
+
 /** Channel-averaged cell means (means.mean(axis=2)) — the (R+G+B)/3 used by the
  *  confidence/orientation gates (NOT luma grayscale). */
 function grayMeansOf(means: number[][][]): number[][] {
@@ -213,53 +252,49 @@ function orientationHint(grayMeans: number[][]): Orientation | null {
   return bottomLeftIsDark ? 'white_bottom' : 'black_bottom';
 }
 
-/** Highlight squares: per-cell L2 deviation from the per-parity base colour, threshold
- *  mean+3σ, top 2 by deviation. L2 deviation is channel-order invariant. */
-function highlightSquares(means: number[][][], orientation: Orientation | null): string[] {
-  const base0 = [0, 0, 0];
-  const base1 = [0, 0, 0];
-  let n0 = 0;
-  let n1 = 0;
+/** True when a deviation vector points "warm" — red AND green both elevated relative to
+ *  blue — the signature of a yellow/green last-move overlay, independent of the (light or
+ *  dark) square underneath. Rejects red (check/premove: green not elevated), blue, and
+ *  grayscale (coordinate glyphs / shadows). */
+function isWarmTint(d: number[]): boolean {
+  return d[0] - d[2] > WARM_TINT_MARGIN && d[1] - d[2] > WARM_TINT_MARGIN;
+}
+
+/** Last-move highlight pair: the two strongest cells (by corner-sampled deviation from the
+ *  per-parity base) whose deviation is a warm (yellow/green) tint. Returns the pair, or []
+ *  when fewer than two qualify — the detection-layer fail-safe. The warm gate doubles as the
+ *  noise floor (a warm cell must have R and G each ≥ WARM_TINT_MARGIN over B — a real tint),
+ *  so there is deliberately NO separate statistical threshold: a mean+Kσ cutoff over all
+ *  cells would be inflated by a strong non-warm outlier (e.g. a red premove square) and could
+ *  then suppress a genuine warm pair. L2 magnitude is channel-order invariant; the warm gate
+ *  is hue-directional. */
+function highlightSquares(corner: number[][][], orientation: Orientation | null): string[] {
+  const base0 = [0, 0, 0], base1 = [0, 0, 0];
+  let n0 = 0, n1 = 0;
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 8; c++) {
-      const m = means[r][c];
-      if ((c + r) % 2 === 0) {
-        base0[0] += m[0]; base0[1] += m[1]; base0[2] += m[2]; n0++;
-      } else {
-        base1[0] += m[0]; base1[1] += m[1]; base1[2] += m[2]; n1++;
-      }
+      const m = corner[r][c];
+      if ((c + r) % 2 === 0) { base0[0] += m[0]; base0[1] += m[1]; base0[2] += m[2]; n0++; }
+      else { base1[0] += m[0]; base1[1] += m[1]; base1[2] += m[2]; n1++; }
     }
   }
-  for (let k = 0; k < 3; k++) {
-    base0[k] /= n0;
-    base1[k] /= n1;
-  }
+  for (let k = 0; k < 3; k++) { base0[k] /= n0; base1[k] /= n1; }
 
-  const devFlat: number[] = [];
-  const dev: number[][] = [];
+  const cand: [number, number, number][] = []; // (mag, col, row)
   for (let r = 0; r < 8; r++) {
-    const drow: number[] = [];
     for (let c = 0; c < 8; c++) {
       const base = (c + r) % 2 === 0 ? base0 : base1;
-      const m = means[r][c];
-      const dr = m[0] - base[0], dg = m[1] - base[1], db = m[2] - base[2];
-      const d = Math.sqrt(dr * dr + dg * dg + db * db);
-      drow.push(d);
-      devFlat.push(d);
-    }
-    dev.push(drow);
-  }
-  const thr = mean(devFlat) + 3.0 * std(devFlat);
-
-  const candidates: [number, number, number][] = []; // (dev, col, row)
-  for (let r = 0; r < 8; r++) {
-    for (let c = 0; c < 8; c++) {
-      if (dev[r][c] > thr) candidates.push([dev[r][c], c, r]);
+      const m = corner[r][c];
+      const d = [m[0] - base[0], m[1] - base[1], m[2] - base[2]];
+      if (!isWarmTint(d)) continue;
+      const mag = Math.sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+      cand.push([mag, c, r]);
     }
   }
-  // Python `candidates.sort(reverse=True)` — descending lexicographic on (dev, col, row).
-  candidates.sort((a, b) => b[0] - a[0] || b[1] - a[1] || b[2] - a[2]);
-  return candidates.slice(0, 2).map(([, c, r]) => squareName(c, r, orientation));
+  // Descending by (mag, col, row) — deterministic tiebreak, mirrors the prior code.
+  cand.sort((a, b) => b[0] - a[0] || b[1] - a[1] || b[2] - a[2]);
+  if (cand.length < 2) return [];
+  return cand.slice(0, 2).map(([, c, r]) => squareName(c, r, orientation));
 }
 
 /** python-chess square index (a1=0 .. h8=63). */
@@ -328,7 +363,7 @@ export function detect(
     height: gridY[8] - gridY[0],
   };
   const orientation = orientationHint(grayMeans);
-  const highlights = highlightSquares(means, orientation);
+  const highlights = highlightSquares(cornerMeans(image, gridX, gridY), orientation);
   return {
     bbox,
     gridX,
