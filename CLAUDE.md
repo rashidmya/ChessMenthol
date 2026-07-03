@@ -197,6 +197,11 @@ Two shared "single source of truth" abstractions to reuse rather than re-derive:
 - Several features still have a **pending manual desktop pass** (a human gate) beyond the green
   automated suite — verify vision/engine/icon rendering under
   `WEBKIT_DISABLE_DMABUF_RENDERER=1 npm run tauri dev` before declaring UI/desktop work done.
+- Releases are cut by pushing a `v*` tag (`.github/workflows/release.yml` → `tauri-action`
+  builds the 3-platform matrix and drafts a GitHub release with **auto-generated notes**,
+  `generateReleaseNotes: true`). Those notes list **merged pull requests** in the tag range, so
+  land release-worthy work via **PRs** — commits pushed straight to `main` show up only in the
+  `Full Changelog` compare link, never as changelog entries.
 
 ## Maintaining this file
 

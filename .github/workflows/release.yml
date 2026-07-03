@@ -79,6 +79,7 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'ChessMenthol ${{ github.ref_name }}'
           releaseBody: 'See the assets below to download and install ChessMenthol.'
+          generateReleaseNotes: true
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
