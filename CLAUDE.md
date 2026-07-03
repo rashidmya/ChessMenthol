@@ -166,6 +166,13 @@ Two shared "single source of truth" abstractions to reuse rather than re-derive:
   when no tracker is injected.
 - **Tests are the spec.** Classification, accuracy, and serialization changes must keep the
   parity numbers pinned in `src/tests/`.
+- **Responsive layout** reflows the desktop UI into a single vertical scroll below **819.98px**
+  (phone/tablet-portrait / small window). The breakpoint lives in four places that MUST stay in
+  sync: `lib/viewport.ts` (`NARROW_MAX` + the `isNarrow` matchMedia store), and `@media
+  (max-width: 819.98px)` blocks in `app.css`, `App.svelte`, and `MoveHistory.svelte`. Pure-CSS
+  reflow is verified by the **manual desktop gate** (jsdom can't evaluate media queries); only
+  the DOM relocations CSS can't express (nav arrows move under the board, eval bar goes
+  horizontal) are driven by `isNarrow`. Touch sizing uses `@media (pointer: coarse)`.
 - **License is GPLv3** (see `NOTICE.md`). Vendored Lichess assets (icon font, figurine font)
   are AGPL/GPL — add an attribution entry to `NOTICE.md` when vendoring more.
 
