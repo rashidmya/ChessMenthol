@@ -32,7 +32,7 @@ npm install
 npm run tauri dev     # desktop app (Tauri + WebKit) — vision + native engine enabled
 npm run dev           # renderer in a plain browser (UI only) — no vision, no engine
 
-npm run test          # Vitest (run mode). ~600 cases across src/tests/
+npm run test          # Vitest (run mode). ~580 cases across src/tests/
 npm run check         # svelte-check + tsc -p tsconfig.node.json
 npx tsc -p tsconfig.app.json --noEmit          # app type-check only
 npx svelte-check --tsconfig ./tsconfig.app.json

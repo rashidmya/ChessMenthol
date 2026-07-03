@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { GLYPHS, glyphFor } from '../lib/glyphs';
 
-// Mirror of the original Python chessmenthol/analysis/classify.py MoveClass values (removed in the Svelte+Tauri migration).
+// The 9 MoveClass taxonomy values — each must have a glyph spec.
 const MOVE_CLASSES = [
   'brilliant', 'great', 'best', 'excellent', 'good',
   'inaccuracy', 'mistake', 'blunder', 'miss',
