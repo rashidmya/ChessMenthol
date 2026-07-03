@@ -415,8 +415,9 @@
   @media (max-width: 819.98px) {
     .app { height: auto; min-height: calc(100dvh - 40px); }
     main { flex-direction: column; align-items: stretch; gap: 12px; }
-    .board-col { flex: initial; align-self: stretch; }
-    .board-wrap { width: 100%; }
+    /* Full-width column, but the board-wrap keeps `width: var(--bsize)` (narrowed
+       in app.css to min(100vw - 20px, 66vh)) so the board is height-capped; center it. */
+    .board-col { flex: initial; align-self: stretch; justify-content: center; }
     .panel { width: 100%; }
   }
 </style>

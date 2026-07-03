@@ -4,6 +4,9 @@
   export let sideToMove: 'white' | 'black' = 'white';
   export let onSetTurn: (white: boolean) => void = () => {};
   $: black = sideToMove === 'black';
+  // Toggling flips the side to move. With only two states, "currently black"
+  // is exactly the desired new `white` flag (black→white=true, white→black=false),
+  // so the click handler passes `black` directly to onSetTurn(white).
 </script>
 
 <button
@@ -41,8 +44,9 @@
   }
   .knob {
     position: absolute;
-    top: 2px;
+    top: 50%;
     left: 2px;
+    transform: translateY(-50%);
     width: 22px;
     height: 22px;
     border-radius: 50%;

@@ -105,7 +105,9 @@
     .movehist { overflow: visible; padding: 2px 2px; line-height: 1.95; }
     .mh-row { display: inline; background: none !important; }
     .mh-no { display: inline; margin: 0 4px 0 7px; font-size: 10px; }
-    .mh-no:first-child { margin-left: 0; }
+    /* Trim only the very first move number's leading indent (each .mh-no is the
+       first child of its own .mh-row, so `.mh-no:first-child` would match every row). */
+    .movehist > .mh-row:first-child .mh-no { margin-left: 0; }
     .mh-mv {
       display: inline-flex; vertical-align: middle;
       padding: 2px 5px; margin: 0 1px; font-size: 13px; border-radius: 5px;

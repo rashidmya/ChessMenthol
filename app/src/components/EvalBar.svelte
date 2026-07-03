@@ -83,6 +83,6 @@
     background: linear-gradient(90deg, #f8f5ef, #e6e2d6);
     transition: width 1s cubic-bezier(.2,.8,.2,1);
   }
-  .evalbar.horizontal .mid { top: 0; bottom: 0; left: 50%; height: auto; width: 1px; }
-  .evalbar.horizontal .sc { top: 50%; transform: translateY(-50%); left: auto; right: auto; }
+  .evalbar.horizontal .mid { top: 0; bottom: 0; left: 50%; right: auto; height: auto; width: 1px; }
+  .evalbar.horizontal .sc { top: 50%; transform: translateY(-50%); left: auto; right: auto; font-size: 10px; }
 </style>
