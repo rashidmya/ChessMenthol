@@ -52,6 +52,12 @@ body{
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.03'/%3E%3C/svg%3E");
   background-attachment:fixed;
 }
+/* Frameless window: the custom titlebar (Titlebar.svelte, Tauri only) is a fixed
+   strip at the top edge, so reserve space below it. The class is toggled by the
+   component on mount/destroy, leaving the plain-browser dev path untouched. */
+body.has-titlebar { padding-top: calc(34px + 12px); }
+/* Windows touch/pen drag support for the drag region (no-op on other platforms). */
+*[data-tauri-drag-region] { app-region: drag; }
 ::selection{background:var(--green); color:#fff}
 
 /* Entrance animation for panels and cards that fade-and-rise on mount. */
@@ -75,4 +81,6 @@ body{
     padding-left: max(10px, env(safe-area-inset-left, 0px));
     padding-right: max(10px, env(safe-area-inset-right, 0px));
   }
+  /* Tighter reserve on narrow layouts (base narrow padding-top is 10px). */
+  body.has-titlebar { padding-top: calc(34px + 6px); }
 }

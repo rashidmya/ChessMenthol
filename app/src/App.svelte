@@ -26,6 +26,8 @@
   import ActionBar from './components/ActionBar.svelte';
   import Panel from './components/Panel.svelte';
   import Icon from './components/Icon.svelte';
+  import Titlebar from './components/Titlebar.svelte';
+  import { isTauri } from '@tauri-apps/api/core';
   import { captureCommands, type Region } from './lib/region';
   import { hasNativeCapture } from './lib/capture';
   import { makePositionPgn, looksLikePgn } from './core/pgn';
@@ -208,6 +210,7 @@
 </script>
 
 <div class="app">
+  {#if isTauri()}<Titlebar />{/if}
   <Header />
   <main>
     <div class="board-col">

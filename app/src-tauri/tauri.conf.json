@@ -11,7 +11,7 @@
   },
   "app": {
     "windows": [
-      { "title": "ChessMenthol", "width": 1280, "height": 800, "resizable": true, "fullscreen": false }
+      { "title": "ChessMenthol", "width": 1280, "height": 800, "resizable": true, "fullscreen": false, "decorations": false }
     ],
     "security": {
       "csp": null,
