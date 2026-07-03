@@ -26,12 +26,13 @@
 <style>
   .turn-toggle {
     position: relative;
-    width: 52px;
-    height: 28px;
-    border-radius: 15px;
-    background: var(--keyline, #e0dacb);
+    width: 44px;
+    height: 22px;
+    border-radius: 11px;
+    /* White to move -> the track itself reads white; black to move darkens it. */
+    background: #ffffff;
     border: 1px solid var(--keyline-2, #cfc7b3);
-    box-shadow: inset 0 1px 3px rgba(40, 30, 15, 0.16);
+    box-shadow: inset 0 1px 2px rgba(40, 30, 15, 0.12);
     cursor: pointer;
     padding: 0;
     flex: none;
@@ -40,28 +41,29 @@
   .turn-toggle.black {
     background: #26221c;
     border-color: #120f0a;
-    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.55);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.55);
   }
   .knob {
     position: absolute;
     top: 50%;
     left: 2px;
     transform: translateY(-50%);
-    width: 22px;
-    height: 22px;
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
     background: #fbf9f4;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.32), 0 0 0 1px rgba(0, 0, 0, 0.05);
+    /* Ring is a touch stronger so the near-white knob stays legible on the white track. */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.30), 0 0 0 1px rgba(0, 0, 0, 0.12);
     display: grid;
     place-items: center;
     transition: left 0.2s;
   }
-  .turn-toggle.black .knob { left: calc(100% - 24px); }
-  .knob img { width: 16px; height: 16px; display: block; }
+  .turn-toggle.black .knob { left: calc(100% - 20px); }
+  .knob img { width: 13px; height: 13px; display: block; }
   @media (pointer: coarse) {
-    .turn-toggle { width: 58px; height: 32px; }
-    .turn-toggle.black .knob { left: calc(100% - 28px); }
-    .knob { width: 26px; height: 26px; }
-    .knob img { width: 18px; height: 18px; }
+    .turn-toggle { width: 50px; height: 26px; border-radius: 13px; }
+    .turn-toggle.black .knob { left: calc(100% - 24px); }
+    .knob { width: 22px; height: 22px; }
+    .knob img { width: 15px; height: 15px; }
   }
 </style>

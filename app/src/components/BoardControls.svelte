@@ -20,18 +20,19 @@
     align-items: center;
     gap: 10px;
     justify-content: flex-end;
-    margin-top: 10px;
+    margin-top: 4px;
   }
   .icobtn {
-    width: 36px;
-    height: 36px;
+    width: 30px;
+    height: 30px;
     display: grid;
     place-items: center;
     border: none;
     background: transparent;
     cursor: pointer;
     color: var(--ink-3, #7d776b);
-    font-size: 19px;
+    font-size: 18px;
+    line-height: 1;
     transition: .15s;
   }
   .icobtn:hover { color: var(--green, #2f5d3a); }
