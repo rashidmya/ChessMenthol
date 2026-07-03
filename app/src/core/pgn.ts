@@ -6,8 +6,9 @@
 import { makePgn, defaultGame, parsePgn, startingPosition, type PgnNodeData } from 'chessops/pgn';
 import { parseSan } from 'chessops/san';
 import { makeFen } from 'chessops/fen';
-import { makeUci, squareFile, squareRank } from 'chessops/util';
+import { makeUci, squareFile } from 'chessops/util';
 import { isNormal } from 'chessops/types';
+import { castleKingTarget } from './chess';
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -70,8 +71,7 @@ export function parseGame(text: string): ParsedGame {
           (dest?.role === 'rook' && dest.color === piece.color) ||
           Math.abs(squareFile(move.to) - fromFile) >= 2;
         if (isCastle) {
-          const kingToFile = squareFile(move.to) > fromFile ? 6 : 2; // g-file / c-file
-          uci = makeUci({ from: move.from, to: kingToFile + squareRank(move.from) * 8 });
+          uci = makeUci({ from: move.from, to: castleKingTarget(move.from, move.to) });
         }
       }
     }

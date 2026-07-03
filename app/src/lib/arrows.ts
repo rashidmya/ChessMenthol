@@ -1,3 +1,5 @@
+import { winningChances } from '../core/accuracy';
+
 /** Pure conversion of engine PV lines into chessground auto-shapes (arrows),
  *  mirroring Lichess's analysis board (ui/analyse/src/autoShape.ts):
  *   - the best line (index 0) is a bold blue arrow ('paleBlue', the brush's
@@ -20,17 +22,16 @@ export interface Shape {
  *  (centipawns / moves-to-mate), matching our serialized LineDto. */
 export interface ArrowLine { pv: string[]; cp: number | null; mate: number | null; }
 
-// --- Win-chance model, copied verbatim from Lichess's ui/ceval/winningChances.ts ---
-function rawWinningChances(cp: number): number {
-  const MULTIPLIER = -0.00368208;
-  return 2 / (1 + Math.exp(MULTIPLIER * cp)) - 1;
-}
+// --- Win-chance model, shared with core/accuracy.ts (Lichess ui/ceval/winningChances.ts).
+//     winningChances() output-clamps to [-1,1]; that clamp is inert for every input
+//     below (cp path |cp|<=1000; mate path cp in [1100,2000]), so behavior is identical
+//     to the former local rawWinningChances. ---
 function cpWinningChances(cp: number): number {
-  return rawWinningChances(Math.min(Math.max(-1000, cp), 1000));
+  return winningChances(Math.min(Math.max(-1000, cp), 1000));
 }
 function mateWinningChances(mate: number): number {
   const cp = (21 - Math.min(10, Math.abs(mate))) * 100;
-  return rawWinningChances(cp * (mate > 0 ? 1 : -1));
+  return winningChances(cp * (mate > 0 ? 1 : -1));
 }
 function evalWinningChances(line: ArrowLine): number {
   if (line.mate !== null) return mateWinningChances(line.mate);

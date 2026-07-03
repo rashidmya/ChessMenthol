@@ -186,6 +186,7 @@ export function classifyMove(
   const t  = thresholds ?? DEFAULT_THRESHOLDS;
 
   const moverWhite = posBefore.turn === 'white';
+  const moverSign  = moverWhite ? 1 : -1;
 
   // ── best line before the move ─────────────────────────────────────────────
   const bestLineBefore = bestLine(analysisBefore);
@@ -212,7 +213,6 @@ export function classifyMove(
   // positions, so keeping a won game no longer looks like an only-move.
   let secondWcDrop: number | null = null;
   if (analysisBefore.lines.length >= 2) {
-    const moverSign = moverWhite ? 1 : -1;
     const bestWc   = winningChances(cpFromEval(bestLineBefore.eval) * moverSign);
     const secondWc = winningChances(cpFromEval(analysisBefore.lines[1].eval) * moverSign);
     secondWcDrop = bestWc - secondWc;
@@ -257,7 +257,6 @@ export function classifyMove(
   }
 
   // ── Lichess ?!/?/?? via winning-chances drop (mover POV) ──────────────────
-  const moverSign = moverWhite ? 1 : -1;
   const beforeEval = bestLineBefore.eval;   // position before, best play
   const afterEval  = afterBest.eval;        // position after the played move
   const prevWC = winningChances(cpFromEval(beforeEval) * moverSign);

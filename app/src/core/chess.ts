@@ -58,6 +58,17 @@ export function legalDestsCg(pos: Chess): Map<SquareName, SquareName[]> {
   return chessgroundDests(pos);
 }
 
+// ─── castleKingTarget ────────────────────────────────────────────────────────
+
+/** King's destination square (king-two-square form: e1g1 / e1c1) for a castling
+ *  move. `to` may be the rook square (chessops king-takes-rook, e1h1) or the
+ *  king's two-square target — both sit on the king's own rank, so index order
+ *  matches file order. */
+export function castleKingTarget(from: Square, to: Square): Square {
+  const kingFile = to > from ? 6 : 2; // g-file kingside / c-file queenside
+  return kingFile + squareRank(from) * 8;
+}
+
 // ─── legalMovesUci ───────────────────────────────────────────────────────────
 
 /**
@@ -81,8 +92,7 @@ export function legalMovesUci(pos: Chess): string[] {
       // whichever destination the board offered (chessgroundDests offers the king
       // both the rook square and the g/c file). Standard-chess only (king on e-file).
       if (isKing && destPiece?.role === 'rook' && destPiece.color === piece!.color) {
-        const kingFile = to > from ? 6 : 2; // g-file kingside / c-file queenside
-        moves.push(makeUci({ from, to: kingFile + squareRank(from) * 8 })); // e1g1 / e1c1
+        moves.push(makeUci({ from, to: castleKingTarget(from, to) })); // e1g1 / e1c1
         moves.push(makeUci({ from, to })); // e1h1 / e1a1 (king-takes-rook form)
         continue;
       }
