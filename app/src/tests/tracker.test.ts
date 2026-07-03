@@ -228,7 +228,10 @@ describe('Tracker', () => {
     const tracker = new Tracker(new FakeClassifier(START_FEN));
     tracker.setOrientationOverride('white_bottom'); // user forces White
     const ap = await tracker.detectPosition(image);
-    expect(ap!.orientation).toBe('white_bottom'); // override wins over OCR's black_bottom
+    // The board's coordinate labels read black_bottom, but the override sits first in the
+    // resolution chain and short-circuits it (OCR is never consulted) → white_bottom.
+    // Guards that the manual override keeps precedence over the coordinate-label signal.
+    expect(ap!.orientation).toBe('white_bottom');
   });
 
   it('reset() clears prevFen (no move inferred after reset)', async () => {
