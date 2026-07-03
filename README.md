@@ -9,10 +9,10 @@ recognizes the position with computer vision, and analyzes it with Stockfish —
 evaluations, best lines, and chess.com-style move classification (brilliant / great / best / …
 / blunder / miss).
 
-Everything runs **locally and offline**: the chess logic, move classification, and
-board-vision pipeline run in **WebAssembly** inside a **Svelte 5** UI, wrapped in a thin
-**Tauri 2 (Rust)** shell that does what a web page cannot — capture the screen and run a
-**native Stockfish** engine.
+Everything runs **locally and offline**: chess logic and move classification are plain
+TypeScript; the board-vision pipeline runs in **WebAssembly** (onnxruntime-web) inside a
+**Svelte 5** UI, wrapped in a thin **Tauri 2 (Rust)** shell that does what a web page cannot —
+capture the screen and run a **native Stockfish** engine.
 
 ## Features
 

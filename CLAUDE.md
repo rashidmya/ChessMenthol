@@ -63,9 +63,8 @@ vision assets into `public/`. If the model fails to load in dev, re-run
 UI never touches the engine or board directly. It calls `send(command)` and reads reactive
 stores. `app/src/lib/engineClient.ts` is the hub: it owns the Svelte stores (`state`,
 `report`, `regionShot`, `lastError`, …), instantiates the `Orchestrator`, and routes emitted
-frames back into those stores. It is a drop-in replacement for the old WebSocket client
-(`ws.ts`), so the `send(Command)` / store surface deliberately mirrors a network protocol even
-though everything is in-process.
+frames back into those stores. The `send(Command)` / store surface deliberately mirrors a
+network protocol even though everything is in-process.
 
 - **Commands** and **frames** (the whole UI↔core contract) are the discriminated unions in
   `app/src/lib/types.ts` — `Command`, `ServerFrame` (`StateFrame | ReportFrame |

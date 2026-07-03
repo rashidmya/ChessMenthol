@@ -21,9 +21,12 @@ included in the [`LICENSE`](LICENSE) file at the root of this repository.
 This project bundles and/or links third-party components, each under its own
 license. The notable copyleft components requiring compliance are:
 
-- **Stockfish (WASM build)** — GNU General Public License v3.0 or later.
-  The chess engine, compiled to WebAssembly and run in a Web Worker via the
-  `stockfish` npm package; driven over the UCI protocol in TypeScript.
+- **Stockfish (native binary + NNUE net)** — GNU General Public License v3.0 or later.
+  The app redistributes a native Stockfish executable as a Tauri sidecar
+  (`app/src-tauri/binaries/`) and its NNUE evaluation network
+  (`app/src-tauri/resources/engine/`), provisioned by
+  `app/scripts/fetch-sidecar.mjs` (pinned tag `sf_18`); driven over the UCI
+  protocol in TypeScript.
   Corresponding source: <https://github.com/official-stockfish/Stockfish>
 
 - **chessground** (`@lichess-org/chessground`) — GNU General Public License
