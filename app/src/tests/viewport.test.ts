@@ -9,8 +9,7 @@ function installMatchMedia(initial: boolean) {
     addEventListener: (_type: string, l: (e: { matches: boolean }) => void) => { listener = l; },
     removeEventListener: () => { listener = null; },
   };
-  // @ts-expect-error jsdom has no matchMedia by default
-  window.matchMedia = vi.fn().mockReturnValue(mql);
+  window.matchMedia = vi.fn().mockReturnValue(mql) as unknown as typeof window.matchMedia;
   return { fire: (matches: boolean) => { mql.matches = matches; listener?.({ matches }); } };
 }
 
