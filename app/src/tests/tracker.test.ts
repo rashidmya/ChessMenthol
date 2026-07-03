@@ -144,6 +144,21 @@ describe('Tracker', () => {
     expect(ap!.sideToMove).toBe('black');
   });
 
+  it('resolves black-to-move from the last-move highlight on a fresh capture', async () => {
+    // White just pushed a pawn to e4 (destination occupied, e2 origin empty), both
+    // squares highlighted. No prevFen and no override -> the turn must come from the
+    // highlight: the piece on the highlighted destination is White, so Black is to move.
+    const fen = '4k3/8/8/8/4P3/8/8/4K3 w - - 0 1';
+    const occupied = occupiedSquares(fen); // ['e1','e4','e8']
+    const { image } = renderBoard({
+      square: 48, margin: 24, pieces: occupied, highlights: ['e2', 'e4'],
+    });
+    const tracker = new Tracker(new FakeClassifier(fen));
+    const ap = await tracker.detectPosition(image);
+    expect(ap).not.toBeNull();
+    expect(ap!.sideToMove).toBe('black');
+  });
+
   it('honours an orientation override (black_bottom)', async () => {
     const occupied = occupiedSquares(START_FEN);
     const { image } = renderBoard({ square: 32, margin: 24, pieces: occupied });
