@@ -7,6 +7,7 @@
   // Whether the OS window is maximized — drives the max/restore glyph + label.
   let maximized = false;
   let unlisten: UnlistenFn | null = null;
+  let destroyed = false;
 
   // Every window op is best-effort: a rejected IPC promise (e.g. a missing
   // permission) is logged, never thrown into the UI. getCurrentWindow() is only
@@ -42,11 +43,15 @@
     // Keep the glyph in sync when the OS maximizes/restores (snap, Super+Up, …).
     getCurrentWindow()
       .onResized(() => refreshMaximized())
-      .then((fn) => { unlisten = fn; })
+      .then((fn) => {
+        if (destroyed) { fn(); return; } // unmounted before the subscription resolved
+        unlisten = fn;
+      })
       .catch((e) => console.error('[titlebar]', e));
   });
 
   onDestroy(() => {
+    destroyed = true;
     if (unlisten) unlisten();
     document.body.classList.remove('has-titlebar');
   });
@@ -92,7 +97,7 @@
     top: 0;
     left: 0;
     right: 0;
-    height: 34px;
+    height: var(--titlebar-h);
     display: flex;
     align-items: stretch;
     z-index: 1000;
@@ -104,7 +109,7 @@
   .controls { display: flex; align-items: stretch; }
   .tb-btn {
     width: 46px;
-    height: 34px;
+    height: var(--titlebar-h);
     display: grid;
     place-items: center;
     padding: 0;

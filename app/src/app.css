@@ -40,6 +40,7 @@
   --sym:'Segoe UI Symbol','Apple Symbols','Noto Sans Symbols2','Noto Sans Symbols',sans-serif;
   --figurine:'Chess Figurine';
   --bsize:clamp(300px, min(78vh, 100vw - 500px), 880px);
+  --titlebar-h:34px;
 }
 *{box-sizing:border-box}
 html,body{margin:0}
@@ -55,7 +56,7 @@ body{
 /* Frameless window: the custom titlebar (Titlebar.svelte, Tauri only) is a fixed
    strip at the top edge, so reserve space below it. The class is toggled by the
    component on mount/destroy, leaving the plain-browser dev path untouched. */
-body.has-titlebar { padding-top: calc(34px + 12px); }
+body.has-titlebar { padding-top: calc(var(--titlebar-h) + 12px); }
 /* Windows touch/pen drag support for the drag region (no-op on other platforms). */
 *[data-tauri-drag-region] { app-region: drag; }
 ::selection{background:var(--green); color:#fff}
@@ -82,5 +83,5 @@ body.has-titlebar { padding-top: calc(34px + 12px); }
     padding-right: max(10px, env(safe-area-inset-right, 0px));
   }
   /* Tighter reserve on narrow layouts (base narrow padding-top is 10px). */
-  body.has-titlebar { padding-top: calc(34px + 6px); }
+  body.has-titlebar { padding-top: calc(var(--titlebar-h) + 6px); }
 }

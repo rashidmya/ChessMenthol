@@ -89,7 +89,7 @@
 </div>
 
 <style>
-  .overlay { position: fixed; inset: 0; z-index: 50; background: #0b0c0f;
+  .overlay { position: fixed; inset: 0; z-index: 2000; /* above the custom titlebar (z-index 1000) so its controls don't intercept the capture toolbar */ background: #0b0c0f;
     display: flex; flex-direction: column; align-items: center; }
   .bar { display: flex; gap: 10px; align-items: center; padding: 8px 12px; color: #e8e8e8;
     font: 12px system-ui; width: 100%; box-sizing: border-box; background: #1b1e24; }
