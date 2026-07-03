@@ -64,8 +64,23 @@ export function decide(topInk: number, botInk: number): Orientation | null {
   return topInk > botInk ? 'white_bottom' : 'black_bottom';
 }
 
+/** Ink in the LEFT-margin band at the vertical centre of grid row `row` — where
+ *  lichess can render margin coordinates. Out-of-frame margins read as 0. */
+function rankMarginInk(img: RgbaImage, loc: BoardLocation, row: number): number {
+  const sq = loc.gridX[1] - loc.gridX[0];
+  const band = Math.max(1, Math.floor(sq * 0.6));
+  const x0 = loc.gridX[0] - band;
+  const rowH = loc.gridY[row + 1] - loc.gridY[row];
+  const y0 = loc.gridY[row] + Math.floor(rowH / 3);
+  const h = Math.max(1, Math.floor(rowH / 3));
+  return inkFraction(img, x0, y0, band, h);
+}
+
 export function readOrientationFromLabels(img: RgbaImage, loc: BoardLocation): Orientation | null {
   if (loc.gridX.length < 9 || loc.gridY.length < 9) return null;
-  // chess.com renders the rank digit in the top-left corner of each left-column square.
-  return decide(rankCornerInk(img, loc, 0, 0), rankCornerInk(img, loc, 0, 7));
+  // chess.com: rank digit inside the top-left corner of each left-column square.
+  const inside = decide(rankCornerInk(img, loc, 0, 0), rankCornerInk(img, loc, 0, 7));
+  if (inside !== null) return inside;
+  // lichess may render coordinates in the left margin instead.
+  return decide(rankMarginInk(img, loc, 0), rankMarginInk(img, loc, 7));
 }

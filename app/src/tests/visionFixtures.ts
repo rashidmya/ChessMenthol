@@ -25,7 +25,8 @@ function setPx(img: RgbaImage, x: number, y: number, [r, g, b]: [number, number,
 export interface RenderOpts {
   square?: number; margin?: number;
   pieces?: string[]; highlights?: string[];
-  coords?: Orientation;       // draw rank labels (dense '8' / sparse '1') for this orientation
+  coords?: Orientation;       // labels inside the corner squares (chess.com)
+  marginCoords?: Orientation; // labels in the left margin (lichess)
 }
 
 // Fill `density` of the TOP-LEFT corner-cell of square (col,row) — where chess.com
@@ -42,6 +43,24 @@ function stampMark(img: RgbaImage, margin: number, square: number,
   let drawn = 0;
   for (let dy = 0; dy < corner && drawn < target; dy++)
     for (let dx = 0; dx < corner && drawn < target; dx++) { setPx(img, x0 + dx, y0 + dy, ink); drawn++; }
+}
+
+// Draw a rank mark in the LEFT margin, vertically centred on square (col=0,row),
+// near the board's left edge — where lichess can render margin coordinates.
+function stampMarginMark(img: RgbaImage, margin: number, square: number,
+                         row: number, density: number): void {
+  // The margin backdrop is the flat BG fill (not an alternating light/dark square
+  // like the board itself), so — unlike stampMark — a single ink colour with enough
+  // contrast against BG works for every row; no light/dark alternation needed.
+  const ink: [number, number, number] = [235, 235, 235];
+  const band = Math.floor(square * 0.6);           // matches the reader's margin band width
+  const x0 = Math.max(0, margin - band);
+  const h = Math.floor(square / 3);
+  const y0 = margin + row * square + Math.floor(square / 3);
+  const target = Math.max(1, Math.floor(band * h * density));
+  let drawn = 0;
+  for (let dy = 0; dy < h && drawn < target; dy++)
+    for (let dx = 0; dx < band && drawn < target; dx++) { setPx(img, x0 + dx, y0 + dy, ink); drawn++; }
 }
 
 export function renderBoard(opts: RenderOpts = {}): { image: RgbaImage; truth: BoardLocation } {
@@ -86,6 +105,12 @@ export function renderBoard(opts: RenderOpts = {}): { image: RgbaImage; truth: B
     const oneRow = opts.coords === 'white_bottom' ? 7 : 0;   // square showing rank 1
     stampMark(image, margin, square, 0, eightRow, 0.42);
     stampMark(image, margin, square, 0, oneRow, 0.12);
+  }
+  if (opts.marginCoords) {
+    const eightRow = opts.marginCoords === 'white_bottom' ? 0 : 7;
+    const oneRow = opts.marginCoords === 'white_bottom' ? 7 : 0;
+    stampMarginMark(image, margin, square, eightRow, 0.5);
+    stampMarginMark(image, margin, square, oneRow, 0.15);
   }
   const gridX = Array.from({ length: 9 }, (_, i) => margin + i * square);
   const gridY = gridX.slice();

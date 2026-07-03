@@ -40,3 +40,24 @@ describe('readOrientationFromLabels — inside-corner labels', () => {
     expect(readOrientationFromLabels(image, loc)).toBeNull();
   });
 });
+
+describe('readOrientationFromLabels — margin labels + gating', () => {
+  it('falls back to left-margin labels (lichess) — white_bottom', () => {
+    // margin (32) must be >= the reader's 0.6*square band (28) so the band is on-screen
+    const { image } = renderBoard({ square: 48, margin: 32, marginCoords: 'white_bottom' });
+    const loc = detect(image)!;
+    expect(readOrientationFromLabels(image, loc)).toBe('white_bottom');
+  });
+
+  it('falls back to left-margin labels (lichess) — black_bottom', () => {
+    const { image } = renderBoard({ square: 48, margin: 32, marginCoords: 'black_bottom' });
+    const loc = detect(image)!;
+    expect(readOrientationFromLabels(image, loc)).toBe('black_bottom');
+  });
+
+  it('returns null when only one corner is inked (a lone edge piece, no coords)', () => {
+    const { image } = renderBoard({ square: 48, margin: 24, pieces: ['a8'] });
+    const loc = detect(image)!;
+    expect(readOrientationFromLabels(image, loc)).toBeNull();
+  });
+});
