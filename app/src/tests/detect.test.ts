@@ -65,6 +65,15 @@ describe('detect — synthetic golden boards', () => {
     expect(new Set(loc.highlightSquares)).toEqual(new Set(['e2', 'e4']));
   });
 
+  it('detects a warm pair straddling a light and a dark square', () => {
+    // e2 is a light-parity square, e3 a dark one; the warm gate must fire on BOTH
+    // (the translucent overlay adds the same hue over either base colour).
+    const loc = detect(renderBoard({
+      square: 40, margin: 24, highlights: ['e2', 'e3'],
+    }).image)!;
+    expect(new Set(loc.highlightSquares)).toEqual(new Set(['e2', 'e3']));
+  });
+
   it('robustness: IoU > 0.95 across geometry + theme variants', () => {
     for (const [square, margin] of [[24, 8], [32, 16], [40, 24], [56, 4], [64, 40]] as const) {
       const { image, truth } = renderBoard({ square, margin });
