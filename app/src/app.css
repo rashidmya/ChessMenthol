@@ -61,3 +61,18 @@ body{
 .side-dot { width: 9px; height: 9px; border-radius: 50%; border: 1px solid var(--keyline-2); display: inline-block; }
 .side-dot.white { background: #f7f3ea; }
 .side-dot.black { background: #2b2823; }
+
+/* ===== Responsive: narrow / mobile (single-column scroll) ===== */
+@media (max-width: 819.98px) {
+  :root {
+    /* Stacked: board fills the width, capped by height so a peek of the panel
+       shows below (today's `100vw - 500px` term assumes the side panel). */
+    --bsize: min(100vw - 20px, 66vh);
+  }
+  body {
+    padding-top: 10px;
+    padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    padding-left: max(10px, env(safe-area-inset-left, 0px));
+    padding-right: max(10px, env(safe-area-inset-right, 0px));
+  }
+}
