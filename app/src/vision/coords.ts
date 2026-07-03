@@ -24,8 +24,12 @@ const MIN_LABEL = 0.015;   // the sparser corner must also have SOME ink (both c
 const RATIO = 1.6;         // the denser must beat the sparser by this ratio (unambiguous)
 
 /** Fraction of a rectangular patch whose pixels deviate from the patch's own
- *  median luminance (the fill colour) — i.e. glyph ink. Returns 0 for an
- *  out-of-bounds or degenerate rectangle. */
+ *  median luminance (the fill colour) by more than INK_THRESH — i.e. glyph ink.
+ *  Assumes the ink is a MINORITY (<50%) of the patch so the median lands on the
+ *  fill; if ink exceeds 50% the median flips onto the ink and the fraction is
+ *  silently inverted. This is why CORNER_FRAC is kept small; the downstream
+ *  null-fallback + manual override cover the rare pathological case. Returns 0
+ *  for an out-of-bounds or degenerate rectangle. */
 export function inkFraction(img: RgbaImage, x0: number, y0: number, w: number, h: number): number {
   const { data, width, height } = img;
   if (w <= 0 || h <= 0 || x0 < 0 || y0 < 0 || x0 + w > width || y0 + h > height) return 0;
