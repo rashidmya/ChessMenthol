@@ -37,7 +37,6 @@
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "chessops": "^0.15.0",
-    "onnxruntime-web": "^1.27.0",
-    "stockfish": "^18.0.8"
+    "onnxruntime-web": "^1.27.0"
   }
 }
