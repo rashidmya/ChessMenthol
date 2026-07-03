@@ -15,7 +15,7 @@
 
 import { writable } from 'svelte/store';
 import type { Command, ServerFrame, StateFrame, RegionShotFrame, ReportFrame, GameReportDto } from './types';
-import { loadStockfish, applyOptions, threadsAvailable } from '../engine/engine';
+import { applyOptions } from '../engine/engine';
 import type { UciEngine } from '../engine/engine';
 import { loadNativeEngine } from '../engine/nativeEngine';
 import { get as getEngine, type EngineRecord } from './engineRegistry';
@@ -52,13 +52,6 @@ export function applyFrame(frame: ServerFrame): void {
 
 // ─── engine controller (lazy loader) ──────────────────────────────────────
 
-// Single-threaded wasm (WebKitGTK asm.js) cannot honor Threads > 1, so clamp that
-// one option there. Native engines + threaded wasm pass through unchanged.
-function clampValue(name: string, value: string): string {
-  if (name === 'Threads' && !isTauri() && !threadsAvailable()) return '1';
-  return value;
-}
-
 export const engineController: OrchestratorEngine & {
   select(id: string): void;
   setOption(name: string, value?: string): void;
@@ -78,20 +71,17 @@ export const engineController: OrchestratorEngine & {
   function applyStored(): void {
     if (!engine) return;
     const schema = getSchema(desiredId) ?? engine.options ?? [];
-    const overrides = getOverrides(desiredId);
-    const clamped: Record<string, string> = {};
-    for (const [n, v] of Object.entries(overrides)) clamped[n] = clampValue(n, v);
-    applyOptions(engine, clamped, schema);
+    applyOptions(engine, getOverrides(desiredId), schema);
   }
 
   function load(id: string): Promise<UciEngine> {
+    // Desktop-only: analysis runs on the native engine. A plain browser (the
+    // renderer opened outside Tauri) has no in-process engine.
+    if (!isTauri()) return Promise.reject(new Error('Analysis requires the desktop app'));
     const rec = recordFor(id);
-    const loader = isTauri()
-      ? loadNativeEngine(
-          rec.kind === 'external' && rec.path ? { kind: 'external', path: rec.path } : { kind: 'bundled' },
-        )
-      : loadStockfish();
-    return loader.then((e) => {
+    return loadNativeEngine(
+      rec.kind === 'external' && rec.path ? { kind: 'external', path: rec.path } : { kind: 'bundled' },
+    ).then((e) => {
       if (id !== desiredId) { e.dispose(); return load(desiredId); }
       engine = e;
       // Cache the freshly-advertised schema, then apply the user's overrides.
@@ -116,7 +106,7 @@ export const engineController: OrchestratorEngine & {
     // `value === undefined` is a button press → `setoption name X` (no value).
     setOption(name: string, value?: string): void {
       if (!engine) return;
-      engine.send(formatSetOption(name, value === undefined ? undefined : clampValue(name, value)));
+      engine.send(formatSetOption(name, value));
     },
 
     ensureEngine(): Promise<UciEngine> {

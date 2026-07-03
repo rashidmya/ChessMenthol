@@ -1,19 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { loadNativeEngine, loadStockfish, isTauriMock } = vi.hoisted(() => {
+const { loadNativeEngine, isTauriMock } = vi.hoisted(() => {
   const fakeEngine = (options: unknown[] = []) => ({ send: vi.fn(), onLine: vi.fn(), dispose: vi.fn(), options });
   return {
     loadNativeEngine: vi.fn(async (..._a: unknown[]) => fakeEngine([{ name: 'Threads', type: 'spin', default: '1', min: 1, max: 8 }, { name: 'MultiPV', type: 'spin', default: '1', min: 1, max: 5 }])),
-    loadStockfish: vi.fn(async (..._a: unknown[]) => fakeEngine()),
     isTauriMock: vi.fn(() => true),
   };
 });
 vi.mock('../engine/nativeEngine', () => ({ loadNativeEngine: (...a: unknown[]) => loadNativeEngine(...a) }));
-vi.mock('../engine/engine', async (orig) => ({
-  ...(await orig<typeof import('../engine/engine')>()),
-  loadStockfish: (...a: unknown[]) => loadStockfish(...a),
-  threadsAvailable: () => false,
-}));
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(), isTauri: () => isTauriMock(), Channel: class {} }));
 vi.mock('../lib/capture', () => ({ hasNativeCapture: () => false, Capturer: class {} }));
 
@@ -22,7 +16,6 @@ beforeEach(async () => {
   const { engineController } = await import('../lib/engineClient');
   engineController.dispose();
   loadNativeEngine.mockClear();
-  loadStockfish.mockClear();
   isTauriMock.mockReturnValue(true);
 });
 
@@ -31,14 +24,13 @@ describe('engineController loader selection', () => {
     const { engineController } = await import('../lib/engineClient');
     await engineController.ensureEngine();
     expect(loadNativeEngine).toHaveBeenCalledWith({ kind: 'bundled' });
-    expect(loadStockfish).not.toHaveBeenCalled();
   });
 
-  it('loads the wasm engine in a plain browser', async () => {
+  it('rejects analysis in a plain browser — no in-process engine', async () => {
     isTauriMock.mockReturnValue(false);
     const { engineController } = await import('../lib/engineClient');
-    await engineController.ensureEngine();
-    expect(loadStockfish).toHaveBeenCalledTimes(1);
+    await expect(engineController.ensureEngine()).rejects.toThrow(/desktop app/i);
+    expect(loadNativeEngine).not.toHaveBeenCalled();
   });
 
   it('passes an external engine path to the native loader', async () => {
@@ -67,18 +59,6 @@ describe('engineController loader selection', () => {
     const { engineController } = await import('../lib/engineClient');
     const engine = await engineController.ensureEngine();
     expect(engine.send).toHaveBeenCalledWith('setoption name Threads value 4');
-  });
-
-  it('clamps Threads to 1 for single-threaded wasm (browser)', async () => {
-    isTauriMock.mockReturnValue(false);
-    const { setOption } = await import('../lib/engineOptions');
-    // wasm engine advertises Threads so the schema knows the type
-    loadStockfish.mockResolvedValueOnce({ send: vi.fn(), onLine: vi.fn(), dispose: vi.fn(), options: [{ name: 'Threads', type: 'spin', default: '1', min: 1, max: 8 }] } as never);
-    setOption('stockfish', 'Threads', '4');
-    const { engineController } = await import('../lib/engineClient');
-    const engine = await engineController.ensureEngine();
-    expect(engine.send).toHaveBeenCalledWith('setoption name Threads value 1');
-    expect(engine.send).not.toHaveBeenCalledWith('setoption name Threads value 4');
   });
 
   it('setOption sends a live change to the loaded engine', async () => {
