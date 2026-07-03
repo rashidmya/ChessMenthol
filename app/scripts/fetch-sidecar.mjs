@@ -20,8 +20,8 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 /** Pinned official Stockfish release + its default big net (EvalFile), fetched into resources/engine. */
-export const SF_TAG = 'sf_18';
-export const NET_NAME = 'nn-c288c895ea92.nnue';
+const SF_TAG = 'sf_18';
+const NET_NAME = 'nn-c288c895ea92.nnue';
 const VARIANT = 'avx2';
 
 const RELEASE = `https://github.com/official-stockfish/Stockfish/releases/download/${SF_TAG}`;

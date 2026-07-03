@@ -13,7 +13,6 @@ import {
   sanOf,
   variationSan,
   outcomeOf,
-  attackedBy,
   roleAt,
   assembleFromGrid,
   boardFenOf,
@@ -208,43 +207,6 @@ describe('playUci', () => {
 
   it('throws on a syntactically invalid UCI string', () => {
     expect(() => playUci(posFromFen(START_FEN), 'invalid')).toThrow();
-  });
-});
-
-// ─── attackedBy ──────────────────────────────────────────────────────────────
-
-describe('attackedBy', () => {
-  // From the start position, white pawns at a2-h2 each attack the square in
-  // front-diagonally. a2 pawn attacks b3; c2 pawn attacks b3.
-  it('detects that b3 is attacked by white from the start position', () => {
-    expect(attackedBy(posFromFen(START_FEN), 'b3', 'white')).toBe(true);
-  });
-
-  // e5 is far from all white pieces in the start position — not attacked.
-  it('detects that e5 is NOT attacked by white from the start position', () => {
-    expect(attackedBy(posFromFen(START_FEN), 'e5', 'white')).toBe(false);
-  });
-
-  // After 1.e4, d3 is attacked by the white f1 bishop along the f1-a6 diagonal
-  // (NOT by the e4 pawn — a white pawn on e4 attacks d5/f5, the rank in front).
-  it('detects that d3 is attacked by white (f1 bishop) after e4 is played', () => {
-    const pos = playUci(posFromFen(START_FEN), 'e2e4');
-    expect(attackedBy(pos, 'd3', 'white')).toBe(true);
-    expect(attackedBy(pos, 'd3', 'black')).toBe(false);
-  });
-
-  // Genuine pawn attack: a white pawn on e4 attacks the two diagonal squares
-  // in front of it, d5 and f5.
-  it('detects the e4 pawn attacking d5 and f5', () => {
-    const pos = playUci(posFromFen(START_FEN), 'e2e4');
-    expect(attackedBy(pos, 'd5', 'white')).toBe(true);
-    expect(attackedBy(pos, 'f5', 'white')).toBe(true);
-  });
-
-  // Also accepts a numeric Square (0–63): e4 = file 4, rank 3 → square 28
-  it('accepts a numeric Square index', () => {
-    // b3 = file 1, rank 2 → square index 17
-    expect(attackedBy(posFromFen(START_FEN), 17, 'white')).toBe(true);
   });
 });
 

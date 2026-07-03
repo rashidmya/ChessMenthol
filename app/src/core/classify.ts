@@ -152,7 +152,7 @@ export function isSacrifice(
  * is not a sacrifice).  Recaptures and grabbing a hanging piece are obvious —
  * chess.com labels them Best, never Great, even when they are the only move.
  */
-export function isWinningOrEvenCapture(
+function isWinningOrEvenCapture(
   posBefore: Chess,
   uci:       string,
   thresholds?: Thresholds,

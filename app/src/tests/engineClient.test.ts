@@ -17,7 +17,6 @@ import {
   state,
   lastError,
   errorSeq,
-  connected,
   send,
 } from '../lib/engineClient';
 
@@ -108,14 +107,6 @@ describe('send integration', () => {
     expect(get(lastError)).toMatch(/illegal/i);
     expect(get(state)?.fen).toBe(fenBefore);
     expect(get(state)?.moveList).toHaveLength(0);
-  });
-});
-
-// ─── connected store ───────────────────────────────────────────────────────
-
-describe('connected store', () => {
-  it('is always true (no socket)', () => {
-    expect(get(connected)).toBe(true);
   });
 });
 

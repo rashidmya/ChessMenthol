@@ -5,17 +5,13 @@
  * chessops directly. All other modules (board.ts, classify.ts, serialize.ts,
  * orchestrator.ts) must go through these wrappers so that the chessops API
  * never leaks outward.
- *
- * `attackedBy` accepts either a numeric Square index (0–63, chessops internal)
- * or an algebraic SquareName string (e.g. 'e4'). The algebraic form is most
- * ergonomic for classify.ts callers who extract squares from UCI strings.
  */
 
 import { parseFen, makeFen, makeBoardFen } from 'chessops/fen';
 import { Chess } from 'chessops/chess';
 import { chessgroundDests } from 'chessops/compat';
 import { makeSan, makeSanVariation } from 'chessops/san';
-import { parseUci, makeUci, makeSquare, parseSquare, squareRank, opposite } from 'chessops/util';
+import { parseUci, makeUci, parseSquare, squareRank, opposite } from 'chessops/util';
 import type { Color, Move, Piece, Role, Square, SquareName } from 'chessops/types';
 import { Board } from 'chessops/board';
 import { defaultSetup } from 'chessops/setup';
@@ -193,30 +189,6 @@ export function outcomeOf(
   return { result, reason };
 }
 
-// ─── attackedBy ──────────────────────────────────────────────────────────────
-
-/**
- * Return `true` if the given `square` is attacked by any piece of `color`.
- *
- * `square` may be:
- *   - a chessops `Square` (numeric index 0–63), or
- *   - an algebraic SquareName string (e.g. `'e4'`).
- *
- * The algebraic form is most ergonomic for classify.ts callers who derive
- * squares from UCI move strings (e.g. "is the destination square of this
- * capture defended by the opponent?").
- *
- * Internally delegates to `Position.kingAttackers(sq, color, occupied)`,
- * which — despite the name — is a general "pieces of `color` that attack `sq`"
- * computation used throughout the chessops engine.
- */
-export function attackedBy(pos: Chess, square: Square | SquareName, color: Color): boolean {
-  const sq: Square | undefined =
-    typeof square === 'number' ? square : parseSquare(square);
-  if (sq === undefined) throw new Error(`Invalid square: "${square}"`);
-  return pos.kingAttackers(sq, color, pos.board.occupied).nonEmpty();
-}
-
 // ─── seeCapture ────────────────────────────────────────────────────────────
 
 /**
@@ -330,14 +302,6 @@ export function pieceCodeAt(pos: Chess, square: Square | SquareName): string | n
   if (!piece) return null;
   return (piece.color === 'white' ? 'w' : 'b') + CODE_OF_ROLE[piece.role];
 }
-
-// ─── makeSquare re-export ─────────────────────────────────────────────────────
-
-/**
- * Convert a numeric Square index (0–63) to its algebraic name.
- * Convenience export so callers never need to import from chessops/util.
- */
-export { makeSquare };
 
 // ─── boardFenOf / assembleFromGrid ────────────────────────────────────────────
 

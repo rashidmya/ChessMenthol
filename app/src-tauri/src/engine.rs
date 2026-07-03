@@ -137,7 +137,7 @@ pub fn engine_probe(app: AppHandle, spec: EngineSpec) -> Result<EngineProbe, Str
         EngineSpec::Bundled => {
             // Resolve the bundled sidecar's on-disk path so we can probe it with the
             // same sync std::process helper (isolated from EngineState).
-            let path = bundled_sidecar_path(&app)?;
+            let path = bundled_sidecar_path()?;
             probe_path(&path, Duration::from_secs(10))
         }
     }
@@ -146,8 +146,7 @@ pub fn engine_probe(app: AppHandle, spec: EngineSpec) -> Result<EngineProbe, Str
 /// Best-effort path to the bundled `stockfish` sidecar for the host. In a packaged
 /// build it sits next to the main executable; under `tauri dev` it's in
 /// `src-tauri/binaries/stockfish-<triple>`. Tries the packaged location first.
-/// `_app` is currently unused but kept for future resource-based resolution.
-fn bundled_sidecar_path(_app: &AppHandle) -> Result<String, String> {
+fn bundled_sidecar_path() -> Result<String, String> {
     use std::path::PathBuf;
     // Packaged: next to the current exe (Tauri installs the sidecar there, name `stockfish`).
     if let Ok(exe) = std::env::current_exe() {

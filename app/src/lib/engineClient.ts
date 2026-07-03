@@ -5,7 +5,6 @@
  * store surface + send(cmd) API as ws.ts so UI components are untouched.
  *
  * Key behaviours:
- * - connected = writable(true) always (no socket).
  * - Stockfish is loaded lazily: only when analysis is first enabled, which
  *   triggers LazySession.start() → engineController.ensureEngine().
  * - A custom sessionFactory bypasses the orchestrator's default UciEngine cast.
@@ -32,7 +31,6 @@ import { VisionWorkerClient, VisionTracker } from '../vision/visionClient';
 
 export const state = writable<StateFrame | null>(null);
 export const lastError = writable<string | null>(null);
-export const connected = writable(true); // no socket — always connected
 export const errorSeq = writable(0);
 export const regionShot = writable<RegionShotFrame | null>(null);
 export const report = writable<GameReportDto | null>(null);
