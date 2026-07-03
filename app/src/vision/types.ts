@@ -1,6 +1,7 @@
 // app/src/vision/types.ts
 import type { RgbaImage } from '../lib/capture';
-export type { RgbaImage };
+import type { Region } from '../lib/region';
+export type { RgbaImage, Region };
 
 export type Orientation = 'white_bottom' | 'black_bottom';
 
@@ -11,8 +12,6 @@ export function squareName(col: number, row: number, orientation: Orientation | 
   }
   return `${String.fromCharCode('a'.charCodeAt(0) + col)}${8 - row}`;
 }
-
-export interface Region { left: number; top: number; width: number; height: number; }
 
 export interface BoardLocation {
   bbox: Region;

@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { LastMoveDto } from '../lib/types';
   import MoveBadge from './MoveBadge.svelte';
+  import { resultText } from '../lib/evalbar';
 
   export let lastMove: LastMoveDto | null = null;
   export let evaluating: { san: string } | null = null;
@@ -34,9 +35,6 @@
     return 'draw';
   }
 
-  function resultText(r: string): string {
-    return r === '1/2-1/2' ? '½' : r;
-  }
 </script>
 
 {#if !lastMove && evaluating}

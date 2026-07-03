@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { EvalDto } from '../lib/types';
-  import { whitePct } from '../lib/evalbar';
+  import { whitePct, resultText, resultPct } from '../lib/evalbar';
   export let evalDto: EvalDto | null = null;
   export let orientation: 'white' | 'black' = 'white';
   export let gameOver: { result: string; reason: string } | null = null;
@@ -14,8 +14,6 @@
   // bottom exactly when (white-ahead) XOR (flipped).
   $: scoreAtBottom = aheadIsWhite !== flipped;
 
-  function resultPct(r: string): number { return r === '1-0' ? 100 : r === '0-1' ? 0 : 50; }
-  function resultText(r: string): string { return r === '1/2-1/2' ? '½' : r; }
   function scoreText(ev: EvalDto | null): string {
     if (!ev) return '0.0';
     if (ev.mate != null) return `M${Math.abs(ev.mate)}`;

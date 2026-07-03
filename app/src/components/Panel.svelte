@@ -71,8 +71,4 @@
   }
   .ghead :global(.hbtn:hover) { border-color: var(--green); color: var(--green); background: #fff; }
 
-  @keyframes rise {
-    from { opacity: 0; transform: translateY(9px); }
-    to   { opacity: 1; transform: none; }
-  }
 </style>

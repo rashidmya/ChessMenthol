@@ -12,7 +12,6 @@
   // below it inside the same card section; otherwise it dangles as a stray line
   // (e.g. when analysis is off, the lines block is gone).
   export let divider: boolean = false;
-  export let analyzing: boolean = false;
   export let depth: number = 0;
   export let engineId: string = 'stockfish';
   export let onCommand: (c: Command) => void = () => {};
@@ -32,9 +31,6 @@
   // The View-options menu only exists while analysis is on; if analysis turns off
   // while a popover is open, close it so it can't reappear open on re-enable.
   $: if (!analysisEnabled) open = null;
-
-  // Reserved for F10 (live-analysis indicator); suppresses the unused-prop reactive-statement lint.
-  $: void analyzing;
 </script>
 
 <div class="hd" class:divider>
@@ -93,5 +89,4 @@
     display: none; flex-direction: column; gap: 11px; }
   .settings.open { display: flex; animation: rise .16s ease both; }
   .settings.menu { gap: 2px; }
-  @keyframes rise { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }
 </style>

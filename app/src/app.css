@@ -53,3 +53,11 @@ body{
   background-attachment:fixed;
 }
 ::selection{background:var(--green); color:#fff}
+
+/* Entrance animation for panels and cards that fade-and-rise on mount. */
+@keyframes rise { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }
+
+/* Player side indicator dot, shared by AccuracyDial and GameReportSummary. */
+.side-dot { width: 9px; height: 9px; border-radius: 50%; border: 1px solid var(--keyline-2); display: inline-block; }
+.side-dot.white { background: #f7f3ea; }
+.side-dot.black { background: #2b2823; }

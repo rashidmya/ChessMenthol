@@ -269,7 +269,6 @@
             <EngineHeader
               {analysisEnabled}
               divider={showLines}
-              analyzing={s?.analyzing ?? false}
               depth={s?.depth ?? 0}
               engineId={s?.engineId ?? 'stockfish'}
               onCommand={send}
@@ -381,10 +380,4 @@
   .grow { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   /* The eval graph brings no padding of its own, so its review-card section needs it. */
   .evalsec { padding: 14px 16px; }
-
-  @keyframes rise {
-    from { opacity: 0; transform: translateY(9px); }
-    to   { opacity: 1; transform: none; }
-  }
-
 </style>

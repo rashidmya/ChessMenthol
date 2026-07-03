@@ -19,7 +19,7 @@
     <text class="num" x="48" y="50" text-anchor="middle" dominant-baseline="middle">{Math.round(percent)}<tspan font-size="12" dy="-8">%</tspan></text>
   </svg>
   <span class="who">
-    {#if side}<span class="dot {side}"></span>{/if}{label}
+    {#if side}<span class="side-dot {side}"></span>{/if}{label}
   </span>
 </div>
 
@@ -27,6 +27,4 @@
   .dial { display: flex; flex-direction: column; align-items: center; gap: 7px; }
   .num { font-family: var(--serif); font-weight: 600; font-size: 23px; fill: var(--ink); }
   .who { font-family: var(--mono); font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); display: flex; align-items: center; gap: 6px; }
-  .dot { width: 9px; height: 9px; border-radius: 50%; border: 1px solid var(--keyline-2); display: inline-block; }
-  .dot.white { background: #f7f3ea; } .dot.black { background: #2b2823; }
 </style>

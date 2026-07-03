@@ -51,14 +51,14 @@
       </thead>
       <tbody>
         <tr>
-          <td class="rowh"><span class="dot white"></span>{whiteName}</td>
+          <td class="rowh"><span class="side-dot white"></span>{whiteName}</td>
           <td>{report.white.inaccuracy}</td>
           <td>{report.white.mistake}</td>
           <td>{report.white.blunder}</td>
           <td data-testid="acpl-white">{report.white.acpl}</td>
         </tr>
         <tr>
-          <td class="rowh"><span class="dot black"></span>{blackName}</td>
+          <td class="rowh"><span class="side-dot black"></span>{blackName}</td>
           <td>{report.black.inaccuracy}</td>
           <td>{report.black.mistake}</td>
           <td>{report.black.blunder}</td>
@@ -100,13 +100,6 @@
     display: flex; align-items: center; gap: 7px;
   }
   .counts tbody tr + tr td { border-top: 1px solid var(--keyline); }
-  .dot {
-    width: 9px; height: 9px; border-radius: 50%;
-    border: 1px solid var(--keyline-2); display: inline-block;
-  }
-  .dot.white { background: #f7f3ea; }
-  .dot.black { background: #2b2823; }
-
   .gacts { display: flex; gap: 8px; padding: 14px 16px; }
   .new { flex: 1; padding: 10px 16px; border: 1px solid var(--keyline-2); border-radius: 8px; background: var(--paper-2);
     font-family: var(--sans); font-weight: 600; font-size: 13px; color: var(--ink-2); cursor: pointer; }

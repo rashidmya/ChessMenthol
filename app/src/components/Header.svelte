@@ -53,8 +53,4 @@
     color: var(--ink-3, #7d776b);
     padding-bottom: 4px;
   }
-  @keyframes rise {
-    from { opacity: 0; transform: translateY(9px); }
-    to   { opacity: 1; transform: none; }
-  }
 </style>
