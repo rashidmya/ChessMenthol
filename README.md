@@ -9,9 +9,10 @@ recognizes the position with computer vision, and analyzes it with Stockfish —
 evaluations, best lines, and chess.com-style move classification (brilliant / great / best / …
 / blunder / miss).
 
-Everything runs **locally and offline**: the engine, chess logic, move classification, and
-board-vision pipeline all run in **WebAssembly** inside a **Svelte 5** UI, wrapped in a thin
-**Tauri 2 (Rust)** shell that does the one thing a web page cannot — capture the screen.
+Everything runs **locally and offline**: the chess logic, move classification, and
+board-vision pipeline run in **WebAssembly** inside a **Svelte 5** UI, wrapped in a thin
+**Tauri 2 (Rust)** shell that does what a web page cannot — capture the screen and run a
+**native Stockfish** engine.
 
 ## Features
 
@@ -26,8 +27,8 @@ board-vision pipeline all run in **WebAssembly** inside a **Svelte 5** UI, wrapp
   report (per-player accuracy %, ACPL, and per-class counts), an eval graph, and a Review mode
   that steps through the game move-by-move with badges and auto-play.
 - **Position editor & play** — set up any position by hand, flip the board, and play out moves.
-- **Bring-your-own engine** — ships with Stockfish (a fast ~7 MB *Lite* preset and the full
-  ~108 MB NNUE build), and you can add any external UCI engine and tune its options.
+- **Bring-your-own engine** — ships with a native Stockfish, and you can add any external UCI
+  engine and tune its options.
 
 ## Installation
 
@@ -93,9 +94,9 @@ npm install
 npm run tauri dev     # desktop app (screen capture enabled)
 ```
 
-`npm run dev` runs the same UI as an **analysis-only website** (no screen capture — vision is
-Tauri-only). On some Wayland setups prefix a command with `WEBKIT_DISABLE_DMABUF_RENDERER=1`
-(see the Linux notes above).
+`npm run dev` serves the renderer in a plain browser for **UI work only** — analysis (native
+engine) and screen capture require the desktop app. On some Wayland setups prefix a command
+with `WEBKIT_DISABLE_DMABUF_RENDERER=1` (see the Linux notes above).
 
 **Test & type-check**
 

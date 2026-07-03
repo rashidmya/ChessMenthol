@@ -9,14 +9,15 @@ screen, recognizes the position with computer vision, and analyzes it with Stock
 streaming evaluations, best lines, and chess.com-style move classification (brilliant /
 great / best / … / blunder / miss).
 
-Everything except screen capture runs in **WebAssembly / Web Workers** inside a **Svelte 5 +
-TypeScript** renderer. A thin **Tauri 2 (Rust)** shell does only what a web page cannot:
-capture the screen and bridge to a native UCI engine process. There is **no Python and no
-localhost server** — the previous FastAPI backend and its WebSocket protocol were removed in
-the Svelte + Tauri migration.
+The chess logic and computer vision run inside a **Svelte 5 + TypeScript** renderer (vision in
+**Web Workers / WebAssembly** via onnxruntime-web). A thin **Tauri 2 (Rust)** shell does only
+what a web page cannot: capture the screen and bridge to a **native UCI engine process**. There
+is **no Python and no localhost server** — the previous FastAPI backend and its WebSocket
+protocol were removed in the Svelte + Tauri migration.
 
-The app also runs as an **analysis-only website** (no screen capture, no native engine) — the
-same renderer, minus the Tauri-only features. Guard native features with `isTauri()` /
+ChessMenthol is **desktop-only**: analysis (native engine) and screen capture both require the
+Tauri shell. The Svelte renderer still loads in a plain browser via `npm run dev` for fast UI
+iteration — but with no engine and no capture. Those paths stay guarded by `isTauri()` /
 `hasNativeCapture()`.
 
 ## Commands
@@ -29,7 +30,7 @@ cd app
 npm install
 
 npm run tauri dev     # desktop app (Tauri + WebKit) — vision + native engine enabled
-npm run dev           # analysis-only website in the browser — no vision, no native engine
+npm run dev           # renderer in a plain browser (UI only) — no vision, no engine
 
 npm run test          # Vitest (run mode). ~600 cases across src/tests/
 npm run check         # svelte-check + tsc -p tsconfig.node.json
@@ -51,9 +52,9 @@ npx vitest run -t "brilliant"        # by test-name substring
 `WEBKIT_DISABLE_DMABUF_RENDERER=1 npm run tauri dev`. Screen capture on KWin/Mutter Wayland
 shells out to a screenshot CLI — install `spectacle`, `grim`, or `gnome-screenshot`.
 
-`predev`/`prebuild` hooks run `scripts/copy-engine.mjs` and `scripts/copy-vision-assets.mjs`,
-which stage the Stockfish builds and ONNX vision assets into `public/`. If the engine or model
-fails to load in dev, re-run `npm run copy-engine` / `npm run copy-vision-assets`.
+The `predev`/`prebuild` hook runs `scripts/copy-vision-assets.mjs`, which stages the ONNX
+vision assets into `public/`. If the model fails to load in dev, re-run
+`npm run copy-vision-assets`.
 
 ## Architecture
 
@@ -93,9 +94,9 @@ mapping (python-chess `Board` → chessops immutable positions rebuilt by replay
 
 ### `engine/` — UCI plumbing
 
-- `engine.ts` — loads `stockfish.wasm` in a Web Worker (`WorkerEngine`), applies options,
-  detects `SharedArrayBuffer` for threaded vs single-threaded.
-- `nativeEngine.ts` — same `UciEngine` contract but backed by a native process over Tauri IPC
+- `engine.ts` — the `UciEngine` seam (text-in / line-out) + `applyOptions`; the only
+  implementation is `nativeEngine.ts`.
+- `nativeEngine.ts` — the `UciEngine`, backed by a native process over Tauri IPC
   (`engine_start` / `engine_send` / `engine_stop`): the bundled Stockfish **sidecar** or a
   user's **external** binary (`EngineSpec = { kind: 'bundled' } | { kind: 'external', path }`).
 - `session.ts` — `AnalysisSession` runs **one search at a time** with explicit `draining`
@@ -103,13 +104,12 @@ mapping (python-chess `Board` → chessops immutable positions rebuilt by replay
   `bestmove` (not `readyok`). Read the class comment before touching search lifecycle.
 - `uci.ts` / `uciOptions.ts` — UCI line parsing and the engine-options schema (the sole parser).
 
-**Why two engine backends:** WebKitGTK (the Tauri webview on Linux) cannot run threaded-SIMD
-wasm, and can even SIGSEGV instantiating the NNUE wasm. So the desktop app prefers the **native
-engine**; the browser build uses the wasm worker. In the browser there are two wasm presets —
-**Stockfish Lite** (~7 MB, default) and **full Stockfish** (~108 MB NNUE, loaded on demand;
-the worker reloads on switch). `lib/engineRegistry.ts` owns the user's engine list (bundled +
-persisted "bring-your-own" external binaries); `lib/engineOptions.ts` caches per-engine option
-schemas and overrides.
+**Native engine only:** the app runs one native UCI process over Tauri IPC — there is no
+in-webview wasm/asm Stockfish. (WebKitGTK, the Linux Tauri webview, can't run threaded-SIMD
+wasm and can even SIGSEGV instantiating the NNUE wasm, which is why the wasm path was dropped.)
+`lib/engineRegistry.ts` owns the user's engine list (bundled Stockfish + persisted
+"bring-your-own" external binaries); `lib/engineOptions.ts` caches per-engine option schemas
+and overrides.
 
 ### `vision/` — board recognition (Tauri only)
 
@@ -151,13 +151,14 @@ Two shared "single source of truth" abstractions to reuse rather than re-derive:
 
 ## Conventions & gotchas
 
-- **Cross-origin isolation is required** for threaded Stockfish: `vite.config.ts` sets COOP
-  `same-origin` + COEP `require-corp`, and `onnxruntime-web` is in `optimizeDeps.exclude`.
-  Don't drop these.
-- **Guard Tauri-only paths** so the analysis-only website keeps working: capture, region
-  select, and the native engine are all behind `isTauri()` / `hasNativeCapture()`. Vision
-  handlers in the orchestrator degrade gracefully (re-emit state, never throw) when no tracker
-  is injected.
+- **Cross-origin isolation** is required by `onnxruntime-web` (the vision worker):
+  `vite.config.ts` sets COOP `same-origin` + COEP `require-corp`, and `onnxruntime-web` is in
+  `optimizeDeps.exclude`. Don't drop these.
+- **Guard Tauri-only paths** so the renderer still loads in a plain browser for UI work:
+  capture, region select, and the native engine are all behind `isTauri()` /
+  `hasNativeCapture()` (in a browser, requesting analysis rejects with a "desktop app required"
+  error). Vision handlers in the orchestrator degrade gracefully (re-emit state, never throw)
+  when no tracker is injected.
 - **Tests are the spec.** Classification, accuracy, and serialization changes must keep the
   parity numbers pinned in `src/tests/`.
 - **License is GPLv3** (see `NOTICE.md`). Vendored Lichess assets (icon font, figurine font)

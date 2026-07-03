@@ -16,7 +16,7 @@ export interface SessionCallbacks {
 // `bestmove` before launching the next search (or going idle). We synchronize on
 // `bestmove`, NOT on `readyok`: a real UCI engine answers `isready` immediately —
 // even mid-search — so `readyok` arrives BEFORE the stopped search's `bestmove`
-// (verified against stockfish.wasm). Draining is the order-independent way to
+// (verified against real Stockfish). Draining is the order-independent way to
 // supersede a search, matching how python-chess waits for the stopped bestmove.
 type Phase = 'idle' | 'searching' | 'draining';
 
