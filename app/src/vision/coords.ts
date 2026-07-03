@@ -7,9 +7,12 @@
  * disambiguates. We only need the RANK digit: in white_bottom the top-left board
  * square shows rank 8 and the bottom-left shows rank 1; in black_bottom it is
  * reversed. '8' is a far denser glyph than '1', so we compare the "ink" (contrast
- * pixels) in the two corner labels — no per-font templates needed. The recognizer
- * sits behind readOrientationFromLabels(); a heavier OCR (e.g. Tesseract.js) could
- * later replace the internals without changing callers.
+ * pixels) in the two corner labels — no per-font templates needed. We first read
+ * the digit INSIDE the corner squares (chess.com, and lichess with inside-coords),
+ * then fall back to a band in the LEFT MARGIN outside the board, where lichess
+ * renders coordinates by default. The recognizer sits behind
+ * readOrientationFromLabels(); a heavier OCR (e.g. Tesseract.js) could later
+ * replace the internals without changing callers.
  *
  * Returns null on any uncertainty (no labels, only one corner inked, ambiguous,
  * out of bounds), letting the tracker fall back to guessOrientation and then the
@@ -78,9 +81,10 @@ function rankMarginInk(img: RgbaImage, loc: BoardLocation, row: number): number 
 
 export function readOrientationFromLabels(img: RgbaImage, loc: BoardLocation): Orientation | null {
   if (loc.gridX.length < 9 || loc.gridY.length < 9) return null;
-  // chess.com: rank digit inside the top-left corner of each left-column square.
+  // Inside-corner labels (chess.com, and lichess with inside-coords): rank digit
+  // in the top-left corner of each left-column square.
   const inside = decide(rankCornerInk(img, loc, 0, 0), rankCornerInk(img, loc, 0, 7));
   if (inside !== null) return inside;
-  // lichess may render coordinates in the left margin instead.
+  // Fall back to the left margin, where lichess renders coordinates by default.
   return decide(rankMarginInk(img, loc, 0), rankMarginInk(img, loc, 7));
 }

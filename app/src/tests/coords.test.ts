@@ -60,4 +60,10 @@ describe('readOrientationFromLabels — margin labels + gating', () => {
     const loc = detect(image)!;
     expect(readOrientationFromLabels(image, loc)).toBeNull();
   });
+
+  it('prefers inside-corner labels over margin labels when both are present', () => {
+    const { image } = renderBoard({ square: 48, margin: 32, coords: 'white_bottom', marginCoords: 'black_bottom' });
+    const loc = detect(image)!;
+    expect(readOrientationFromLabels(image, loc)).toBe('white_bottom'); // inside wins; margin never consulted
+  });
 });

@@ -29,38 +29,42 @@ export interface RenderOpts {
   marginCoords?: Orientation; // labels in the left margin (lichess)
 }
 
-// Fill `density` of the TOP-LEFT corner-cell of square (col,row) — where chess.com
-// draws the rank digit — with a colour that contrasts the square fill, so
-// inkFraction sees it as glyph ink. The reader only compares ink density, so the
-// exact glyph shape is irrelevant; a dense fill stands in for '8', a sparse one for '1'.
+// Fill up to floor(w*h*density) pixels of the w×h rect at (x0,y0), row-major, with
+// `ink`. Stands in for a coordinate glyph: the reader only compares ink density, so
+// the exact shape is irrelevant — a dense fill reads as '8', a sparse one as '1'.
+function fillDensity(img: RgbaImage, x0: number, y0: number, w: number, h: number,
+                     density: number, ink: [number, number, number]): void {
+  const target = Math.max(1, Math.floor(w * h * density));
+  let drawn = 0;
+  for (let dy = 0; dy < h && drawn < target; dy++)
+    for (let dx = 0; dx < w && drawn < target; dx++) { setPx(img, x0 + dx, y0 + dy, ink); drawn++; }
+}
+
+// Ink the TOP-LEFT corner-cell of square (col,row) — where chess.com (and lichess
+// with inside-coords) draws the rank digit — with a colour that contrasts the
+// square fill so inkFraction sees it as glyph ink.
 function stampMark(img: RgbaImage, margin: number, square: number,
                    col: number, row: number, density: number): void {
   const isLight = (col + row) % 2 === 0;
   const ink: [number, number, number] = isLight ? [30, 30, 30] : [235, 235, 235];
   const corner = Math.floor(square * 0.3); // matches the reader's CORNER_FRAC
-  const target = Math.max(1, Math.floor(corner * corner * density));
-  const x0 = margin + col * square, y0 = margin + row * square;
-  let drawn = 0;
-  for (let dy = 0; dy < corner && drawn < target; dy++)
-    for (let dx = 0; dx < corner && drawn < target; dx++) { setPx(img, x0 + dx, y0 + dy, ink); drawn++; }
+  fillDensity(img, margin + col * square, margin + row * square, corner, corner, density, ink);
 }
 
 // Draw a rank mark in the LEFT margin, vertically centred on square (col=0,row),
-// near the board's left edge — where lichess can render margin coordinates.
+// near the board's left edge — where lichess renders margin coordinates.
 function stampMarginMark(img: RgbaImage, margin: number, square: number,
                          row: number, density: number): void {
   // The margin backdrop is the flat BG fill (not an alternating light/dark square
   // like the board itself), so — unlike stampMark — a single ink colour with enough
   // contrast against BG works for every row; no light/dark alternation needed.
   const ink: [number, number, number] = [235, 235, 235];
-  const band = Math.floor(square * 0.6);           // matches the reader's margin band width
-  const x0 = Math.max(0, margin - band);
+  const band = Math.floor(square * 0.6);       // matches the reader's margin band width
+  const w = Math.min(band, margin);            // clip width so the band never bleeds onto the board
+  const x0 = margin - w;                        // right edge lands exactly on the board's left edge
   const h = Math.floor(square / 3);
   const y0 = margin + row * square + Math.floor(square / 3);
-  const target = Math.max(1, Math.floor(band * h * density));
-  let drawn = 0;
-  for (let dy = 0; dy < h && drawn < target; dy++)
-    for (let dx = 0; dx < band && drawn < target; dx++) { setPx(img, x0 + dx, y0 + dy, ink); drawn++; }
+  fillDensity(img, x0, y0, w, h, density, ink);
 }
 
 export function renderBoard(opts: RenderOpts = {}): { image: RgbaImage; truth: BoardLocation } {
@@ -109,7 +113,7 @@ export function renderBoard(opts: RenderOpts = {}): { image: RgbaImage; truth: B
   if (opts.marginCoords) {
     const eightRow = opts.marginCoords === 'white_bottom' ? 0 : 7;
     const oneRow = opts.marginCoords === 'white_bottom' ? 7 : 0;
-    stampMarginMark(image, margin, square, eightRow, 0.5);
+    stampMarginMark(image, margin, square, eightRow, 0.4);
     stampMarginMark(image, margin, square, oneRow, 0.15);
   }
   const gridX = Array.from({ length: 9 }, (_, i) => margin + i * square);
