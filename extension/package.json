@@ -17,6 +17,7 @@
     "test": "vitest run"
   },
   "devDependencies": {
+    "@tauri-apps/api": "^2.11.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/svelte": "^5.4.2",
     "@wxt-dev/module-svelte": "^2.0.5",
