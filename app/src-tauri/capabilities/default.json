@@ -16,6 +16,7 @@
       "allow": [{ "name": "stockfish", "sidecar": true, "args": true }]
     },
     "shell:allow-spawn",
-    "dialog:allow-open"
+    "dialog:allow-open",
+    "os:allow-platform"
   ]
 }

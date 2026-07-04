@@ -15,7 +15,8 @@ mod engine;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = tauri::Builder::default();
+    // OS info (frontend `platform()` — mobile-vs-desktop engine/UI dispatch); all platforms.
+    let builder = tauri::Builder::default().plugin(tauri_plugin_os::init());
 
     // Desktop-only surface: screen capture (`capture_frame`) + the native UCI engine
     // bridge. On mobile (Android/iOS) capture uses the camera and the engine runs via

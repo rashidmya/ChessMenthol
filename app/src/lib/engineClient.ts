@@ -14,7 +14,7 @@ import { writable } from 'svelte/store';
 import type { Command, ServerFrame, StateFrame, RegionShotFrame, ReportFrame, GameReportDto } from './types';
 import { applyOptions } from '../engine/engine';
 import type { UciEngine } from '../engine/engine';
-import { loadNativeEngine } from '../engine/nativeEngine';
+import { loadEngine } from '../engine/nativeEngine';
 import { get as getEngine, type EngineRecord } from './engineRegistry';
 import { getSchema, setSchema, getOverrides } from './engineOptions';
 import { formatSetOption } from '../engine/uciOptions';
@@ -75,7 +75,7 @@ export const engineController: OrchestratorEngine & {
     // renderer opened outside Tauri) has no in-process engine.
     if (!isTauri()) return Promise.reject(new Error('Analysis requires the desktop app'));
     const rec = recordFor(id);
-    return loadNativeEngine(
+    return loadEngine(
       rec.kind === 'external' && rec.path ? { kind: 'external', path: rec.path } : { kind: 'bundled' },
     ).then((e) => {
       if (id !== desiredId) { e.dispose(); return load(desiredId); }

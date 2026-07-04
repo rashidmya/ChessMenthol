@@ -7,7 +7,10 @@ const { loadNativeEngine, isTauriMock } = vi.hoisted(() => {
     isTauriMock: vi.fn(() => true),
   };
 });
-vi.mock('../engine/nativeEngine', () => ({ loadNativeEngine: (...a: unknown[]) => loadNativeEngine(...a) }));
+// engineClient now imports the platform dispatcher loadEngine (mobile->plugin,
+// desktop->sidecar). Under test we run the desktop path; the spy stays named
+// loadNativeEngine but is exported as loadEngine.
+vi.mock('../engine/nativeEngine', () => ({ loadEngine: (...a: unknown[]) => loadNativeEngine(...a) }));
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(), isTauri: () => isTauriMock(), Channel: class {} }));
 vi.mock('../lib/capture', () => ({ hasNativeCapture: () => false, Capturer: class {} }));
 

@@ -13,6 +13,9 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
+# OS info plugin: the frontend's platform() (mobile-vs-desktop dispatch) needs this
+# registered on every platform. Small, cross-platform.
+tauri-plugin-os = "2"
 
 # Desktop-only. `xcap` (screen capture) does not build for Android/iOS, and the
 # sidecar/dialog plugins + PNG decode are only used by the desktop capture + native
