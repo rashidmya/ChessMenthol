@@ -1,0 +1,34 @@
+{
+  "name": "chessmenthol-extension",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "postinstall": "wxt prepare",
+    "copy-engine": "node scripts/copy-engine.mjs",
+    "predev": "node scripts/copy-engine.mjs",
+    "prebuild": "node scripts/copy-engine.mjs",
+    "dev": "wxt",
+    "dev:firefox": "wxt -b firefox",
+    "build": "wxt build",
+    "build:firefox": "wxt build -b firefox",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/svelte": "^5.4.2",
+    "@wxt-dev/module-svelte": "^2.0.5",
+    "jsdom": "^29.1.1",
+    "svelte": "^5.56.3",
+    "svelte-check": "^4.7.1",
+    "typescript": "~6.0.2",
+    "vitest": "^4.1.9",
+    "wxt": "^0.20.27"
+  },
+  "dependencies": {
+    "@lichess-org/chessground": "^10.1.1",
+    "chessops": "^0.15.0",
+    "stockfish.js": "^10.0.2"
+  }
+}
