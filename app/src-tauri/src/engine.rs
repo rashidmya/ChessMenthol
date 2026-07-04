@@ -1,3 +1,7 @@
+//! Desktop-only. Included via `#[cfg(desktop)] mod engine;` in lib.rs; the whole
+//! module is compiled out on mobile, where the Kotlin `engine` plugin drives a
+//! native Stockfish process instead.
+//!
 //! Native UCI engine bridge. Spawns either the bundled Stockfish sidecar (with CWD
 //! set to the bundled net folder so Stockfish auto-loads the default net) or a
 //! user-provided external binary, writes UCI lines to its stdin, and streams stdout

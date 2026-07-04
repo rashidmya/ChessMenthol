@@ -13,6 +13,11 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
+
+# Desktop-only. `xcap` (screen capture) does not build for Android/iOS, and the
+# sidecar/dialog plugins + PNG decode are only used by the desktop capture + native
+# engine paths. Mobile uses the camera (getUserMedia) and the Kotlin `engine` plugin.
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 xcap = "0.9"
 # PNG decode for the Wayland screenshot-CLI fallback. Unifies with xcap's image
 # 0.25; we only need the `png` feature added on top.

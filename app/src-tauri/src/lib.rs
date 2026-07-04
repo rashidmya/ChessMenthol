@@ -1,14 +1,27 @@
+#[cfg(desktop)]
 use std::path::PathBuf;
+#[cfg(desktop)]
 use std::process::Command;
 
+#[cfg(desktop)]
 use tauri::Manager;
+#[cfg(desktop)]
 use xcap::Monitor;
 
+// Desktop-only. Included only under `#[cfg(desktop)]`; Android uses the Kotlin
+// `engine` plugin instead of this sidecar-process bridge.
+#[cfg(desktop)]
 mod engine;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+
+    // Desktop-only surface: screen capture (`capture_frame`) + the native UCI engine
+    // bridge. On mobile (Android/iOS) capture uses the camera and the engine runs via
+    // the Kotlin `engine` plugin, so none of this is registered.
+    #[cfg(desktop)]
+    let builder = builder
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(engine::EngineState::default())
@@ -18,14 +31,17 @@ pub fn run() {
             engine::engine_send,
             engine::engine_stop,
             engine::engine_probe
-        ])
+        ]);
+
+    builder
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|app, event| {
+        .run(|_app, _event| {
             // The shell plugin only auto-kills JS-spawned children, not our Rust-side
             // CommandChild — so kill the native engine here to avoid an orphaned process.
-            if let tauri::RunEvent::Exit = event {
-                if let Some(child) = app.state::<engine::EngineState>().0.lock().unwrap().take() {
+            #[cfg(desktop)]
+            if let tauri::RunEvent::Exit = _event {
+                if let Some(child) = _app.state::<engine::EngineState>().0.lock().unwrap().take() {
                     let _ = child.kill();
                 }
             }
@@ -40,6 +56,7 @@ pub fn run() {
 /// protocol, which KWin/Mutter do NOT expose (capture fails with "Cannot find
 /// required wayland protocol"). So on Wayland we shell out to a desktop
 /// screenshot tool and decode the PNG. X11/Windows/macOS capture directly via `xcap`.
+#[cfg(desktop)]
 #[tauri::command]
 fn capture_frame() -> Result<tauri::ipc::Response, String> {
     let (width, height, rgba) = if is_wayland() {
@@ -55,6 +72,7 @@ fn capture_frame() -> Result<tauri::ipc::Response, String> {
     Ok(tauri::ipc::Response::new(buf))
 }
 
+#[cfg(desktop)]
 fn is_wayland() -> bool {
     std::env::var("XDG_SESSION_TYPE")
         .map(|v| v.eq_ignore_ascii_case("wayland"))
@@ -67,6 +85,7 @@ fn is_wayland() -> bool {
 /// Direct grab via `xcap` (X11/Windows/macOS). Prefers the primary monitor and
 /// falls back to the first one — on some setups `is_primary()` returns Err for
 /// every monitor, so a strict filter would wrongly report "no monitor".
+#[cfg(desktop)]
 fn capture_xcap() -> Result<(u32, u32, Vec<u8>), String> {
     let monitors = Monitor::all().map_err(|e| format!("enumerate monitors: {e}"))?;
     let monitor = monitors
@@ -83,6 +102,7 @@ fn capture_xcap() -> Result<(u32, u32, Vec<u8>), String> {
 /// Wayland fallback: run a desktop screenshot CLI to a temp PNG, then decode it
 /// to RGBA. Candidates in priority order: spectacle (KDE) -> grim (wlroots) -> gnome-screenshot (GNOME).
 /// The fullscreen flags grab the whole (multi-monitor) desktop.
+#[cfg(desktop)]
 fn capture_wayland_cli() -> Result<(u32, u32, Vec<u8>), String> {
     let path = std::env::temp_dir().join(format!("chessmenthol_shot_{}.png", std::process::id()));
     let path_str = path.to_string_lossy().to_string();
@@ -123,6 +143,7 @@ fn capture_wayland_cli() -> Result<(u32, u32, Vec<u8>), String> {
 }
 
 /// Minimal `which`: first matching file for `bin` across PATH, if any.
+#[cfg(desktop)]
 fn which(bin: &str) -> Option<PathBuf> {
     let paths = std::env::var_os("PATH")?;
     std::env::split_paths(&paths)
