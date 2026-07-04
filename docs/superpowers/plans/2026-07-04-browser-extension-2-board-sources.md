@@ -19,7 +19,7 @@ These are the exact seams this plan reuses. Do not re-derive them; do not modify
 **FEN assembly (reused, pure):** `import { assembleFromGrid } from '@core/core/chess'`.
 - Signature: `assembleFromGrid(grid: (string|null)[][], opts: { white: boolean }): { fen: string; placement: string; isLegal: boolean; status: string; pos: Chess|null }`.
 - `grid` is **white-bottom framed**: `grid[row][col]` is the square with file `col` (a=0 … h=7) and rank `8 - row` (so `grid[0][0]`=a8, `grid[7][7]`=h1).
-- Each non-empty cell is a 2-char code `[color][role]`: color `'w'|'b'`, role `'p'|'n'|'b'|'r'|'q'|'k'`. Examples: `'wp'` white pawn, `'bk'` black king. (This is exactly chess.com's piece-class encoding.)
+- Each non-empty cell is a 2-char code `[color][ROLE]`: color lowercase `'w'|'b'`, role **UPPERCASE** `'P'|'N'|'B'|'R'|'Q'|'K'`. Examples: `'wP'` white pawn, `'bK'` black king. **VERIFIED:** `pieceFromCode` does `ROLE_OF[code[1]]` where `ROLE_OF` is keyed by uppercase letters — a lowercase role char yields `undefined` and crashes `Board.set`. chess.com's piece classes are lowercase (`wp`), so an adapter MUST upper-case the role char when building the grid. The app's own tests (`src/tests/coreChess.test.ts`) use `'wP'`/`'bK'`.
 - `opts.white` = `true` when it's White to move. `assembleFromGrid` **infers castling rights** from piece placement and validates legality; `isLegal:false` means don't use the FEN.
 
 **Vision tracker seam (reused, structural):** the Orchestrator accepts `opts.tracker?: VisionTrackerLike` and PULLS from it on `capture_now`. The structural shape (from `@core/core/orchestrator`):
@@ -395,12 +395,14 @@ Pieces are placed by transform in a white-oriented board (translate origin a8 to
 import { describe, it, expect, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import { lichessAdapter } from './lichess';
 
-const fixture = readFileSync(
-  fileURLToPath(new URL('./__fixtures__/lichess-startpos.html', import.meta.url)),
-  'utf8',
-);
+// NOTE: vitest.config sets resolve.conditions ['browser'], which rewrites
+// `new URL('./x', import.meta.url)` to an http URL and breaks fileURLToPath.
+// Resolve the fixture dir once, then join — same pattern Task 2 used.
+const here = dirname(fileURLToPath(import.meta.url));
+const fixture = readFileSync(join(here, '__fixtures__', 'lichess-startpos.html'), 'utf8');
 
 beforeEach(() => {
   document.body.innerHTML = fixture;
@@ -439,8 +441,9 @@ Expected: FAIL — stub returns null.
 import { assembleFromGrid } from '@core/core/chess';
 import type { AdapterPosition, SiteAdapter } from './types';
 
+// UPPERCASE role letters — assembleFromGrid's ROLE_OF is keyed P/N/B/R/Q/K.
 const ROLE_CHAR: Record<string, string> = {
-  pawn: 'p', knight: 'n', bishop: 'b', rook: 'r', queen: 'q', king: 'k',
+  pawn: 'P', knight: 'N', bishop: 'B', rook: 'R', queen: 'Q', king: 'K',
 };
 
 function boardEl(): HTMLElement | null {
