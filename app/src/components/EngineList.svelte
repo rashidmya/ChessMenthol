@@ -6,6 +6,7 @@
   import { list, add, remove, type EngineRecord } from '../lib/engineRegistry';
   import { setSchema, clear as clearOptions } from '../lib/engineOptions';
   import { parseOptions } from '../engine/uciOptions';
+  import { isMobile } from '../lib/platform';
 
   export let engineId: string = 'stockfish';
   export let onSetEngine: (id: string) => void = () => {};
@@ -18,8 +19,9 @@
   let validating = false;
   let addError: string | null = null;
   let addErrorTimer: ReturnType<typeof setTimeout> | null = null;
-  // "+ Add engine" and external engines are Tauri-only (native picker + spawn).
-  const canAdd = isTauri();
+  // "+ Add engine" and external engines are desktop-Tauri-only (native file picker +
+  // arbitrary-binary spawn) — neither maps to a phone, so hide it on mobile.
+  const canAdd = isTauri() && !isMobile();
 
   function refresh(): void { engines = list(); }
 

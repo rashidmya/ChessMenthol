@@ -19,6 +19,7 @@ import { get as getEngine, type EngineRecord } from './engineRegistry';
 import { getSchema, setSchema, getOverrides } from './engineOptions';
 import { formatSetOption } from '../engine/uciOptions';
 import { isTauri } from '@tauri-apps/api/core';
+import { isMobile } from './platform';
 import { AnalysisSession, type SessionCallbacks, type StartOptions } from '../engine/session';
 import { Orchestrator } from '../core/orchestrator';
 import type { OrchestratorEngine, SessionLike } from '../core/orchestrator';
@@ -64,10 +65,17 @@ export const engineController: OrchestratorEngine & {
   }
 
   // Send this engine's stored overrides to the live engine (engine is idle here).
+  // On mobile, seed conservative Threads/Hash defaults unless the user set them —
+  // a phone can't sustain the desktop engine's default resource use.
   function applyStored(): void {
     if (!engine) return;
     const schema = getSchema(desiredId) ?? engine.options ?? [];
-    applyOptions(engine, getOverrides(desiredId), schema);
+    const overrides = { ...getOverrides(desiredId) };
+    if (isMobile()) {
+      if (!('Threads' in overrides)) overrides.Threads = '2';
+      if (!('Hash' in overrides)) overrides.Hash = '64';
+    }
+    applyOptions(engine, overrides, schema);
   }
 
   function load(id: string): Promise<UciEngine> {
