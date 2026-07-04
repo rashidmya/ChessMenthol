@@ -14,6 +14,13 @@ export default defineConfig({
     // A sidepanel entrypoint makes WXT emit Chrome `side_panel` + Firefox `sidebar_action`.
     cross_origin_embedder_policy: { value: 'require-corp' },
     cross_origin_opener_policy: { value: 'same-origin' },
+    // Chrome MV3's default CSP disables WebAssembly; 'wasm-unsafe-eval' lets the
+    // Stockfish WASM worker compile. (COEP/COOP only gate SharedArrayBuffer, which
+    // the single-threaded baseline doesn't use — this is the line that makes the
+    // engine actually run on Chrome.)
+    content_security_policy: {
+      extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'",
+    },
     web_accessible_resources: [
       { resources: ['engine/*'], matches: ['<all_urls>'] },
     ],

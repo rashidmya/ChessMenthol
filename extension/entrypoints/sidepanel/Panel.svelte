@@ -11,6 +11,7 @@
   // Named panelState (not `state`) to avoid confusion with Svelte 5's `$state`
   // rune — this file uses the legacy API and has no runes.
   const panelState = client.state;
+  const lastError = client.lastError; // engine/load failures (e.g. a wasm CSP block)
 
   let fenInput = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
   let currentFen = fenInput;
@@ -51,6 +52,7 @@
   </div>
 
   <p data-testid="current-fen" class="fen">{currentFen}</p>
+  {#if $lastError}<p class="err" data-testid="panel-error">{$lastError}</p>{/if}
   <Lines {lines} />
 </main>
 
@@ -60,4 +62,5 @@
   .controls { display: flex; gap: 6px; }
   .controls input { flex: 1; }
   .fen { font: 11px/1.3 monospace; color: #888; word-break: break-all; }
+  .err { margin: 0; color: #c33; font-size: 12px; }
 </style>
