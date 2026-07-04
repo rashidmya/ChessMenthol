@@ -1046,8 +1046,8 @@ git commit -m "feat(ext): scope host_permissions to chess.com + lichess"
 
 - [ ] **Step 1: Add the dependency**
 
-Run: `npm install onnxruntime-web@^1.20.0`
-(Match the version resolved in `app/node_modules/onnxruntime-web` — check `app/package.json` and pin the same major.minor so the staged `.wasm` matches the runtime.)
+Run: `npm install onnxruntime-web@1.27.0`
+(This is the exact version the desktop app resolves — `app/package.json` has `^1.27.0`, installed `1.27.0`. Pinning the same version keeps the staged `.wasm` in lockstep with the runtime.)
 
 Verify the wasm exists:
 Run: `ls node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.wasm`
@@ -1203,6 +1203,8 @@ git commit -m "feat(ext): extension vision worker reusing @core Tracker + ORT"
 - Test: `extension/src/lib/tabCapturer.test.ts`
 
 **Rationale:** `captureVisibleTab` needs the tab context (call it from the background — Task 13) and returns a PNG data URL. Decoding a data URL → `RgbaImage` needs `createImageBitmap` + a canvas, absent in jsdom. So `TabCapturer` takes two **injected** collaborators: `requestCapture()` (returns the data URL, wired to the background in Task 13) and `decode(dataUrl)` (data URL → RgbaImage). The default `decode` uses `createImageBitmap` + `OffscreenCanvas`; tests inject a fake `decode`, so the pure `grab`/`grabFullDesktop`/`setRegion` + `cropImage` reuse is fully tested. `cropImage` comes from `@core/lib/capture` (reused unchanged).
+
+**Prerequisite (Step 0):** `@core/lib/capture` has a top-level `import { invoke, isTauri } from '@tauri-apps/api/core'`, so a *runtime* import of `cropImage` drags in `@tauri-apps/api` — which is NOT currently a resolvable dep of the extension (Task 10's worker only imported the `RgbaImage` *type*, which is erased, so it dodged this). Before writing any code, run `npm install -D @tauri-apps/api@^2.11.1` (matching `app/package.json`). The extension never calls `invoke`/`isTauri` (`cropImage` is pure and neither is called at module load), so this dep only satisfies import resolution and is tree-shaken from the bundle. This is the `@core`-alias seam the memory notes; Plan 4 (`packages/core` extraction) retires it by splitting the pure image utils out of `capture.ts`.
 
 - [ ] **Step 1: Write the failing test**
 
