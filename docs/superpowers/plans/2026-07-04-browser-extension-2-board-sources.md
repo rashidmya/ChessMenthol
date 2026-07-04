@@ -732,14 +732,18 @@ import { runContentDriver } from './contentDriver';
 import type { SiteAdapter } from './adapters/types';
 import type { PositionMessage } from './messages';
 
-function fakeAdapter(fen: string): SiteAdapter & { fire: () => void } {
+// `fire(nextFen?)` simulates an observed board change to a NEW position.
+// The driver dedupes identical FENs, so a meaningful "sends again" test must
+// actually change the FEN between reads.
+function fakeAdapter(initialFen: string): SiteAdapter & { fire: (nextFen?: string) => void } {
   let cb: () => void = () => {};
+  let fen = initialFen;
   return {
     site: 'lichess',
     matches: () => true,
     readPosition: () => ({ fen, orientation: 'white', turn: 'w' }),
     observe: (onChange) => { cb = onChange; return () => {}; },
-    fire: () => cb(),
+    fire: (nextFen = '8/8/8/8/8/8/8/8 b - - 0 1') => { fen = nextFen; cb(); },
   };
 }
 
@@ -945,14 +949,21 @@ Change the `Board`/`EvalBar` orientation from the hardcoded `const orientation =
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/svelte';
 
-// Minimal fake browser so Panel's listener wiring + wasm loader import don't explode.
-const listeners: ((m: unknown) => void)[] = [];
-vi.stubGlobal('browser', {
-  runtime: {
-    getURL: (p: string) => p,
-    onMessage: { addListener: (f: (m: unknown) => void) => listeners.push(f), removeListener: () => {} },
-    sendMessage: async () => {},
-  },
+// The `browser` global must be stubbed BEFORE Panel's transitive
+// `import { browser } from 'wxt/browser'` evaluates — ES imports hoist above
+// top-level statements, so use vi.hoisted(). @wxt-dev/browser only picks
+// globalThis.browser when runtime.id is truthy, so include an `id`.
+const { listeners } = vi.hoisted(() => {
+  const listeners: ((m: unknown) => void)[] = [];
+  vi.stubGlobal('browser', {
+    runtime: {
+      id: 'test',
+      getURL: (p: string) => p,
+      onMessage: { addListener: (f: (m: unknown) => void) => listeners.push(f), removeListener: () => {} },
+      sendMessage: async () => {},
+    },
+  });
+  return { listeners };
 });
 // Avoid constructing a real engine Worker in jsdom (paths resolve from src/ui/):
 vi.mock('../engine/wasmEngine', () => ({ loadWasmEngine: async () => ({ send() {}, onLine() {}, dispose() {} }) }));
