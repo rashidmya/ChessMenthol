@@ -1,5 +1,6 @@
 import { assembleFromGrid } from '@core/core/chess';
 import type { AdapterPosition, SiteAdapter } from './types';
+import { observeBoard } from './observe';
 
 // UPPERCASE role letters — assembleFromGrid's ROLE_OF is keyed P/N/B/R/Q/K.
 const ROLE_CHAR: Record<string, string> = {
@@ -65,8 +66,11 @@ export const lichessAdapter: SiteAdapter = {
     return { fen: res.fen, orientation: black ? 'black' : 'white', turn };
   },
 
-  // Live observation is wired in Task 4 (observeBoard). No-op until then.
-  observe: () => () => {},
+  observe(onChange) {
+    const board = boardEl();
+    if (!board) return () => {};
+    return observeBoard(board, onChange);
+  },
 };
 
 /** Last-move square that still holds a piece is the mover's destination. */

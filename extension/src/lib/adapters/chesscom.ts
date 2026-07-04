@@ -1,5 +1,6 @@
 import { assembleFromGrid } from '@core/core/chess';
 import type { AdapterPosition, SiteAdapter } from './types';
+import { observeBoard } from './observe';
 
 const CODE_RE = /\b([wb])([pnbrqk])\b/; // e.g. 'wp', 'bk' -> ['w','p']/['b','k']
 const SQ_RE = /\bsquare-(\d)(\d)\b/;        // file, rank (1..8, absolute White's view)
@@ -56,8 +57,11 @@ export const chesscomAdapter: SiteAdapter = {
     return { fen: res.fen, orientation, turn };
   },
 
-  // Live observation is wired in Task 4 (observeBoard). No-op until then.
-  observe: () => () => {},
+  observe(onChange) {
+    const board = boardEl();
+    if (!board) return () => {};
+    return observeBoard(board, onChange);
+  },
 };
 
 function hostOf(url: string): string { try { return new URL(url).hostname; } catch { return ''; } }
