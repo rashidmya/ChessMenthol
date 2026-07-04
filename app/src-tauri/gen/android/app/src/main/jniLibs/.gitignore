@@ -1,0 +1,6 @@
+# Native Stockfish engine (~114MB) — a build artifact, not committed. Regenerate with
+# src-tauri/scripts/build-stockfish-android.sh (mirrors the desktop fetch-sidecar flow).
+*/libstockfish.so
+
+# Rust app lib — symlinked into jniLibs by `tauri android build`, regenerated each build.
+*/libapp_lib.so

@@ -13,6 +13,10 @@ use xcap::Monitor;
 #[cfg(desktop)]
 mod engine;
 
+// Android-only native engine bridge (Kotlin EnginePlugin + forwarding app commands).
+#[cfg(target_os = "android")]
+mod mobile_engine;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // OS info (frontend `platform()` — mobile-vs-desktop engine/UI dispatch); all platforms.
@@ -32,6 +36,18 @@ pub fn run() {
             engine::engine_send,
             engine::engine_stop,
             engine::engine_probe
+        ]);
+
+    // Android-only surface: the Kotlin `engine` plugin + the app commands that forward
+    // start/send/stop to it (app commands need no ACL, unlike plugin commands).
+    #[cfg(target_os = "android")]
+    let builder = builder
+        .plugin(mobile_engine::init())
+        .invoke_handler(tauri::generate_handler![
+            mobile_engine::mobile_engine_start,
+            mobile_engine::mobile_engine_send,
+            mobile_engine::mobile_engine_poll,
+            mobile_engine::mobile_engine_stop
         ]);
 
     builder

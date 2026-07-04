@@ -6,13 +6,16 @@
 //    Stockfish native library and streams its stdout as `line` plugin events.
 // Both honor the UciEngine contract: resolve once the engine answers `uciok`, split
 // batched output into trimmed lines, and route them to the registered listener.
-import { invoke, Channel, addPluginListener } from '@tauri-apps/api/core';
+import { invoke, Channel } from '@tauri-apps/api/core';
 import type { UciEngine } from './engine';
 import { parseOptions } from './uciOptions';
 import { isMobile } from '../lib/platform';
 
 /** Which native engine to spawn: the bundled Stockfish sidecar or an external binary. */
 export type EngineSpec = { kind: 'bundled' } | { kind: 'external'; path: string };
+
+/** How often the mobile engine bridge drains buffered stdout lines (ms). */
+const POLL_INTERVAL_MS = 50;
 
 /** Shared UCI handshake: send `uci`, resolve on `uciok`, capture advertised options.
  *  Disposes + rejects if the engine never initializes within `timeoutMs`. */
@@ -74,19 +77,38 @@ export async function loadNativeEngine(spec: EngineSpec, timeoutMs = 10_000): Pr
   return engine;
 }
 
-/** Mobile: UciEngine backed by the Kotlin `engine` plugin (spec is always bundled). */
+/** Mobile: UciEngine backed by the Kotlin `engine` plugin (spec is always bundled).
+ *  start/send/stop/poll are app commands (mobile_engine_*) forwarding to Kotlin. Stdout
+ *  is drained by polling rather than push events, which are ACL-gated for plugins. */
 export async function loadAndroidEngine(_spec: EngineSpec, timeoutMs = 10_000): Promise<UciEngine> {
   const sink = lineSink();
-  const sub = await addPluginListener('engine', 'line', (p: { line: string }) => sink.push(p.line));
 
-  await invoke('plugin:engine|start');
+  await invoke('mobile_engine_start');
+
+  // Drain buffered engine output on a short interval (reentrancy-guarded so a slow
+  // poll can't overlap the next tick).
+  let disposed = false;
+  let polling = false;
+  const timer = setInterval(async () => {
+    if (disposed || polling) return;
+    polling = true;
+    try {
+      const lines = await invoke<string[]>('mobile_engine_poll');
+      for (const line of lines) sink.push(line);
+    } catch {
+      /* ignore transient poll errors */
+    } finally {
+      polling = false;
+    }
+  }, POLL_INTERVAL_MS);
 
   const engine: UciEngine = {
-    send: (cmd: string) => { invoke('plugin:engine|send', { line: cmd }).catch(() => {}); },
+    send: (cmd: string) => { invoke('mobile_engine_send', { line: cmd }).catch(() => {}); },
     onLine: (cb) => sink.register(cb),
     dispose: () => {
-      invoke('plugin:engine|stop').catch(() => {});
-      sub.unregister().catch(() => {});
+      disposed = true;
+      clearInterval(timer);
+      invoke('mobile_engine_stop').catch(() => {});
     },
   };
 

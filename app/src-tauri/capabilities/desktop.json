@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "desktop",
+  "description": "Desktop-only: native engine sidecar spawn + file dialog for picking external engines. These plugins are cfg(desktop) and absent on Android/iOS.",
+  "platforms": ["linux", "macOS", "windows"],
+  "windows": ["main"],
+  "permissions": [
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [{ "name": "stockfish", "sidecar": true, "args": true }]
+    },
+    "shell:allow-spawn",
+    "dialog:allow-open"
+  ]
+}
