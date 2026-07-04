@@ -4,6 +4,13 @@ import { AnalysisSession, type SessionCallbacks, type StartOptions } from '@core
 import type { UciEngine } from '@core/engine/engine';
 import type { Command, ServerFrame, StateFrame } from '@core/lib/types';
 import { createEngineController, type EngineLoader } from './engineController';
+import type { PositionMessage } from './messages';
+
+/** Feed an incoming board position into the orchestrator: load it, then analyze. */
+export function applyPosition(send: (cmd: Command) => void, m: PositionMessage): void {
+  send({ type: 'set_fen', fen: m.fen });
+  send({ type: 'set_analysis_enabled', enabled: true });
+}
 
 /**
  * The extension's port of engineClient.ts: the same command->frame->store surface,

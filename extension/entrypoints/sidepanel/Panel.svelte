@@ -2,8 +2,11 @@
   import Board from '@core/components/Board.svelte';
   import EvalBar from '@core/components/EvalBar.svelte';
   import Lines from '@core/components/Lines.svelte';
-  import { createPanelClient } from '../../src/lib/panelClient';
+  import { onMount, onDestroy } from 'svelte';
+  import { createPanelClient, applyPosition } from '../../src/lib/panelClient';
   import { loadWasmEngine } from '../../src/engine/wasmEngine';
+  import { isPositionMessage, type ExtMessage } from '../../src/lib/messages';
+  import { browser } from 'wxt/browser';
 
   // In a jsdom test the real worker never loads; createPanelClient only calls
   // load() when analysis is enabled, so mounting stays engine-free.
@@ -20,7 +23,13 @@
   // bumping revertSignal on any drag makes it snap back to currentFen (no make_move).
   let revertSignal = 0;
 
+  // Plan 2: where the current position came from, and the board orientation it
+  // arrived with. Manual FEN entry always resets to 'manual' + white.
+  let source: 'manual' | 'chesscom' | 'lichess' = 'manual';
+  let boardOrientation: 'white' | 'black' = 'white';
+
   function loadFen() {
+    source = 'manual';
     currentFen = fenInput.trim();
     client.send({ type: 'set_fen', fen: currentFen });
     if (analyzing) client.send({ type: 'set_analysis_enabled', enabled: true });
@@ -30,19 +39,29 @@
     client.send({ type: 'set_analysis_enabled', enabled: analyzing });
   }
 
-  // StateFrame carries eval/lines directly (there is no `.analysis`). Board
-  // orientation is fixed to White in Plan 1 (vision-driven orientation is Plan 2).
-  const orientation: 'white' | 'black' = 'white';
+  function onMessage(msg: ExtMessage) {
+    if (!isPositionMessage(msg)) return;
+    source = msg.site;
+    currentFen = msg.fen;
+    boardOrientation = msg.orientation;
+    analyzing = true;
+    applyPosition(client.send, msg);
+  }
+
+  onMount(() => browser?.runtime?.onMessage?.addListener?.(onMessage));
+  onDestroy(() => browser?.runtime?.onMessage?.removeListener?.(onMessage));
+
+  // StateFrame carries eval/lines directly (there is no `.analysis`).
   $: evalDto = $panelState?.eval ?? null;
   $: lines = $panelState?.lines ?? [];
 </script>
 
 <main class="panel">
   <div class="board-row">
-    <EvalBar {evalDto} {orientation} />
+    <EvalBar {evalDto} orientation={boardOrientation} />
     <!-- Board.svelte renders its own <div data-testid="board">; don't wrap it in a
          second one or getByTestId('board') matches two elements. -->
-    <Board fen={currentFen} {orientation} {lines} onMove={() => { revertSignal += 1; }} {revertSignal} />
+    <Board fen={currentFen} orientation={boardOrientation} {lines} onMove={() => { revertSignal += 1; }} {revertSignal} />
   </div>
 
   <div class="controls">
@@ -52,6 +71,7 @@
   </div>
 
   <p data-testid="current-fen" class="fen">{currentFen}</p>
+  <p data-testid="source" class="source">Source: {source}</p>
   {#if $lastError}<p class="err" data-testid="panel-error">{$lastError}</p>{/if}
   <Lines {lines} />
 </main>
@@ -62,5 +82,6 @@
   .controls { display: flex; gap: 6px; }
   .controls input { flex: 1; }
   .fen { font: 11px/1.3 monospace; color: #888; word-break: break-all; }
+  .source { margin: 0; font-size: 11px; color: #888; }
   .err { margin: 0; color: #c33; font-size: 12px; }
 </style>
