@@ -29,6 +29,6 @@
   "dependencies": {
     "@lichess-org/chessground": "^10.1.1",
     "chessops": "^0.15.0",
-    "stockfish.js": "^10.0.2"
+    "stockfish": "^18.0.8"
   }
 }
