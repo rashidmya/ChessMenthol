@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import { Orchestrator, type SessionLike } from '@core/core/orchestrator';
+import { Orchestrator, type SessionLike, type VisionTrackerLike } from '@core/core/orchestrator';
 import { AnalysisSession, type SessionCallbacks, type StartOptions } from '@core/engine/session';
 import type { UciEngine } from '@core/engine/engine';
 import type { Command, ServerFrame, StateFrame } from '@core/lib/types';
@@ -14,10 +14,11 @@ export function applyPosition(send: (cmd: Command) => void, m: PositionMessage):
 
 /**
  * The extension's port of engineClient.ts: the same command->frame->store surface,
- * wiring the reused Orchestrator to the WASM engine. No Tauri, no vision tracker
- * (Plan 2 adds a browser tracker), no engine registry.
+ * wiring the reused Orchestrator to the WASM engine. No Tauri, no engine registry.
+ * `tracker` is optional (Plan 1 callers omit it); Plan 2 passes a `TabTracker`
+ * (see vision/visionTracker.ts) to drive capture-and-detect vision commands.
  */
-export function createPanelClient(load: EngineLoader) {
+export function createPanelClient(load: EngineLoader, tracker?: VisionTrackerLike) {
   const state = writable<StateFrame | null>(null);
   const lastError = writable<string | null>(null);
 
@@ -66,6 +67,7 @@ export function createPanelClient(load: EngineLoader) {
     // `_engine` is ignored: LazySession closes over `engineController` directly
     // (the same object passed as `engine`), mirroring the desktop original.
     sessionFactory: (_engine, cb) => new LazySession(cb),
+    tracker,
   });
   orch.handle({ type: 'navigate', index: 0 }); // seed the initial frame
 
