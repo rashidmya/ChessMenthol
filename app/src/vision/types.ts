@@ -13,6 +13,17 @@ export function squareName(col: number, row: number, orientation: Orientation | 
   return `${String.fromCharCode('a'.charCodeAt(0) + col)}${8 - row}`;
 }
 
+/** Inverse of `squareName`: algebraic name -> geometric (col,row) in the given orientation.
+ *  Use to re-express a square named in one orientation frame into another (via squareName). */
+export function cellOf(name: string, orientation: Orientation | null): [number, number] {
+  const file = name.charCodeAt(0);
+  const rank = Number(name[1]);
+  if (orientation === 'black_bottom') {
+    return ['h'.charCodeAt(0) - file, rank - 1];
+  }
+  return [file - 'a'.charCodeAt(0), 8 - rank];
+}
+
 export interface BoardLocation {
   bbox: Region;
   gridX: number[]; // 9 vertical grid-line x-positions (left -> right)

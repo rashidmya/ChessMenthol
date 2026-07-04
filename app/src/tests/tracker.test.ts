@@ -183,6 +183,29 @@ describe('Tracker', () => {
     expect(ap!.fen.split(' ')[0]).toBe(START_FEN.split(' ')[0]);
   });
 
+  it('resolves the turn from a highlight on a BLACK-side board (orientation frame)', async () => {
+    // Regression: on a black_bottom capture the coord labels resolve black_bottom, but
+    // detect names the highlight squares in its degenerate white_bottom hint frame. The
+    // tracker must re-express them in the RESOLVED orientation before reading occupancy —
+    // else the lookup is 180° rotated onto empty squares -> declines -> wrong side.
+    // True position: White just moved the queen to d4 (Black to move). Physical black_bottom
+    // cells (white_bottom-named, as detect/renderBoard use): d4 -> 'e5', wK e1 -> 'd8',
+    // bk e8 -> 'd1', empty origin a7 -> 'h2'.
+    const trueFen = '4k3/8/8/8/3Q4/8/8/4K3 b - - 0 1';
+    const { image } = renderBoard({
+      square: 48, margin: 24,
+      pieces: ['e5', 'd8', 'd1'],   // physical cells of d4 (Q), e1 (K), e8 (k)
+      highlights: ['e5', 'h2'],     // physical cells of d4 (dest) + a7 (empty origin)
+      coords: 'black_bottom',
+    });
+    const tracker = new Tracker(new OrientedFakeClassifier(trueFen, 'black_bottom'));
+    const ap = await tracker.detectPosition(image);
+    expect(ap).not.toBeNull();
+    expect(ap!.orientation).toBe('black_bottom');
+    expect(ap!.fen.split(' ')[0]).toBe(trueFen.split(' ')[0]); // placement recovered
+    expect(ap!.sideToMove).toBe('black'); // White just moved -> Black to move
+  });
+
   it('infers e2e4 across two frames (SeqClassifier)', async () => {
     const startPos = posFromFen(START_FEN);
     const afterPos = playUci(startPos, 'e2e4');

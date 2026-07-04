@@ -20,7 +20,7 @@ import { detect, cropSquares } from './detect';
 import { readOrientationFromLabels } from './coords';
 import { assemble, guessOrientation, guessSideToMove } from './position';
 import type { AssembledPosition, SquareLabel } from './position';
-import { squareName } from './types';
+import { squareName, cellOf } from './types';
 import type { Orientation, RgbaImage, SquareImage, BoardLocation } from './types';
 
 // ─── ClassifierLike ──────────────────────────────────────────────────────────
@@ -149,10 +149,20 @@ export class Tracker {
       return true; // default: white
     }
 
+    // detect named the highlights in its degenerate `orientationHint` frame; re-express
+    // them in the RESOLVED orientation so they match the algebraic squares in
+    // provisional.fen (which `assemble` built from that same resolved orientation).
+    // Without this a black_bottom board reads the highlights 180° rotated — onto empty
+    // squares — and always declines to the White default.
+    const highlightSquares = location.highlightSquares.map((name) => {
+      const [col, row] = cellOf(name, location.orientationHint);
+      return squareName(col, row, orientation);
+    });
+
     const side = guessSideToMove(provisional.fen, {
       prevFen: this.prevFen,
       move: provisional.move,
-      highlightSquares: location.highlightSquares,
+      highlightSquares,
     });
 
     return side === 'white';

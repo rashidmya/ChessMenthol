@@ -1,7 +1,7 @@
 // app/src/tests/visionTypes.test.ts
 import { describe, it, expect } from 'vitest';
-import { squareName } from '../vision/types';
-import type { RgbaImage } from '../vision/types';
+import { squareName, cellOf } from '../vision/types';
+import type { RgbaImage, Orientation } from '../vision/types';
 import { renderBoard, iou } from './visionFixtures';
 
 // Center pixel RGB of cell (col,row); mirrors renderBoard's index math.
@@ -33,6 +33,28 @@ describe('squareName', () => {
   it('null orientation defaults to white_bottom', () => {
     expect(squareName(0, 0, null)).toBe('a8');
     expect(squareName(7, 7, null)).toBe('h1');
+  });
+});
+
+describe('cellOf', () => {
+  it('is the exact inverse of squareName in both orientations', () => {
+    for (const o of ['white_bottom', 'black_bottom', null] as (Orientation | null)[]) {
+      for (let col = 0; col < 8; col++) {
+        for (let row = 0; row < 8; row++) {
+          expect(cellOf(squareName(col, row, o), o)).toEqual([col, row]);
+        }
+      }
+    }
+  });
+  it('re-expresses a white_bottom name into the black_bottom frame (e5 -> d4, h2 -> a7)', () => {
+    // The frame-mismatch fix: a highlight named in white_bottom is remapped to the
+    // resolved orientation by cellOf(name, from) -> squareName(cell, to).
+    const remap = (name: string) => {
+      const [c, r] = cellOf(name, 'white_bottom');
+      return squareName(c, r, 'black_bottom');
+    };
+    expect(remap('e5')).toBe('d4');
+    expect(remap('h2')).toBe('a7');
   });
 });
 
