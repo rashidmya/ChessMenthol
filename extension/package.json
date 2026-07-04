@@ -12,7 +12,9 @@
     "dev": "wxt",
     "dev:firefox": "wxt -b firefox",
     "build": "wxt build",
+    "postbuild": "node scripts/prune-build-ort.mjs",
     "build:firefox": "wxt build -b firefox",
+    "postbuild:firefox": "node scripts/prune-build-ort.mjs",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run"
   },
