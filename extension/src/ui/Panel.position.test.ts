@@ -25,6 +25,12 @@ const listeners = vi.hoisted(() => {
 });
 // Avoid constructing a real engine Worker in jsdom (paths resolve from src/ui/):
 vi.mock('../engine/wasmEngine', () => ({ loadWasmEngine: async () => ({ send() {}, onLine() {}, dispose() {} }) }));
+// Avoid constructing a real vision Worker in jsdom (Panel now calls makeTabTracker at
+// module scope; `new Worker(new URL(...))` throws under jsdom).
+vi.mock('../vision/visionTracker', () => ({ makeTabTracker: () => ({
+  detectPosition: async () => null, grabFullDesktop: async () => ({ data: new Uint8ClampedArray(0), width: 0, height: 0 }),
+  setRegion() {}, setSideOverride() {}, setOrientationOverride() {}, reset() {},
+}) }));
 
 import Panel from '../../entrypoints/sidepanel/Panel.svelte';
 

@@ -5,12 +5,21 @@
   import { onMount, onDestroy } from 'svelte';
   import { createPanelClient, applyPosition } from '../../src/lib/panelClient';
   import { loadWasmEngine } from '../../src/engine/wasmEngine';
-  import { isPositionMessage, type ExtMessage } from '../../src/lib/messages';
+  import { makeTabTracker } from '../../src/vision/visionTracker';
+  import { isPositionMessage, type ExtMessage, type CaptureResult } from '../../src/lib/messages';
   import { browser } from 'wxt/browser';
+
+  // Ask the background to capture the visible tab; resolve to a PNG data URL (or null).
+  // The background (not the panel) has the tab context + `activeTab` grant.
+  async function requestCapture(): Promise<string | null> {
+    const res = (await browser.runtime.sendMessage({ kind: 'capture-request' })) as CaptureResult | undefined;
+    return res?.dataUrl ?? null;
+  }
 
   // In a jsdom test the real worker never loads; createPanelClient only calls
   // load() when analysis is enabled, so mounting stays engine-free.
-  const client = createPanelClient(loadWasmEngine);
+  const tracker = makeTabTracker(requestCapture);
+  const client = createPanelClient(loadWasmEngine, tracker);
   // Named panelState (not `state`) to avoid confusion with Svelte 5's `$state`
   // rune — this file uses the legacy API and has no runes.
   const panelState = client.state;
@@ -37,6 +46,12 @@
   function toggleAnalysis() {
     analyzing = !analyzing;
     client.send({ type: 'set_analysis_enabled', enabled: analyzing });
+  }
+  function captureNow() {
+    source = 'manual';           // vision-derived; not a live DOM source
+    analyzing = true;
+    client.send({ type: 'set_analysis_enabled', enabled: true });
+    client.send({ type: 'capture_now' });
   }
 
   function onMessage(msg: ExtMessage) {
@@ -68,6 +83,7 @@
     <input data-testid="fen-input" bind:value={fenInput} placeholder="Paste a FEN" />
     <button data-testid="load-fen" on:click={loadFen}>Load</button>
     <button data-testid="analyze" on:click={toggleAnalysis}>{analyzing ? 'Stop' : 'Analyze'}</button>
+    <button data-testid="capture" on:click={captureNow}>Capture screen</button>
   </div>
 
   <p data-testid="current-fen" class="fen">{currentFen}</p>
