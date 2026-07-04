@@ -9,7 +9,8 @@ export default defineConfig({
   manifest: {
     name: 'ChessMenthol',
     description: 'Reconstructs the board on any page and analyzes it with Stockfish.',
-    permissions: ['storage'],
+    permissions: ['storage', 'activeTab'],
+    host_permissions: ['*://*.chess.com/*', '*://lichess.org/*'],
     action: {}, // toolbar button — required for sidePanel.setPanelBehavior({ openPanelOnActionClick })
     // A sidepanel entrypoint makes WXT emit Chrome `side_panel` + Firefox `sidebar_action`.
     cross_origin_embedder_policy: { value: 'require-corp' },
