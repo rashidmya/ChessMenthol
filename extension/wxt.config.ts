@@ -23,11 +23,12 @@ export default defineConfig({
       extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'",
     },
     web_accessible_resources: [
-      { resources: ['engine/*'], matches: ['<all_urls>'] },
+      { resources: ['engine/*', 'models/*', 'ort/*'], matches: ['<all_urls>'] },
     ],
   },
   vite: () => ({
     resolve: { alias: { '@core': resolve(__dirname, '../app/src') } },
     worker: { format: 'es' },
+    optimizeDeps: { exclude: ['onnxruntime-web'] },
   }),
 });
