@@ -50,7 +50,7 @@
     if ($s.autoAnalyze) { analyzing = true; client.send({ type: 'set_analysis_enabled', enabled: true }); }
   }
   function loadFen() {
-    source = 'manual'; boardOrientation = 'white';
+    source = 'manual'; boardOrientation = 'white'; adapterOk = true;
     lastError.set(null);
     client.send({ type: 'set_fen', fen: fenInput.trim() });
     if (analyzing) client.send({ type: 'set_analysis_enabled', enabled: true });
@@ -60,7 +60,7 @@
     client.send({ type: 'set_analysis_enabled', enabled: analyzing });
   }
   function captureNow() {
-    source = 'vision'; lastError.set(null);
+    source = 'vision'; adapterOk = true; lastError.set(null);
     client.send({ type: 'capture_now' });
     maybeAnalyze();
   }

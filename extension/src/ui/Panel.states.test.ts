@@ -44,4 +44,17 @@ describe('Panel states + settings view', () => {
     listeners.forEach((f) => f({ kind: 'adapter-status', site: 'chesscom', ok: false }));
     await waitFor(() => expect(getByTestId('status-card').textContent?.toLowerCase()).toContain('capture'));
   });
+
+  it('clears the adapter-broke banner when the user captures instead', async () => {
+    const { getByTestId, queryByTestId } = render(Panel);
+    listeners.forEach((f) => f({ kind: 'adapter-status', site: 'chesscom', ok: false }));
+    await waitFor(() => expect(getByTestId('status-card').textContent?.toLowerCase()).toContain("can't read"));
+    await fireEvent.click(getByTestId('status-capture'));
+    // adapterOk reset -> the adapter_broke banner must be gone (a different status like
+    // no_board may appear from the null-detection mock, but the "can't read" text must not).
+    await waitFor(() => {
+      const card = queryByTestId('status-card');
+      expect(card?.textContent?.toLowerCase() ?? '').not.toContain("can't read");
+    });
+  });
 });

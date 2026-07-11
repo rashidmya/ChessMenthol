@@ -32,7 +32,7 @@ export async function hydrateSettings(): Promise<void> {
 export function patchSettings(partial: Partial<Settings>): void {
   settings.update((s) => {
     const next = { ...s, ...partial };
-    void browser.storage?.local?.set?.({ [KEY]: next });
+    void browser.storage?.local?.set?.({ [KEY]: next })?.catch?.(() => {});
     return next;
   });
 }
