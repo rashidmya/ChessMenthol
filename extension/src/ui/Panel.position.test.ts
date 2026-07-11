@@ -20,6 +20,7 @@ const listeners = vi.hoisted(() => {
       onMessage: { addListener: (f: (m: unknown) => void) => listeners.push(f), removeListener: () => {} },
       sendMessage: async () => {},
     },
+    storage: { local: { get: async () => ({}), set: async () => {} } },
   });
   return listeners;
 });

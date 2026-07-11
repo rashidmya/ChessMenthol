@@ -7,52 +7,51 @@
   import { loadWasmEngine } from '../../src/engine/wasmEngine';
   import { makeTabTracker } from '../../src/vision/visionTracker';
   import { isPositionMessage, type ExtMessage, type CaptureResult } from '../../src/lib/messages';
+  import { settings, hydrateSettings } from '../../src/lib/settings';
+  import { settingsToCommands } from '../../src/lib/settingsToCommands';
+  import { panelStatus } from '../../src/lib/panelStatus';
+  import SourceBadge from './SourceBadge.svelte';
+  import SettingsPanel from './SettingsPanel.svelte';
   import { browser } from 'wxt/browser';
 
-  // Ask the background to capture the visible tab; resolve to a PNG data URL (or null).
-  // The background (not the panel) has the tab context + `activeTab` grant.
   async function requestCapture(): Promise<string | null> {
     const res = (await browser.runtime.sendMessage({ kind: 'capture-request' })) as CaptureResult | undefined;
     return res?.dataUrl ?? null;
   }
 
-  // In a jsdom test the real worker never loads; createPanelClient only calls
-  // load() when analysis is enabled, so mounting stays engine-free.
   const tracker = makeTabTracker(requestCapture);
   const client = createPanelClient(loadWasmEngine, tracker);
-  // Named panelState (not `state`) to avoid confusion with Svelte 5's `$state`
-  // rune — this file uses the legacy API and has no runes.
   const panelState = client.state;
-  const lastError = client.lastError; // engine/load failures (e.g. a wasm CSP block)
+  const lastError = client.lastError;
+  const s = settings;
 
   const STARTPOS = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
   let fenInput = STARTPOS;
   let analyzing = false;
-  // Plan 1's only position source is the FEN input. Board is draggable by default;
-  // bumping revertSignal on any drag makes it snap back to currentFen (no make_move).
   let revertSignal = 0;
-
-  // Plan 2: where the current position came from, and the board orientation it
-  // arrived with. Manual FEN entry always resets to 'manual' + white; 'vision' is a
-  // screen-captured position (not a live DOM source).
+  let view: 'analysis' | 'settings' = 'analysis';
+  let showFen = false;
   let source: 'manual' | 'vision' | 'chesscom' | 'lichess' = 'manual';
   let boardOrientation: 'white' | 'black' = 'white';
+  let adapterOk = true;
 
-  // The orchestrator is the single source of truth for the shown position, so the
-  // board mirrors StateFrame.fen (mirrors desktop App.svelte). This is what makes a
-  // vision capture — which only routes back through set_fen inside the core — appear
-  // on the board without the panel re-plumbing the detected FEN itself.
   $: currentFen = $panelState?.fen ?? STARTPOS;
-  // A screen capture resolves asynchronously; adopt the detected orientation when it
-  // lands (guarded to the vision source so a later DOM/manual position isn't flipped
-  // by a stale detection — mirrors desktop's `!manualFlip` guard).
-  $: if (source === 'vision' && $panelState?.detectedOrientation) {
-    boardOrientation = $panelState.detectedOrientation;
+  $: if (source === 'vision' && $panelState?.detectedOrientation) boardOrientation = $panelState.detectedOrientation;
+
+  // Re-send engine-affecting settings only when lines/time change (an arrows/toggle
+  // flip must NOT restart the search).
+  let lastEngineKey = '';
+  $: {
+    const key = `${$s.lines}|${$s.thinkingMs}`;
+    if (key !== lastEngineKey) { lastEngineKey = key; for (const c of settingsToCommands($s)) client.send(c); }
   }
 
+  function maybeAnalyze() {
+    if ($s.autoAnalyze) { analyzing = true; client.send({ type: 'set_analysis_enabled', enabled: true }); }
+  }
   function loadFen() {
-    source = 'manual';
-    boardOrientation = 'white';
+    source = 'manual'; boardOrientation = 'white';
+    lastError.set(null);
     client.send({ type: 'set_fen', fen: fenInput.trim() });
     if (analyzing) client.send({ type: 'set_analysis_enabled', enabled: true });
   }
@@ -61,55 +60,105 @@
     client.send({ type: 'set_analysis_enabled', enabled: analyzing });
   }
   function captureNow() {
-    source = 'vision';
-    analyzing = true;
-    client.send({ type: 'set_analysis_enabled', enabled: true });
+    source = 'vision'; lastError.set(null);
     client.send({ type: 'capture_now' });
+    maybeAnalyze();
   }
 
   function onMessage(msg: ExtMessage) {
+    if (msg?.kind === 'adapter-status') { if ($s.liveSiteReading) adapterOk = msg.ok; return; }
     if (!isPositionMessage(msg)) return;
-    source = msg.site;
-    boardOrientation = msg.orientation;
-    analyzing = true;
-    applyPosition(client.send, msg);
+    if (!$s.liveSiteReading) return;
+    adapterOk = true; source = msg.site; boardOrientation = msg.orientation; lastError.set(null);
+    if ($s.autoAnalyze) { analyzing = true; applyPosition(client.send, msg); }
+    else client.send({ type: 'set_fen', fen: msg.fen });
   }
 
-  onMount(() => browser?.runtime?.onMessage?.addListener?.(onMessage));
+  onMount(() => { hydrateSettings(); return browser?.runtime?.onMessage?.addListener?.(onMessage); });
   onDestroy(() => browser?.runtime?.onMessage?.removeListener?.(onMessage));
 
-  // StateFrame carries eval/lines directly (there is no `.analysis`).
   $: evalDto = $panelState?.eval ?? null;
   $: lines = $panelState?.lines ?? [];
+  $: depth = $panelState?.depth ?? 0;
+  $: status = panelStatus({ lastError: $lastError, visionStatus: $panelState?.visionStatus, adapterOk });
+  $: lowConfidence = $panelState?.visionStatus === 'low_confidence';
+
+  const STATUS_TEXT: Record<string, { msg: string; action?: 'capture' }> = {
+    engine_unavailable: { msg: 'Analysis engine unavailable. Board reconstruction still works.' },
+    capture_denied: { msg: "Couldn't capture this page (try a normal web page and click again).", action: 'capture' },
+    adapter_broke: { msg: "Can't read this site's board — capture it instead.", action: 'capture' },
+    no_board: { msg: 'No chessboard detected. Make the board fully visible and try again.', action: 'capture' },
+  };
 </script>
 
 <main class="panel">
-  <div class="board-row">
-    <EvalBar {evalDto} orientation={boardOrientation} />
-    <!-- Board.svelte renders its own <div data-testid="board">; don't wrap it in a
-         second one or getByTestId('board') matches two elements. -->
-    <Board fen={currentFen} orientation={boardOrientation} {lines} onMove={() => { revertSignal += 1; }} {revertSignal} />
-  </div>
+  <header class="hdr">
+    <span class="title">ChessMenthol</span>
+    <SourceBadge {source} sideToMove={$panelState?.sideToMove ?? 'white'} />
+    <button class="gear" data-testid="gear" aria-label="Settings"
+      on:click={() => (view = view === 'settings' ? 'analysis' : 'settings')}>{view === 'settings' ? '✕' : '⚙'}</button>
+  </header>
 
-  <div class="controls">
-    <input data-testid="fen-input" bind:value={fenInput} placeholder="Paste a FEN" />
-    <button data-testid="load-fen" on:click={loadFen}>Load</button>
-    <button data-testid="analyze" on:click={toggleAnalysis}>{analyzing ? 'Stop' : 'Analyze'}</button>
-    <button data-testid="capture" on:click={captureNow}>Capture screen</button>
-  </div>
+  {#if view === 'settings'}
+    <SettingsPanel />
+  {:else}
+    {#if status !== 'analysis'}
+      <div class="status" data-testid="status-card">
+        <p>{STATUS_TEXT[status].msg}</p>
+        {#if STATUS_TEXT[status].action === 'capture'}
+          <button data-testid="status-capture" on:click={captureNow}>Capture screen</button>
+        {/if}
+      </div>
+    {/if}
 
-  <p data-testid="current-fen" class="fen">{currentFen}</p>
-  <p data-testid="source" class="source">Source: {source}</p>
-  {#if $lastError}<p class="err" data-testid="panel-error">{$lastError}</p>{/if}
-  <Lines {lines} />
+    <div class="board-row">
+      <EvalBar {evalDto} orientation={boardOrientation} />
+      <Board fen={currentFen} orientation={boardOrientation} {lines} showArrows={$s.arrows}
+        onMove={() => { revertSignal += 1; }} {revertSignal} />
+    </div>
+    {#if lowConfidence}<p class="ribbon" data-testid="low-confidence">Low-confidence read — double-check the pieces.</p>{/if}
+
+    <div class="evalcard">
+      <div class="evaltop">
+        <span class="score" data-testid="eval-readout">{evalDto?.text ?? '0.0'}</span>
+        <span class="meta">{analyzing ? `depth ${depth}` : 'idle'}{lines[0] ? ` · best ${lines[0].san.split(' ')[0]}` : ''}</span>
+      </div>
+      <Lines {lines} />
+    </div>
+
+    <div class="controls">
+      <button data-testid="analyze" on:click={toggleAnalysis}>{analyzing ? 'Stop' : 'Analyze'}</button>
+      <button data-testid="capture" on:click={captureNow}>Capture</button>
+      <button data-testid="fen-toggle" on:click={() => (showFen = !showFen)}>FEN</button>
+    </div>
+
+    {#if showFen}
+      <div class="fenbox">
+        <input data-testid="fen-input" bind:value={fenInput} placeholder="Paste a FEN" />
+        <button data-testid="load-fen" on:click={loadFen}>Load</button>
+      </div>
+    {/if}
+
+    <p data-testid="current-fen" class="fen">{currentFen}</p>
+  {/if}
 </main>
 
 <style>
   .panel { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+  .hdr { display: flex; align-items: center; gap: 8px; }
+  .hdr .title { font-weight: 700; }
+  .hdr .gear { margin-left: auto; background: transparent; border: none; font-size: 16px; cursor: pointer; color: inherit; }
   .board-row { display: flex; gap: 6px; }
+  .evalcard { border: 1px solid rgba(255,255,255,.12); border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+  .evaltop { display: flex; justify-content: space-between; align-items: baseline; }
+  .evaltop .score { font-size: 20px; font-weight: 700; }
+  .evaltop .meta { font-size: 11px; opacity: .6; }
   .controls { display: flex; gap: 6px; }
-  .controls input { flex: 1; }
-  .fen { font: 11px/1.3 monospace; color: #888; word-break: break-all; }
-  .source { margin: 0; font-size: 11px; color: #888; }
-  .err { margin: 0; color: #c33; font-size: 12px; }
+  .controls button { flex: 1; }
+  .fenbox { display: flex; gap: 6px; }
+  .fenbox input { flex: 1; }
+  .status { border: 1px dashed #6a5; border-radius: 8px; padding: 10px; font-size: 12px;
+    background: rgba(120,150,90,.10); display: flex; flex-direction: column; gap: 8px; }
+  .ribbon { margin: 0; font-size: 11px; color: #c93; }
+  .fen { font: 11px/1.3 monospace; color: #888; word-break: break-all; margin: 0; }
 </style>

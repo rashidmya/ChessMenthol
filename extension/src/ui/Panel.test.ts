@@ -19,6 +19,7 @@ vi.hoisted(() => {
       onMessage: { addListener: () => {}, removeListener: () => {} },
       sendMessage: async () => {},
     },
+    storage: { local: { get: async () => ({}), set: async () => {} } },
   });
 });
 // Avoid constructing a real engine Worker in jsdom (paths resolve from src/ui/):
@@ -33,14 +34,14 @@ vi.mock('../vision/visionTracker', () => ({ makeTabTracker: () => ({
 import Panel from '../../entrypoints/sidepanel/Panel.svelte';
 
 describe('Panel', () => {
-  it('renders a board and a FEN input', () => {
+  it('renders a board', () => {
     const { getByTestId } = render(Panel);
-    expect(getByTestId('fen-input')).toBeInTheDocument();
     expect(getByTestId('board')).toBeInTheDocument();
   });
 
   it('updates the shown FEN when the user submits one', async () => {
     const { getByTestId } = render(Panel);
+    await fireEvent.click(getByTestId('fen-toggle'));
     const input = getByTestId('fen-input') as HTMLInputElement;
     await fireEvent.input(input, { target: { value: '8/8/8/8/8/8/8/4K2k w - - 0 1' } });
     await fireEvent.click(getByTestId('load-fen'));

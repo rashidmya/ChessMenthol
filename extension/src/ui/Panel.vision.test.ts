@@ -11,6 +11,7 @@ vi.hoisted(() => {
       onMessage: { addListener: () => {}, removeListener: () => {} },
       sendMessage: async () => ({ dataUrl: null }),
     },
+    storage: { local: { get: async () => ({}), set: async () => {} } },
   });
 });
 vi.mock('../engine/wasmEngine', () => ({ loadWasmEngine: async () => ({ send() {}, onLine() {}, dispose() {} }) }));
