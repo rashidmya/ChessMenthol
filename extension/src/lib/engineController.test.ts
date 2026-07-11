@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createEngineController } from './engineController';
 import type { UciEngine } from '@core/engine/engine';
+import { setOption as storeSetOption, resetAll as storeResetAll } from '@core/lib/engineOptions';
+import type { UciOption } from '@core/engine/uciOptions';
 
 function fakeEngine(): UciEngine {
   return { send: vi.fn(), onLine: vi.fn(), dispose: vi.fn(), options: [] };
@@ -32,5 +34,22 @@ describe('createEngineController', () => {
     const second = await ctrl.ensureEngine();
     expect(second).not.toBe(first);
     expect(load).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('engineController option replay on load', () => {
+  it('applies stored MultiPV override when the engine loads', async () => {
+    storeResetAll('stockfish');
+    storeSetOption('stockfish', 'MultiPV', '3'); // set BEFORE any engine exists
+    const sent: string[] = [];
+    const multipv: UciOption = { name: 'MultiPV', type: 'spin', default: '1', min: 1, max: 5 };
+    const fakeEngine = { send: (c: string) => sent.push(c), onLine() {}, dispose() {}, options: [multipv] };
+
+    const { createEngineController } = await import('./engineController');
+    const ctrl = createEngineController(async () => fakeEngine);
+    await ctrl.ensureEngine();
+
+    expect(sent).toContain('setoption name MultiPV value 3');
+    storeResetAll('stockfish');
   });
 });
