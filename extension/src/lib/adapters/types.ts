@@ -17,4 +17,7 @@ export interface SiteAdapter {
   readPosition(): AdapterPosition | null;
   /** Fire `onChange` on each settled board mutation; returns an unsubscribe fn. */
   observe(onChange: () => void): () => void;
+  /** Cheap check: is this site's board container in the DOM at all? Distinguishes
+   *  "not a chess page" (false) from "board present but unreadable" (true + null read). */
+  boardPresent(): boolean;
 }

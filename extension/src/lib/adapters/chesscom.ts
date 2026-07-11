@@ -62,6 +62,8 @@ export const chesscomAdapter: SiteAdapter = {
     if (!board) return () => {};
     return observeBoard(board, onChange);
   },
+
+  boardPresent: () => !!boardEl(),
 };
 
 function hostOf(url: string): string { try { return new URL(url).hostname; } catch { return ''; } }

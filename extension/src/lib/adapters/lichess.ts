@@ -71,6 +71,8 @@ export const lichessAdapter: SiteAdapter = {
     if (!board) return () => {};
     return observeBoard(board, onChange);
   },
+
+  boardPresent: () => !!boardEl(),
 };
 
 /** Last-move square that still holds a piece is the mover's destination. */
