@@ -25,22 +25,35 @@
   const panelState = client.state;
   const lastError = client.lastError; // engine/load failures (e.g. a wasm CSP block)
 
-  let fenInput = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-  let currentFen = fenInput;
+  const STARTPOS = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  let fenInput = STARTPOS;
   let analyzing = false;
   // Plan 1's only position source is the FEN input. Board is draggable by default;
   // bumping revertSignal on any drag makes it snap back to currentFen (no make_move).
   let revertSignal = 0;
 
   // Plan 2: where the current position came from, and the board orientation it
-  // arrived with. Manual FEN entry always resets to 'manual' + white.
-  let source: 'manual' | 'chesscom' | 'lichess' = 'manual';
+  // arrived with. Manual FEN entry always resets to 'manual' + white; 'vision' is a
+  // screen-captured position (not a live DOM source).
+  let source: 'manual' | 'vision' | 'chesscom' | 'lichess' = 'manual';
   let boardOrientation: 'white' | 'black' = 'white';
+
+  // The orchestrator is the single source of truth for the shown position, so the
+  // board mirrors StateFrame.fen (mirrors desktop App.svelte). This is what makes a
+  // vision capture — which only routes back through set_fen inside the core — appear
+  // on the board without the panel re-plumbing the detected FEN itself.
+  $: currentFen = $panelState?.fen ?? STARTPOS;
+  // A screen capture resolves asynchronously; adopt the detected orientation when it
+  // lands (guarded to the vision source so a later DOM/manual position isn't flipped
+  // by a stale detection — mirrors desktop's `!manualFlip` guard).
+  $: if (source === 'vision' && $panelState?.detectedOrientation) {
+    boardOrientation = $panelState.detectedOrientation;
+  }
 
   function loadFen() {
     source = 'manual';
-    currentFen = fenInput.trim();
-    client.send({ type: 'set_fen', fen: currentFen });
+    boardOrientation = 'white';
+    client.send({ type: 'set_fen', fen: fenInput.trim() });
     if (analyzing) client.send({ type: 'set_analysis_enabled', enabled: true });
   }
   function toggleAnalysis() {
@@ -48,7 +61,7 @@
     client.send({ type: 'set_analysis_enabled', enabled: analyzing });
   }
   function captureNow() {
-    source = 'manual';           // vision-derived; not a live DOM source
+    source = 'vision';
     analyzing = true;
     client.send({ type: 'set_analysis_enabled', enabled: true });
     client.send({ type: 'capture_now' });
@@ -57,7 +70,6 @@
   function onMessage(msg: ExtMessage) {
     if (!isPositionMessage(msg)) return;
     source = msg.site;
-    currentFen = msg.fen;
     boardOrientation = msg.orientation;
     analyzing = true;
     applyPosition(client.send, msg);
