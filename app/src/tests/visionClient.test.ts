@@ -1,7 +1,7 @@
 // app/src/tests/visionClient.test.ts
 import { describe, it, expect, vi } from 'vitest';
 import { VisionWorkerClient, VisionTracker } from '../vision/visionClient';
-import type { RgbaImage } from '../lib/capture';
+import type { RgbaImage } from '../lib/image';
 
 class FakeWorker {
   onmessage: ((e: MessageEvent) => void) | null = null;

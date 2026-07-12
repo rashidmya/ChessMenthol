@@ -1,5 +1,5 @@
 // app/src/vision/types.ts
-import type { RgbaImage } from '../lib/capture';
+import type { RgbaImage } from '../lib/image';
 import type { Region } from '../lib/region';
 export type { RgbaImage, Region };
 

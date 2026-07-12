@@ -3,7 +3,7 @@
  * Tests are the spec. All chess logic goes through core/chess.ts.
  */
 
-import type { RgbaImage } from '../lib/capture';
+import type { RgbaImage } from '../lib/image';
 import type { RegionShotFrame } from '../lib/types';
 import type { Chess } from './chess';
 import { sanOf, playUci, variationSan } from './chess';

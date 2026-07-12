@@ -19,7 +19,7 @@ import { Tracker } from '../vision/tracker';
 import type { ClassifierLike } from '../vision/tracker';
 import type { SquareLabel } from '../vision/position';
 import type { SquareImage } from '../vision/types';
-import type { RgbaImage } from '../lib/capture';
+import type { RgbaImage } from '../lib/image';
 import { posFromFen, pieceCodeAt, fenOf, playUci } from '../core/chess';
 import type { SquareName } from '../core/chess';
 import { squareName } from '../vision/types';

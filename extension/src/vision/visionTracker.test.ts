@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { TabTracker } from './visionTracker';
-import type { RgbaImage } from '@core/lib/capture';
+import type { RgbaImage } from '@core/lib/image';
 
 const img = (): RgbaImage => ({ data: new Uint8ClampedArray(4).fill(9), width: 1, height: 1 });
 

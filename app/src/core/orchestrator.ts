@@ -39,7 +39,7 @@ import { cpFromEval, winPercent, gameAccuracy, acpl } from './accuracy';
 import { classifyMove, type Classification } from './classify';
 import { analysisToDict, classificationToDict, lastMoveToDict, regionShotToDict } from './serialize';
 import type { AssembledPosition } from '../vision/position';
-import type { RgbaImage } from '../lib/capture';
+import type { RgbaImage } from '../lib/image';
 import { type AnalysisInfo, type Eval, bestLine, lineMove, formatWhiteEval } from '../engine/types';
 import { AnalysisSession, type StartOptions, type SessionCallbacks } from '../engine/session';
 import type { UciEngine } from '../engine/engine';

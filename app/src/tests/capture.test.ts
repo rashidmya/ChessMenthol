@@ -1,6 +1,6 @@
 // app/src/tests/capture.test.ts
 import { describe, it, expect, vi } from 'vitest';
-import { decodeCaptureBuffer, cropImage, type RgbaImage } from '../lib/capture';
+import { decodeCaptureBuffer, cropImage, type RgbaImage } from '../lib/image';
 
 function header(w: number, h: number, rgba: number[]): ArrayBuffer {
   const buf = new ArrayBuffer(8 + rgba.length);

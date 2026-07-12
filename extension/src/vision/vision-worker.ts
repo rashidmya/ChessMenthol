@@ -2,7 +2,7 @@
 import * as ort from 'onnxruntime-web/wasm';
 import { Tracker } from '@core/vision/tracker';
 import { PieceClassifier, ortRunner, type InferenceLike } from '@core/vision/pieces';
-import type { RgbaImage } from '@core/lib/capture';
+import type { RgbaImage } from '@core/lib/image';
 import type { Orientation } from '@core/vision/types';
 
 // Extension pages/workers run at chrome-extension://<id>/ — resolve staged assets there.

@@ -1,5 +1,6 @@
 // app/src/vision/visionClient.ts
-import type { RgbaImage, Capturer } from '../lib/capture';
+import type { RgbaImage } from '../lib/image';
+import type { Capturer } from '../lib/capture';
 import type { Region } from '../lib/region';
 import type { AssembledPosition } from './position';
 import type { Orientation } from './types';

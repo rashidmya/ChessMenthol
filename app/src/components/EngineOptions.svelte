@@ -3,7 +3,8 @@
   import Icon from './Icon.svelte';
   import type { Command } from '../lib/types';
   import type { UciOption } from '../engine/uciOptions';
-  import { ensureSchema, getSchema, effectiveValues, setOption, resetOption, resetAll, onSchemaChange } from '../lib/engineOptions';
+  import { ensureSchema } from '../lib/engineSchema';
+  import { getSchema, effectiveValues, setOption, resetOption, resetAll, onSchemaChange } from '../lib/engineOptions';
 
   export let engineId: string = 'stockfish';
   export let onCommand: (cmd: Command) => void = () => {};

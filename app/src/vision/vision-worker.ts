@@ -20,7 +20,7 @@
 import * as ort from 'onnxruntime-web/wasm';
 import { Tracker } from './tracker';
 import { PieceClassifier, ortRunner, type InferenceLike } from './pieces';
-import type { RgbaImage } from '../lib/capture';
+import type { RgbaImage } from '../lib/image';
 import type { Orientation } from './types';
 
 // Override ONLY the .wasm URL (object form), NOT a string prefix. The `/wasm`

@@ -3,9 +3,6 @@
 // (cached) and the user's OVERRIDES (only values changed from the engine default),
 // both keyed by engine id. Mirrors the engineRegistry localStorage idiom.
 import type { UciOption } from '../engine/uciOptions';
-import { invoke, isTauri } from '@tauri-apps/api/core';
-import { parseOptions } from '../engine/uciOptions';
-import { get as getEngineRecord } from './engineRegistry';
 
 export const SCHEMA_KEY = 'chessmenthol.engineSchema';     // { [id]: UciOption[] }
 export const OVERRIDES_KEY = 'chessmenthol.engineOptions'; // { [id]: { [name]: string } }
@@ -68,25 +65,4 @@ export function effectiveValues(id: string): Record<string, string> {
 export function clear(id: string): void {
   const s = load<UciOption[]>(SCHEMA_KEY); if (id in s) { delete s[id]; save(SCHEMA_KEY, s); }
   const o = load<Record<string, string>>(OVERRIDES_KEY); if (id in o) { delete o[id]; save(OVERRIDES_KEY, o); }
-}
-
-/** Ensure a schema is cached for `id`; probe via Tauri if missing. Never throws.
- *  In a plain browser there is no native engine (analysis is desktop-only), so we
- *  return []. Desktop always has engine_probe, satisfying "options available before analysis". */
-export async function ensureSchema(id: string): Promise<UciOption[]> {
-  const cached = getSchema(id);
-  if (cached) return cached;
-  const rec = getEngineRecord(id);
-  if (!rec || !isTauri()) return [];
-  try {
-    const spec = rec.kind === 'external' && rec.path
-      ? { kind: 'external', path: rec.path }
-      : { kind: 'bundled' };
-    const { option_lines } = await invoke<{ name: string; option_lines: string[] }>('engine_probe', { spec });
-    const schema = parseOptions(option_lines);
-    setSchema(id, schema);
-    return schema;
-  } catch {
-    return [];
-  }
 }

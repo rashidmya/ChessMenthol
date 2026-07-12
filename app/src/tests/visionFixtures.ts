@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
-import type { RgbaImage } from '../lib/capture';
+import type { RgbaImage } from '../lib/image';
 import type { BoardLocation, Region, Orientation } from '../vision/types';
 
 // RGB (Python BGR constants reversed per the colour-space convention).
