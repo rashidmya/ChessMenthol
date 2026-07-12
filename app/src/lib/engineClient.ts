@@ -11,19 +11,19 @@
  */
 
 import { writable } from 'svelte/store';
-import type { Command, ServerFrame, StateFrame, RegionShotFrame, ReportFrame, GameReportDto } from './types';
-import { applyOptions } from '../engine/engine';
-import type { UciEngine } from '../engine/engine';
+import type { Command, ServerFrame, StateFrame, RegionShotFrame, ReportFrame, GameReportDto } from '@chessmenthol/core/lib/types';
+import { applyOptions } from '@chessmenthol/core/engine/engine';
+import type { UciEngine } from '@chessmenthol/core/engine/engine';
 import { loadNativeEngine } from '../engine/nativeEngine';
-import { get as getEngine, type EngineRecord } from './engineRegistry';
-import { getSchema, setSchema, getOverrides } from './engineOptions';
-import { formatSetOption } from '../engine/uciOptions';
+import { get as getEngine, type EngineRecord } from '@chessmenthol/core/lib/engineRegistry';
+import { getSchema, setSchema, getOverrides } from '@chessmenthol/core/lib/engineOptions';
+import { formatSetOption } from '@chessmenthol/core/engine/uciOptions';
 import { isTauri } from '@tauri-apps/api/core';
-import { AnalysisSession, type SessionCallbacks, type StartOptions } from '../engine/session';
-import { Orchestrator } from '../core/orchestrator';
-import type { OrchestratorEngine, SessionLike } from '../core/orchestrator';
+import { AnalysisSession, type SessionCallbacks, type StartOptions } from '@chessmenthol/core/engine/session';
+import { Orchestrator } from '@chessmenthol/core/core/orchestrator';
+import type { OrchestratorEngine, SessionLike } from '@chessmenthol/core/core/orchestrator';
 import { Capturer, hasNativeCapture } from './capture';
-import { VisionWorkerClient, VisionTracker } from '../vision/visionClient';
+import { VisionWorkerClient, VisionTracker } from '@chessmenthol/core/vision/visionClient';
 
 // ─── stores ────────────────────────────────────────────────────────────────
 

@@ -3,7 +3,7 @@
   import EngineList from './EngineList.svelte';
   import EngineOptions from './EngineOptions.svelte';
   import { SEARCH_TIMES, DEFAULT_SEARCH_INDEX } from '../lib/options';
-  import type { Command } from '../lib/types';
+  import type { Command } from '@chessmenthol/core/lib/types';
 
   export let engineId: string = 'stockfish';
   export let onCommand: (c: Command) => void = () => {};

@@ -8,7 +8,7 @@ const { invokeMock, isTauriMock } = vi.hoisted(() => ({
 vi.mock('@tauri-apps/api/core', () => ({ invoke: (...a: unknown[]) => invokeMock(...a), isTauri: () => isTauriMock() }));
 
 import EngineOptions from '../components/EngineOptions.svelte';
-import { setSchema, getOverrides } from '../lib/engineOptions';
+import { setSchema, getOverrides } from '@chessmenthol/core/lib/engineOptions';
 
 const schema = [
   { name: 'Threads', type: 'spin', default: '1', min: 1, max: 8 },

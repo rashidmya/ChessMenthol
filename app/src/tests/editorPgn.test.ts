@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/svelte';
 import EditPanel from '../components/EditPanel.svelte';
-import { makePositionPgn } from '../core/pgn';
+import { makePositionPgn } from '@chessmenthol/core/core/pgn';
 
 describe('EditPanel PGN box', () => {
   it('shows the SetUp/FEN PGN for the given position', () => {

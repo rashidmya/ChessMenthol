@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/svelte';
 import Icon from '../components/Icon.svelte';
-import { licon } from '../lib/licon';
+import { licon } from '@chessmenthol/core/lib/licon';
 
 describe('Icon', () => {
   it('renders the licon codepoint via data-icon and is decorative by default', () => {

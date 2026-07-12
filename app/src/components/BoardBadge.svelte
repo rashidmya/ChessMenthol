@@ -1,7 +1,7 @@
 <script lang="ts">
   import MoveBadge from './MoveBadge.svelte';
   import { squareCorner } from '../lib/squareCorner';
-  import type { LastMoveDto } from '../lib/types';
+  import type { LastMoveDto } from '@chessmenthol/core/lib/types';
 
   export let lastMove: LastMoveDto | null = null;
   export let orientation: 'white' | 'black' = 'white';

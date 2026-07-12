@@ -82,7 +82,7 @@ describe('App report flow', () => {
   });
 
   // Minimal StateFrame carrying a given move list; other fields are sensible defaults.
-  function st(moveList: { ply: number; san: string; uci: string; classification: null }[]): import('../lib/types').StateFrame {
+  function st(moveList: { ply: number; san: string; uci: string; classification: null }[]): import('@chessmenthol/core/lib/types').StateFrame {
     return {
       type: 'state', fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
       sideToMove: 'white', engineId: 'stockfish', analyzing: false, eval: null, depth: 0, lines: [],
@@ -130,7 +130,7 @@ describe('Review screen', () => {
   });
 
   // Minimal StateFrame carrying a given move list; other fields are sensible defaults.
-  function st(moveList: { ply: number; san: string; uci: string; classification: null }[]): import('../lib/types').StateFrame {
+  function st(moveList: { ply: number; san: string; uci: string; classification: null }[]): import('@chessmenthol/core/lib/types').StateFrame {
     return {
       type: 'state', fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
       sideToMove: 'white', engineId: 'stockfish', analyzing: false, eval: null, depth: 0, lines: [],
@@ -171,7 +171,7 @@ describe('Review screen', () => {
       { ply: 3, san: 'Nf3', uci: 'g1f3', classification: null },
     ];
     let frame = { ...st(ml3), currentPly: 1 };   // mid-game: at ply 1 of 3
-    sendMock.mockImplementation((cmd: import('../lib/types').Command) => {
+    sendMock.mockImplementation((cmd: import('@chessmenthol/core/lib/types').Command) => {
       if (cmd.type === 'navigate') { frame = { ...frame, currentPly: cmd.index }; stateStore.set(frame); }
     });
     try {

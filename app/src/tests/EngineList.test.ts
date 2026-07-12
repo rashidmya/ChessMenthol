@@ -11,7 +11,7 @@ vi.mock('@tauri-apps/api/core', () => ({ invoke: (...a: unknown[]) => invokeMock
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: (...a: unknown[]) => openMock(...a) }));
 
 import EngineList from '../components/EngineList.svelte';
-import { list } from '../lib/engineRegistry';
+import { list } from '@chessmenthol/core/lib/engineRegistry';
 
 beforeEach(() => {
   localStorage.clear();
@@ -36,7 +36,7 @@ describe('EngineList', () => {
   });
 
   it('clicking a row selects that engine', async () => {
-    const { add } = await import('../lib/engineRegistry');
+    const { add } = await import('@chessmenthol/core/lib/engineRegistry');
     add({ id: 'ext1', name: 'My Engine', kind: 'external', path: '/opt/x' });
     const onSetEngine = vi.fn();
     const { getByText } = render(EngineList, { props: { engineId: 'stockfish', onSetEngine } });
@@ -55,7 +55,7 @@ describe('EngineList', () => {
     expect(list().some((e) => e.name === 'Komodo 14' && e.path === '/opt/engines/komodo')).toBe(true);
     const newId = onSetEngine.mock.calls[0][0];
     expect(newId).not.toBe('stockfish');
-    const { getSchema } = await import('../lib/engineOptions');
+    const { getSchema } = await import('@chessmenthol/core/lib/engineOptions');
     expect(getSchema(newId)?.some((o) => o.name === 'Threads')).toBe(true);
   });
 
@@ -100,10 +100,10 @@ describe('EngineList', () => {
   });
 
   it('removing the selected external engine falls back to bundled', async () => {
-    const { add } = await import('../lib/engineRegistry');
-    const { setSchema, getSchema } = await import('../lib/engineOptions');
+    const { add } = await import('@chessmenthol/core/lib/engineRegistry');
+    const { setSchema, getSchema } = await import('@chessmenthol/core/lib/engineOptions');
     add({ id: 'ext1', name: 'My Engine', kind: 'external', path: '/opt/x' });
-    setSchema('ext1', [{ name: 'Threads', type: 'spin', default: '1' }] as import('../engine/uciOptions').UciOption[]);
+    setSchema('ext1', [{ name: 'Threads', type: 'spin', default: '1' }] as import('@chessmenthol/core/engine/uciOptions').UciOption[]);
     const onSetEngine = vi.fn();
     const { getByLabelText } = render(EngineList, { props: { engineId: 'ext1', onSetEngine } });
     await fireEvent.click(getByLabelText('Remove My Engine'));

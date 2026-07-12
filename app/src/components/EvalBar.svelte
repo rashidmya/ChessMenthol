@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { EvalDto } from '../lib/types';
-  import { whitePct, resultText, resultPct } from '../lib/evalbar';
+  import type { EvalDto } from '@chessmenthol/core/lib/types';
+  import { whitePct, resultText, resultPct } from '@chessmenthol/core/lib/evalbar';
   export let evalDto: EvalDto | null = null;
   export let orientation: 'white' | 'black' = 'white';
   export let gameOver: { result: string; reason: string } | null = null;

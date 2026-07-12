@@ -34,7 +34,7 @@ describe('engineController loader selection', () => {
   });
 
   it('passes an external engine path to the native loader', async () => {
-    const { add } = await import('../lib/engineRegistry');
+    const { add } = await import('@chessmenthol/core/lib/engineRegistry');
     add({ id: 'ext1', name: 'My Engine', kind: 'external', path: '/opt/engines/foo' });
     const { engineController } = await import('../lib/engineClient');
     engineController.select('ext1');
@@ -43,18 +43,18 @@ describe('engineController loader selection', () => {
   });
 
   it('caches the advertised schema and applies stored overrides on load', async () => {
-    const { setOption } = await import('../lib/engineOptions');
+    const { setOption } = await import('@chessmenthol/core/lib/engineOptions');
     setOption('stockfish', 'MultiPV', '3'); // user override
     const { engineController } = await import('../lib/engineClient');
     const engine = await engineController.ensureEngine();
-    const { getSchema } = await import('../lib/engineOptions');
+    const { getSchema } = await import('@chessmenthol/core/lib/engineOptions');
     expect(getSchema('stockfish')?.some((o) => o.name === 'MultiPV')).toBe(true); // schema cached
     expect(engine.send).toHaveBeenCalledWith('setoption name MultiPV value 3');   // override applied
     expect(engine.send).not.toHaveBeenCalledWith('setoption name Threads value 1'); // no unchanged option sent
   });
 
   it('does not clamp Threads for the native engine', async () => {
-    const { setOption } = await import('../lib/engineOptions');
+    const { setOption } = await import('@chessmenthol/core/lib/engineOptions');
     setOption('stockfish', 'Threads', '4');
     const { engineController } = await import('../lib/engineClient');
     const engine = await engineController.ensureEngine();
@@ -78,7 +78,7 @@ describe('engineController loader selection', () => {
   });
 
   it('self-heals to the newly selected engine when select() happens mid-load', async () => {
-    const { add } = await import('../lib/engineRegistry');
+    const { add } = await import('@chessmenthol/core/lib/engineRegistry');
     add({ id: 'ext1', name: 'My Engine', kind: 'external', path: '/opt/engines/foo' });
     const { engineController } = await import('../lib/engineClient');
 
@@ -98,7 +98,7 @@ describe('engineController loader selection', () => {
   });
 
   it('disposes + reloads when switching to a different engine id', async () => {
-    const { add } = await import('../lib/engineRegistry');
+    const { add } = await import('@chessmenthol/core/lib/engineRegistry');
     add({ id: 'ext1', name: 'My Engine', kind: 'external', path: '/opt/engines/foo' });
     const { engineController } = await import('../lib/engineClient');
     const a = await engineController.ensureEngine();

@@ -4,8 +4,8 @@
 // UciEngine contract: resolves once the engine answers `uciok`, splits batched
 // output into trimmed lines, and routes them to the registered listener.
 import { invoke, Channel } from '@tauri-apps/api/core';
-import type { UciEngine } from './engine';
-import { parseOptions } from './uciOptions';
+import type { UciEngine } from '@chessmenthol/core/engine/engine';
+import { parseOptions } from '@chessmenthol/core/engine/uciOptions';
 
 /** Which native engine to spawn: the bundled Stockfish sidecar or an external binary. */
 export type EngineSpec = { kind: 'bundled' } | { kind: 'external'; path: string };

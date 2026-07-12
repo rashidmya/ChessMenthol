@@ -3,9 +3,9 @@
   import Icon from './Icon.svelte';
   import { invoke, isTauri } from '@tauri-apps/api/core';
   import { open } from '@tauri-apps/plugin-dialog';
-  import { list, add, remove, type EngineRecord } from '../lib/engineRegistry';
-  import { setSchema, clear as clearOptions } from '../lib/engineOptions';
-  import { parseOptions } from '../engine/uciOptions';
+  import { list, add, remove, type EngineRecord } from '@chessmenthol/core/lib/engineRegistry';
+  import { setSchema, clear as clearOptions } from '@chessmenthol/core/lib/engineOptions';
+  import { parseOptions } from '@chessmenthol/core/engine/uciOptions';
 
   export let engineId: string = 'stockfish';
   export let onSetEngine: (id: string) => void = () => {};

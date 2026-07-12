@@ -4,8 +4,8 @@
   import Switch from './Switch.svelte';
   import EngineSettings from './EngineSettings.svelte';
   import ViewMenu from './ViewMenu.svelte';
-  import { engineName } from '../lib/engineRegistry';
-  import type { Command } from '../lib/types';
+  import { engineName } from '@chessmenthol/core/lib/engineRegistry';
+  import type { Command } from '@chessmenthol/core/lib/types';
 
   export let analysisEnabled: boolean = false;
   // Draw the header's bottom divider only when there are engine lines directly

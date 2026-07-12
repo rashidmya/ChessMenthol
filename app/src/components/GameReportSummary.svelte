@@ -4,8 +4,8 @@
   import AccuracyDial from './AccuracyDial.svelte';
   import EvalGraph from './EvalGraph.svelte';
   import MoveHistory from './MoveHistory.svelte';
-  import { graphSeries } from '../core/report';
-  import type { GameReportDto, MoveEntryDto } from '../lib/types';
+  import { graphSeries } from '@chessmenthol/core/core/report';
+  import type { GameReportDto, MoveEntryDto } from '@chessmenthol/core/lib/types';
 
   export let report: GameReportDto;
   export let moveList: MoveEntryDto[] = [];

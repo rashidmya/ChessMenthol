@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { state, errorSeq, regionShot, connect, send, report, reportProgress } from './lib/engineClient';
-  import { buildFen, kingCountOk, castleFromFen } from './lib/edit';
-  import { currentLastMoveUci } from './lib/board';
-  import type { CastlingRights } from './lib/edit';
+  import { buildFen, kingCountOk, castleFromFen } from '@chessmenthol/core/lib/edit';
+  import { currentLastMoveUci } from '@chessmenthol/core/lib/board';
+  import type { CastlingRights } from '@chessmenthol/core/lib/edit';
   import { loadViewPrefs, saveViewPrefs } from './lib/viewprefs';
   import type { ViewPrefs } from './lib/viewprefs';
   import Board from './components/Board.svelte';
@@ -29,10 +29,10 @@
   import Titlebar from './components/Titlebar.svelte';
   import WindowResize from './components/WindowResize.svelte';
   import { isTauri } from '@tauri-apps/api/core';
-  import { captureCommands, type Region } from './lib/region';
+  import { captureCommands, type Region } from '@chessmenthol/core/lib/region';
   import { hasNativeCapture } from './lib/capture';
-  import { makePositionPgn, looksLikePgn } from './core/pgn';
-  import { graphSeries } from './core/report';
+  import { makePositionPgn, looksLikePgn } from '@chessmenthol/core/core/pgn';
+  import { graphSeries } from '@chessmenthol/core/core/report';
 
   let orientation: 'white' | 'black' = 'white';
   let manualFlip = false;
@@ -46,7 +46,7 @@
   let viewPrefs: ViewPrefs = loadViewPrefs();
   let editError: string | null = null;
   let boardComp: Board;
-  let lastReport: import('./lib/types').GameReportDto | null = null;
+  let lastReport: import('@chessmenthol/core/lib/types').GameReportDto | null = null;
   const hasCapture = hasNativeCapture(); // true inside Tauri; false in a plain browser
   let pickingRegion = false;
   function onPickRegion() { regionShot.set(null); pickingRegion = true; send({ type: 'request_region_shot' }); }
@@ -98,8 +98,8 @@
     send({ type: 'reset' });
   }
   function reportMatchesGame(
-    r: import('./lib/types').GameReportDto,
-    st: import('./lib/types').StateFrame | null,
+    r: import('@chessmenthol/core/lib/types').GameReportDto,
+    st: import('@chessmenthol/core/lib/types').StateFrame | null,
   ): boolean {
     const a = r.plies.map((p) => p.uci);
     const b = (st?.moveList ?? []).map((m) => m.uci);

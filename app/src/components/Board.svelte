@@ -1,10 +1,10 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { Chessground } from '@lichess-org/chessground';
-  import { moveToUci, turnColor, legalDests, promotionPiece, lastMoveSquares } from '../lib/board';
-  import { linesToShapes } from '../lib/arrows';
-  import { coordsToKey, pieceFromToken } from '../lib/edit';
-  import type { LineDto } from '../lib/types';
+  import { moveToUci, turnColor, legalDests, promotionPiece, lastMoveSquares } from '@chessmenthol/core/lib/board';
+  import { linesToShapes } from '@chessmenthol/core/lib/arrows';
+  import { coordsToKey, pieceFromToken } from '@chessmenthol/core/lib/edit';
+  import type { LineDto } from '@chessmenthol/core/lib/types';
   import '@lichess-org/chessground/assets/chessground.base.css';
   import '@lichess-org/chessground/assets/chessground.brown.css';
   import '@lichess-org/chessground/assets/chessground.cburnett.css';

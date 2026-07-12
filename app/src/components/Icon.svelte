@@ -3,7 +3,7 @@
   // the matching PUA char is placed in data-icon and drawn by the global
   // [data-icon]::before rule in app.css. The glyph inherits the surrounding
   // font-size and currentColor.
-  import { licon, type LiconKey } from '../lib/licon';
+  import { licon, type LiconKey } from '@chessmenthol/core/lib/licon';
 
   export let name: LiconKey;
   // Provide `label` only for a standalone, meaningful icon (becomes role="img").

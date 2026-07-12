@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { RegionShotFrame } from '../lib/types';
-  import { toDesktopRegion, type Region } from '../lib/region';
+  import type { RegionShotFrame } from '@chessmenthol/core/lib/types';
+  import { toDesktopRegion, type Region } from '@chessmenthol/core/lib/region';
   import Icon from './Icon.svelte';
   export let shot: RegionShotFrame | null = null;
   export let onConfirm: (r: Region, side: 'auto' | 'white' | 'black') => void = () => {};

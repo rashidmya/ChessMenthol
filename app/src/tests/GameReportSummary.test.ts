@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/svelte';
 import GameReportSummary from '../components/GameReportSummary.svelte';
-import type { GameReportDto } from '../lib/types';
+import type { GameReportDto } from '@chessmenthol/core/lib/types';
 
-function pr(over: Partial<import('../lib/types').PlayerReportDto> = {}) {
+function pr(over: Partial<import('@chessmenthol/core/lib/types').PlayerReportDto> = {}) {
   return { accuracy: 88, acpl: 20, brilliant: 0, great: 1, best: 18, excellent: 14, good: 2,
     inaccuracy: 2, mistake: 1, blunder: 0, miss: 0, ...over };
 }

@@ -18,10 +18,10 @@
 //                source code"); the bundle build only *fetches* the .wasm
 //                binary, which IS allowed from /public in dev.
 import * as ort from 'onnxruntime-web/wasm';
-import { Tracker } from './tracker';
-import { PieceClassifier, ortRunner, type InferenceLike } from './pieces';
-import type { RgbaImage } from '../lib/image';
-import type { Orientation } from './types';
+import { Tracker } from '@chessmenthol/core/vision/tracker';
+import { PieceClassifier, ortRunner, type InferenceLike } from '@chessmenthol/core/vision/pieces';
+import type { RgbaImage } from '@chessmenthol/core/lib/image';
+import type { Orientation } from '@chessmenthol/core/vision/types';
 
 // Override ONLY the .wasm URL (object form), NOT a string prefix. The `/wasm`
 // *bundle* build embeds its JS glue, and ort uses that embedded glue as long as

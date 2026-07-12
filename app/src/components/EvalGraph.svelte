@@ -1,6 +1,6 @@
 <script lang="ts">
   import { moveColor } from '../lib/moveclass';
-  import type { ClassificationDto } from '../lib/types';
+  import type { ClassificationDto } from '@chessmenthol/core/lib/types';
 
   export let wins: number[] = [];         // White-POV win% per position (index 0 = base)
   export let evals: string[] = [];        // White-POV eval text per position (parallel to wins)

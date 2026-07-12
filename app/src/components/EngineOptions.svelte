@@ -1,10 +1,10 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
   import Icon from './Icon.svelte';
-  import type { Command } from '../lib/types';
-  import type { UciOption } from '../engine/uciOptions';
+  import type { Command } from '@chessmenthol/core/lib/types';
+  import type { UciOption } from '@chessmenthol/core/engine/uciOptions';
   import { ensureSchema } from '../lib/engineSchema';
-  import { getSchema, effectiveValues, setOption, resetOption, resetAll, onSchemaChange } from '../lib/engineOptions';
+  import { getSchema, effectiveValues, setOption, resetOption, resetAll, onSchemaChange } from '@chessmenthol/core/lib/engineOptions';
 
   export let engineId: string = 'stockfish';
   export let onCommand: (cmd: Command) => void = () => {};

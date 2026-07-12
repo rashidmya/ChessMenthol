@@ -2,7 +2,7 @@
   import Icon from './Icon.svelte';
   import Panel from './Panel.svelte';
   import EditPalette from './EditPalette.svelte';
-  import type { CastlingRights } from '../lib/edit';
+  import type { CastlingRights } from '@chessmenthol/core/lib/edit';
 
   export let fen = '';
   export let side: 'white' | 'black' = 'white';

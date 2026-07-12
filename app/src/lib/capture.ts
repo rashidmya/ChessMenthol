@@ -1,7 +1,7 @@
 // app/src/lib/capture.ts
 import { invoke, isTauri } from '@tauri-apps/api/core';
-import type { Region } from './region';
-import { cropImage, decodeCaptureBuffer, type RgbaImage } from './image';
+import type { Region } from '@chessmenthol/core/lib/region';
+import { cropImage, decodeCaptureBuffer, type RgbaImage } from '@chessmenthol/core/lib/image';
 
 export type { RgbaImage };
 

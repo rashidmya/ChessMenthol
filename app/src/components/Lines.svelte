@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { LineDto } from '../lib/types';
+  import type { LineDto } from '@chessmenthol/core/lib/types';
   import Icon from './Icon.svelte';
   export let lines: LineDto[] = [];
   // Per-multipv expand state. Resetting expansion across positions is the

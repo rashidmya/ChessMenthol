@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { LastMoveDto } from '../lib/types';
+  import type { LastMoveDto } from '@chessmenthol/core/lib/types';
   import MoveBadge from './MoveBadge.svelte';
-  import { resultText } from '../lib/evalbar';
+  import { resultText } from '@chessmenthol/core/lib/evalbar';
 
   export let lastMove: LastMoveDto | null = null;
   export let evaluating: { san: string } | null = null;
