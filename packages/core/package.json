@@ -1,0 +1,20 @@
+{
+  "name": "@chessmenthol/core",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": { "./*": "./src/*.ts" },
+  "scripts": {
+    "test": "vitest run",
+    "check": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "chessops": "^0.15.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "jsdom": "^29.1.1",
+    "typescript": "~6.0.2",
+    "vitest": "^4.1.9"
+  }
+}
