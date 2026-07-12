@@ -61,6 +61,8 @@ jobs:
           name: chessmenthol-extension-${{ steps.ver.outputs.version }}
           path: apps/extension/.output/chessmenthol-extension-*.zip
           if-no-files-found: error
+          # .output is a dotfile dir; upload-artifact@v4 skips hidden paths without this.
+          include-hidden-files: true
 
       - name: Create GitHub Release (tag pushes only)
         if: github.ref_type == 'tag'
