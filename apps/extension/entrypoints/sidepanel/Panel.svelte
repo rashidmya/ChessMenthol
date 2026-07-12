@@ -7,11 +7,12 @@
   import { loadWasmEngine } from '../../src/engine/wasmEngine';
   import { makeTabTracker } from '../../src/vision/visionTracker';
   import { isPositionMessage, type ExtMessage, type CaptureResult } from '../../src/lib/messages';
-  import { settings, hydrateSettings } from '../../src/lib/settings';
+  import { settings, hydrateSettings, patchSettings } from '../../src/lib/settings';
   import { settingsToCommands } from '../../src/lib/settingsToCommands';
   import { panelStatus } from '../../src/lib/panelStatus';
   import SourceBadge from './SourceBadge.svelte';
   import SettingsPanel from './SettingsPanel.svelte';
+  import TurnToggle from './TurnToggle.svelte';
   import { browser } from 'wxt/browser';
 
   async function requestCapture(): Promise<string> {
@@ -120,6 +121,19 @@
     </div>
     {#if lowConfidence}<p class="ribbon" data-testid="low-confidence">Low-confidence read — double-check the pieces.</p>{/if}
 
+    <div class="tools">
+      <span class="tool">
+        <TurnToggle sideToMove={$panelState?.sideToMove ?? 'white'}
+          onSetTurn={(white) => client.send({ type: 'set_turn', white })} />
+        <span class="tlabel">{($panelState?.sideToMove ?? 'white') === 'white' ? 'White' : 'Black'} to move</span>
+      </span>
+      <label class="tool">
+        <input type="checkbox" data-testid="toggle-live-main" checked={$s.liveSiteReading}
+          on:change={() => patchSettings({ liveSiteReading: !$s.liveSiteReading })} />
+        <span class="tlabel">Live site reading</span>
+      </label>
+    </div>
+
     <div class="evalcard">
       <div class="evaltop">
         <span class="score" data-testid="eval-readout">{evalDto?.text ?? '0.0'}</span>
@@ -151,6 +165,10 @@
   .hdr .title { font-weight: 700; }
   .hdr .gear { margin-left: auto; background: transparent; border: none; font-size: 16px; cursor: pointer; color: inherit; }
   .board-row { display: flex; gap: 6px; }
+  .tools { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .tool { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; }
+  .tool input { margin: 0; }
+  .tlabel { opacity: .85; }
   .evalcard { border: 1px solid rgba(255,255,255,.12); border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
   .evaltop { display: flex; justify-content: space-between; align-items: baseline; }
   .evaltop .score { font-size: 20px; font-weight: 700; }
