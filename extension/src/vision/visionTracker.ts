@@ -1,8 +1,8 @@
-import type { VisionTrackerLike } from '@core/core/orchestrator';
-import type { AssembledPosition } from '@core/vision/position';
-import type { RgbaImage } from '@core/lib/image';
-import type { Region } from '@core/lib/region';
-import { VisionWorkerClient } from '@core/vision/visionClient';
+import type { VisionTrackerLike } from '@chessmenthol/core/core/orchestrator';
+import type { AssembledPosition } from '@chessmenthol/core/vision/position';
+import type { RgbaImage } from '@chessmenthol/core/lib/image';
+import type { Region } from '@chessmenthol/core/lib/region';
+import { VisionWorkerClient } from '@chessmenthol/core/vision/visionClient';
 import { TabCapturer, type CaptureFn } from '../lib/tabCapturer';
 
 interface CapturerLike {

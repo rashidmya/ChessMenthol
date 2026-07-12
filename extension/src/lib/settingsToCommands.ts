@@ -1,4 +1,4 @@
-import type { Command } from '@core/lib/types';
+import type { Command } from '@chessmenthol/core/lib/types';
 import type { Settings } from './settings';
 
 /** The engine-affecting settings as orchestrator commands. movetime is ms

@@ -1,5 +1,4 @@
 import { defineConfig } from 'wxt';
-import { resolve } from 'node:path';
 
 // COEP/COOP make extension pages cross-origin isolated -> SharedArrayBuffer ->
 // the multithreaded engine/ort builds are *available* (Plan 1 ships single-threaded,
@@ -27,7 +26,6 @@ export default defineConfig({
     ],
   },
   vite: () => ({
-    resolve: { alias: { '@core': resolve(__dirname, '../app/src') } },
     worker: { format: 'es' },
     optimizeDeps: { exclude: ['onnxruntime-web'] },
   }),

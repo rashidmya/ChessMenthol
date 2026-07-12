@@ -1,4 +1,4 @@
-import type { StateFrame } from '@core/lib/types';
+import type { StateFrame } from '@chessmenthol/core/lib/types';
 
 export type PanelStatus =
   | 'analysis' | 'no_board' | 'adapter_broke' | 'capture_denied' | 'engine_unavailable';

@@ -1,8 +1,8 @@
-import type { UciEngine } from '@core/engine/engine';
-import type { OrchestratorEngine } from '@core/core/orchestrator';
-import { formatSetOption } from '@core/engine/uciOptions';
-import { applyOptions } from '@core/engine/engine';
-import { getOverrides } from '@core/lib/engineOptions';
+import type { UciEngine } from '@chessmenthol/core/engine/engine';
+import type { OrchestratorEngine } from '@chessmenthol/core/core/orchestrator';
+import { formatSetOption } from '@chessmenthol/core/engine/uciOptions';
+import { applyOptions } from '@chessmenthol/core/engine/engine';
+import { getOverrides } from '@chessmenthol/core/lib/engineOptions';
 
 export type EngineLoader = () => Promise<UciEngine>;
 

@@ -1,4 +1,4 @@
-import { assembleFromGrid } from '@core/core/chess';
+import { assembleFromGrid } from '@chessmenthol/core/core/chess';
 import type { AdapterPosition, SiteAdapter } from './types';
 import { observeBoard } from './observe';
 

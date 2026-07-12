@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { TabCapturer } from './tabCapturer';
-import type { RgbaImage } from '@core/lib/image';
+import type { RgbaImage } from '@chessmenthol/core/lib/image';
 
 function solid(w: number, h: number): RgbaImage {
   return { data: new Uint8ClampedArray(w * h * 4).fill(1), width: w, height: h };

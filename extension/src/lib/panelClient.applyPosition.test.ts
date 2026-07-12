@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { applyPosition } from './panelClient';
-import type { Command } from '@core/lib/types';
+import type { Command } from '@chessmenthol/core/lib/types';
 
 describe('applyPosition', () => {
   it('sends set_fen then enables analysis', () => {

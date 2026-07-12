@@ -1,6 +1,3 @@
 {
-  "extends": "./.wxt/tsconfig.json",
-  "compilerOptions": {
-    "paths": { "@core/*": ["../app/src/*"] }
-  }
+  "extends": "./.wxt/tsconfig.json"
 }

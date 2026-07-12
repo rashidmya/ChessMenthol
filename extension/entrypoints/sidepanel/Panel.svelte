@@ -1,7 +1,7 @@
 <script lang="ts">
-  import Board from '@core/components/Board.svelte';
-  import EvalBar from '@core/components/EvalBar.svelte';
-  import Lines from '@core/components/Lines.svelte';
+  import Board from './components/Board.svelte';
+  import EvalBar from './components/EvalBar.svelte';
+  import Lines from './components/Lines.svelte';
   import { onMount, onDestroy } from 'svelte';
   import { createPanelClient, applyPosition } from '../../src/lib/panelClient';
   import { loadWasmEngine } from '../../src/engine/wasmEngine';

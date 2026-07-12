@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { get } from 'svelte/store';
 import { createPanelClient } from './panelClient';
-import type { UciEngine } from '@core/engine/engine';
+import type { UciEngine } from '@chessmenthol/core/engine/engine';
 
 const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 

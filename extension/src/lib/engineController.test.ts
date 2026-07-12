@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createEngineController } from './engineController';
-import type { UciEngine } from '@core/engine/engine';
-import { setOption as storeSetOption, resetAll as storeResetAll } from '@core/lib/engineOptions';
-import type { UciOption } from '@core/engine/uciOptions';
+import type { UciEngine } from '@chessmenthol/core/engine/engine';
+import { setOption as storeSetOption, resetAll as storeResetAll } from '@chessmenthol/core/lib/engineOptions';
+import type { UciOption } from '@chessmenthol/core/engine/uciOptions';
 
 function fakeEngine(): UciEngine {
   return { send: vi.fn(), onLine: vi.fn(), dispose: vi.fn(), options: [] };

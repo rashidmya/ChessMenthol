@@ -1,5 +1,5 @@
-import type { UciEngine } from '@core/engine/engine';
-import { parseOptions } from '@core/engine/uciOptions';
+import type { UciEngine } from '@chessmenthol/core/engine/engine';
+import { parseOptions } from '@chessmenthol/core/engine/uciOptions';
 // Explicit import rather than relying on WXT's auto-import: this module is
 // plain `src/`, not an entrypoint, and `browser` must stay untouched unless
 // loadWasmEngine() actually runs (tests only exercise makeWasmEngine()).

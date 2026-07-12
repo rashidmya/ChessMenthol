@@ -1,8 +1,8 @@
 import { writable } from 'svelte/store';
-import { Orchestrator, type SessionLike, type VisionTrackerLike } from '@core/core/orchestrator';
-import { AnalysisSession, type SessionCallbacks, type StartOptions } from '@core/engine/session';
-import type { UciEngine } from '@core/engine/engine';
-import type { Command, ServerFrame, StateFrame } from '@core/lib/types';
+import { Orchestrator, type SessionLike, type VisionTrackerLike } from '@chessmenthol/core/core/orchestrator';
+import { AnalysisSession, type SessionCallbacks, type StartOptions } from '@chessmenthol/core/engine/session';
+import type { UciEngine } from '@chessmenthol/core/engine/engine';
+import type { Command, ServerFrame, StateFrame } from '@chessmenthol/core/lib/types';
 import { createEngineController, type EngineLoader } from './engineController';
 import type { PositionMessage } from './messages';
 

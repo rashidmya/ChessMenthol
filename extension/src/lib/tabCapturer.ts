@@ -1,5 +1,5 @@
-import { cropImage, type RgbaImage } from '@core/lib/image';
-import type { Region } from '@core/lib/region';
+import { cropImage, type RgbaImage } from '@chessmenthol/core/lib/image';
+import type { Region } from '@chessmenthol/core/lib/region';
 
 export type CaptureFn = () => Promise<string | null>;   // -> PNG data URL
 export type DecodeFn = (dataUrl: string) => Promise<RgbaImage>;
