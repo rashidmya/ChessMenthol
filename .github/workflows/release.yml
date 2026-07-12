@@ -33,7 +33,7 @@ jobs:
         with:
           node-version: lts/*
           cache: npm
-          cache-dependency-path: app/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install Rust (stable)
         uses: dtolnay/rust-toolchain@stable
@@ -62,8 +62,7 @@ jobs:
             libdrm-dev \
             libxcb1-dev
 
-      - name: Install frontend dependencies
-        working-directory: app
+      - name: Install workspaces
         run: npm ci
 
       - name: Provision Stockfish sidecar(s) + net

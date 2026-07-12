@@ -18,17 +18,20 @@ jobs:
         with:
           node-version: lts/*
           cache: npm
-          cache-dependency-path: app/package-lock.json
-      - name: Install frontend dependencies
-        working-directory: app
+          cache-dependency-path: package-lock.json
+      - name: Install workspaces
         run: npm ci
-      - name: Vitest
+      - name: Vitest (core)
+        run: npm test --workspace @chessmenthol/core
+      - name: Vitest (extension)
+        run: npm test --workspace chessmenthol-extension
+      - name: Vitest (app)
         working-directory: app
         run: npm run test
-      - name: Typecheck
+      - name: Typecheck (app)
         working-directory: app
         run: npx tsc -p tsconfig.app.json --noEmit
-      - name: Svelte check
+      - name: Svelte check (app)
         working-directory: app
         run: npx svelte-check --tsconfig ./tsconfig.app.json
 
@@ -47,7 +50,7 @@ jobs:
         with:
           node-version: lts/*
           cache: npm
-          cache-dependency-path: app/package-lock.json
+          cache-dependency-path: package-lock.json
       - name: Install Rust (stable)
         uses: dtolnay/rust-toolchain@stable
       - name: Rust cache
@@ -70,8 +73,7 @@ jobs:
             libwayland-dev \
             libdrm-dev \
             libxcb1-dev
-      - name: Install frontend dependencies
-        working-directory: app
+      - name: Install workspaces
         run: npm ci
       - name: Provision Stockfish sidecar + net (host triple)
         working-directory: app
