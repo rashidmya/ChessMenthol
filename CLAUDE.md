@@ -22,19 +22,20 @@ iteration — but with no engine and no capture. Those paths stay guarded by `is
 
 ## Commands
 
-This is an **npm workspace monorepo**: the root `package.json` declares workspaces
-`packages/*`, `app`, and `extension`. Run `npm install` / `npm ci` **from the repo root** — it
+This is an **npm workspace monorepo**: the root `package.json` declares workspaces `packages/*`
+and `apps/*` — i.e. `packages/core` (`@chessmenthol/core`), `apps/desktop` (the Tauri app), and
+`apps/extension` (the browser extension). Run `npm install` / `npm ci` **from the repo root** — it
 installs and hoists all three. Shared chess/engine/vision logic lives in **`@chessmenthol/core`**
-(`packages/core`, TS-only, **source-only** — no build step; consumers' bundlers compile its `.ts`
-via `exports: { "./*": "./src/*.ts" }`). Both `app/` (desktop) and `extension/` (browser) import
-it as `@chessmenthol/core/<dir>/<file>`.
+(TS-only, **source-only** — no build step; consumers' bundlers compile its `.ts` via
+`exports: { "./*": "./src/*.ts" }`). Both `apps/desktop` and `apps/extension` import it as
+`@chessmenthol/core/<dir>/<file>`.
 
 ```bash
 npm install                                # from the repo ROOT — installs all workspaces
 npm test --workspace @chessmenthol/core    # shared-core vitest suite
 npm test --workspace chessmenthol-extension  # extension vitest suite
 
-cd app
+cd apps/desktop
 npm run tauri dev     # desktop app (Tauri + WebKit) — vision + native engine enabled
 npm run dev           # renderer in a plain browser (UI only) — no vision, no engine
 
@@ -67,13 +68,13 @@ vision assets into `public/`. If the model fails to load in dev, re-run
 ### The command → frame loop (start here)
 
 UI never touches the engine or board directly. It calls `send(command)` and reads reactive
-stores. `app/src/lib/engineClient.ts` is the hub: it owns the Svelte stores (`state`,
+stores. `apps/desktop/src/lib/engineClient.ts` is the hub: it owns the Svelte stores (`state`,
 `report`, `regionShot`, `lastError`, …), instantiates the `Orchestrator`, and routes emitted
 frames back into those stores. The `send(Command)` / store surface deliberately mirrors a
 network protocol even though everything is in-process.
 
 - **Commands** and **frames** (the whole UI↔core contract) are the discriminated unions in
-  `app/src/lib/types.ts` — `Command`, `ServerFrame` (`StateFrame | ReportFrame |
+  `apps/desktop/src/lib/types.ts` — `Command`, `ServerFrame` (`StateFrame | ReportFrame |
   RegionShotFrame | ErrorFrame`), and the DTO shapes.
 - `packages/core/src/core/orchestrator.ts` is the state machine: it owns the working board,
   settings, analysis session, and vision tracker; turns each command into new `StateFrame`s.
@@ -83,7 +84,7 @@ network protocol even though everything is in-process.
 
 ### `@chessmenthol/core` (`packages/core/src`) — the shared chess/engine/vision code
 
-Lives in the workspace package, **not** `app/src` (extracted so the browser extension can reuse
+Lives in the workspace package, **not** `apps/desktop/src` (extracted so the browser extension can reuse
 it). `core/` (`orchestrator.ts`, `chess.ts`, `classify.ts`, `serialize.ts`, `pgn.ts`,
 `accuracy.ts`, `report.ts`), the `engine/` seam (`engine.ts`, `session.ts`, `uci.ts`,
 `uciOptions.ts`, `types.ts`), the `vision/` pipeline (`detect coords pieces position tracker
@@ -95,7 +96,7 @@ engineRegistry image` + the `engineOptions` override store). Two rules that the 
 - **The tests in `packages/core/src/tests/` are the executable spec** (its own vitest suite).
   When changing classification / accuracy / serialization, expect a test that pins the exact
   Lichess/chess.com-parity numbers — change a pinned number only when you mean to, and keep the
-  suite green. (Component/Tauri/integration tests stay in `app/src/tests`.)
+  suite green. (Component/Tauri/integration tests stay in `apps/desktop/src/tests`.)
 
 Gotcha: **movetime is milliseconds throughout the TS code.** See the header comment in
 `orchestrator.ts` for the runtime model — chessops immutable positions rebuilt by replaying
@@ -103,11 +104,11 @@ move history.
 
 ### `engine/` — UCI plumbing
 
-The seam + parsers live in `@chessmenthol/core`; the Tauri implementation stays in `app/src`.
+The seam + parsers live in `@chessmenthol/core`; the Tauri implementation stays in `apps/desktop/src`.
 
 - `engine.ts` — the `UciEngine` seam (text-in / line-out) + `applyOptions`; the desktop
-  implementation is `app/src/engine/nativeEngine.ts` (the extension supplies its own WASM one).
-- `app/src/engine/nativeEngine.ts` — the `UciEngine`, backed by a native process over Tauri IPC
+  implementation is `apps/desktop/src/engine/nativeEngine.ts` (the extension supplies its own WASM one).
+- `apps/desktop/src/engine/nativeEngine.ts` — the `UciEngine`, backed by a native process over Tauri IPC
   (`engine_start` / `engine_send` / `engine_stop`): the bundled Stockfish **sidecar** or a
   user's **external** binary (`EngineSpec = { kind: 'bundled' } | { kind: 'external', path }`).
 - `session.ts` — `AnalysisSession` runs **one search at a time** with explicit `draining`
@@ -121,7 +122,7 @@ wasm and can even SIGSEGV instantiating the NNUE wasm, which is why the wasm pat
 `@chessmenthol/core/lib/engineRegistry` owns the user's engine list (bundled Stockfish +
 persisted "bring-your-own" external binaries); `@chessmenthol/core/lib/engineOptions` is the
 per-engine schema/override localStorage store, while the Tauri probe that populates a schema
-(`ensureSchema`, `invoke('engine_probe')`) stays desktop-side in `app/src/lib/engineSchema.ts`.
+(`ensureSchema`, `invoke('engine_probe')`) stays desktop-side in `apps/desktop/src/lib/engineSchema.ts`.
 
 ### `vision/` — board recognition (Tauri only)
 
@@ -143,7 +144,7 @@ check/premove highlights are dropped (warm oranges can slip through)), and `gues
 the pair is occupied — the mover — else it falls back to White + the manual `TurnToggle`. The
 Rust `capture_frame` returns raw RGBA with an
 8-byte little-endian `[width][height]` header over binary IPC; the pure decode/crop helpers
-live in `@chessmenthol/core/lib/image`, driven by `app/src/lib/capture.ts`'s Tauri `Capturer`.
+live in `@chessmenthol/core/lib/image`, driven by `apps/desktop/src/lib/capture.ts`'s Tauri `Capturer`.
 
 ### `src-tauri/` — the thin Rust shell
 
@@ -161,7 +162,7 @@ driven by props + the `engineClient` stores.
 
 **Component-drift caveat:** `@chessmenthol/core` is TS-only, so the 4 components the browser
 extension also renders — `Board`/`EvalBar`/`Lines`/`Icon.svelte` — are **duplicated**: the
-originals in `app/src/components` and copies in `extension/entrypoints/sidepanel/components`
+originals in `apps/desktop/src/components` and copies in `apps/extension/entrypoints/sidepanel/components`
 (both import their logic from `@chessmenthol/core`). Edit both copies together.
 
 Two shared "single source of truth" abstractions to reuse rather than re-derive:

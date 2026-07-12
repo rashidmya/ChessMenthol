@@ -26,13 +26,13 @@ jobs:
       - name: Vitest (extension)
         run: npm test --workspace chessmenthol-extension
       - name: Vitest (app)
-        working-directory: app
+        working-directory: apps/desktop
         run: npm run test
       - name: Typecheck (app)
-        working-directory: app
+        working-directory: apps/desktop
         run: npx tsc -p tsconfig.app.json --noEmit
       - name: Svelte check (app)
-        working-directory: app
+        working-directory: apps/desktop
         run: npx svelte-check --tsconfig ./tsconfig.app.json
 
   build-smoke:
@@ -56,7 +56,7 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: ./app/src-tauri -> target
+          workspaces: ./apps/desktop/src-tauri -> target
       - name: Install Linux build deps
         if: matrix.platform == 'ubuntu-24.04'
         run: |
@@ -76,8 +76,8 @@ jobs:
       - name: Install workspaces
         run: npm ci
       - name: Provision Stockfish sidecar + net (host triple)
-        working-directory: app
+        working-directory: apps/desktop
         run: node scripts/fetch-sidecar.mjs
       - name: Build (no bundle)
-        working-directory: app
+        working-directory: apps/desktop
         run: npx tauri build --no-bundle

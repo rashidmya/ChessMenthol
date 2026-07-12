@@ -20,7 +20,7 @@ function pkgDir(name) {
 }
 
 // 1. Model: reuse the desktop app's model (single source of truth).
-const MODEL_SRC = join(here, '..', '..', 'app', 'models', 'pieces.onnx');
+const MODEL_SRC = join(here, '..', '..', 'desktop', 'models', 'pieces.onnx');
 if (!existsSync(MODEL_SRC)) { console.error(`[copy-vision-assets] missing ${MODEL_SRC}`); process.exit(1); }
 mkdirSync(join(PUB, 'models'), { recursive: true });
 copyFileSync(MODEL_SRC, join(PUB, 'models', 'pieces.onnx'));

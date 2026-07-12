@@ -37,7 +37,7 @@
     "shortDescription": "Cross-platform desktop chess assistant (engine + vision).",
     "longDescription": "ChessMenthol watches a chess board on your screen, recognizes the position, and analyzes it with Stockfish — streaming evaluations, best lines, and chess.com-style move classification. Chess logic and move classification are plain TypeScript; board vision runs in WebAssembly (onnxruntime-web). Stockfish runs as a bundled native process, with a thin Rust shell for screen capture and engine I/O.",
     "copyright": "Copyright (C) 2026 rashidmya. GPL-3.0-or-later.",
-    "licenseFile": "../../LICENSE",
+    "licenseFile": "../../../LICENSE",
     "linux": {
       "deb": {
         "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"],

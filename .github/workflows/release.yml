@@ -43,7 +43,7 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: ./app/src-tauri -> target
+          workspaces: ./apps/desktop/src-tauri -> target
 
       - name: Install Linux build deps
         if: matrix.platform == 'ubuntu-24.04'
@@ -66,7 +66,7 @@ jobs:
         run: npm ci
 
       - name: Provision Stockfish sidecar(s) + net
-        working-directory: app
+        working-directory: apps/desktop
         run: node scripts/fetch-sidecar.mjs ${{ matrix.sidecars }}
 
       - name: Build and release (tauri-action)
@@ -74,7 +74,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          projectPath: app
+          projectPath: apps/desktop
           tagName: ${{ github.ref_name }}
           releaseName: 'ChessMenthol ${{ github.ref_name }}'
           releaseBody: 'See the assets below to download and install ChessMenthol.'
