@@ -223,11 +223,18 @@ Two shared "single source of truth" abstractions to reuse rather than re-derive:
 - Several features still have a **pending manual desktop pass** (a human gate) beyond the green
   automated suite — verify vision/engine/icon rendering under
   `WEBKIT_DISABLE_DMABUF_RENDERER=1 npm run tauri dev` before declaring UI/desktop work done.
-- Releases are cut by pushing a `v*` tag (`.github/workflows/release.yml` → `tauri-action`
-  builds the 3-platform matrix and drafts a GitHub release with **auto-generated notes**,
-  `generateReleaseNotes: true`). Those notes list **merged pull requests** in the tag range, so
-  land release-worthy work via **PRs** — commits pushed straight to `main` show up only in the
-  `Full Changelog` compare link, never as changelog entries.
+- **Desktop releases** are cut by pushing a `v*` tag (`.github/workflows/release.yml` →
+  `tauri-action` builds the 3-platform matrix and drafts a GitHub release with **auto-generated
+  notes**, `generateReleaseNotes: true`). Those notes list **merged pull requests** in the tag
+  range, so land release-worthy work via **PRs** — commits pushed straight to `main` show up only
+  in the `Full Changelog` compare link, never as changelog entries.
+- **Extension releases are separate** — pushing an `ext-v*` tag (e.g. `ext-v0.1.0`) runs
+  `.github/workflows/release-extension.yml`, which gates on the extension's vitest + svelte-check,
+  builds the Chrome/Firefox zips via `wxt zip` (the ORT-prune runs in a WXT `build:done` hook, so
+  `wxt build` and `wxt zip` both drop the dead ~13.5 MB ort wasm), and drafts its **own** GitHub
+  release with those zips. The tag version must match `apps/extension/package.json` (the workflow
+  fails otherwise). `workflow_dispatch` runs the same build but only uploads artifacts (no release).
+  `ext-v*` never matches the desktop's `v*` glob, so the two release cards stay independent.
 
 ## Maintaining this file
 

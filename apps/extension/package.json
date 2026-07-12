@@ -12,9 +12,11 @@
     "dev": "wxt",
     "dev:firefox": "wxt -b firefox",
     "build": "wxt build",
-    "postbuild": "node scripts/prune-build-ort.mjs",
     "build:firefox": "wxt build -b firefox",
-    "postbuild:firefox": "node scripts/prune-build-ort.mjs",
+    "prezip": "node scripts/copy-engine.mjs && node scripts/copy-vision-assets.mjs",
+    "zip": "wxt zip",
+    "prezip:firefox": "node scripts/copy-engine.mjs && node scripts/copy-vision-assets.mjs",
+    "zip:firefox": "wxt zip -b firefox",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run"
   },
