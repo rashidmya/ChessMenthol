@@ -1,3 +1,6 @@
+/// <reference types="node" />
+// This test imports a Node build script (fetch-sidecar.mjs) that uses node: modules; pull in
+// @types/node explicitly. (Previously loaded transitively via a vision test's node:fs import.)
 import { describe, it, expect } from 'vitest';
 import { hostTriple, assetFor, binaryInArchive } from '../../scripts/fetch-sidecar.mjs';
 

@@ -1,4 +1,4 @@
-// app/src/tests/capture.test.ts
+// packages/core/src/tests/image.test.ts (was app/src/tests/capture.test.ts)
 import { describe, it, expect, vi } from 'vitest';
 import { decodeCaptureBuffer, cropImage, type RgbaImage } from '../lib/image';
 
