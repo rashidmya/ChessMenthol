@@ -73,6 +73,11 @@ export const lichessAdapter: SiteAdapter = {
   },
 
   boardPresent: () => !!boardEl(),
+
+  // chessground marks a selected piece's square `.selected` and its legal targets
+  // `.move-dest`. lichess already ignores these for turn (readTurn reads only
+  // `.last-move`), but skip updates while selecting anyway — the position is unchanged.
+  interacting: () => !!boardEl()?.querySelector('square.selected, square.move-dest'),
 };
 
 /** Last-move square that still holds a piece is the mover's destination. */

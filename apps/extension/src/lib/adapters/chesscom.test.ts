@@ -82,6 +82,20 @@ describe('chesscomAdapter.readPosition', () => {
     expect(chesscomAdapter.readPosition()!.turn).toBe('w');
   });
 
+  it('reports interacting() while a piece is selected (chess.com renders move hints)', () => {
+    // A selected piece shows `.hint` destination dots — the reliable "a piece is
+    // selected" signal. Its selection highlight is DOM-identical to the last-move
+    // highlight, so the driver must skip updates while a selection is active.
+    document.body.innerHTML = board(START_PIECES);
+    expect(chesscomAdapter.interacting!()).toBe(false);
+    document.body.innerHTML = board(START_PIECES,
+      '<div class="highlight square-52" style="background-color: rgb(255,255,51);"></div>' +
+      '<div class="hint square-53" data-test-element="hint"></div>' +
+      '<div class="hint square-54" data-test-element="hint"></div>',
+    );
+    expect(chesscomAdapter.interacting!()).toBe(true);
+  });
+
   it('reads the main board when the page has multiple boards', () => {
     // A decoy mini-board (2 pieces) precedes the real board (full start position).
     const decoy = board(['wk51', 'bk58']);

@@ -34,6 +34,29 @@ describe('runContentDriver', () => {
     stop();
   });
 
+  it('skips updates while the adapter reports an active interaction (piece selected)', () => {
+    const sent: Sent[] = [];
+    let interacting = false;
+    let current = 'A';
+    let cb: () => void = () => {};
+    const a: SiteAdapter = {
+      site: 'chesscom',
+      matches: () => true,
+      readPosition: () => ({ fen: current, orientation: 'white', turn: 'w' }),
+      observe: (onChange) => { cb = onChange; return () => {}; },
+      boardPresent: () => true,
+      interacting: () => interacting,
+    };
+    const stop = runContentDriver(a, (m) => sent.push(m));
+    expect(sent).toHaveLength(1);                 // initial 'A'
+    interacting = true; current = 'B'; cb();      // selecting a piece -> skip despite FEN change
+    expect(sent).toHaveLength(1);
+    interacting = false; cb();                    // deselected -> clean read emits 'B'
+    expect(sent).toHaveLength(2);
+    expect(sent[1]).toMatchObject({ kind: 'position', fen: 'B' });
+    stop();
+  });
+
   it('dedupes identical FENs and skips null reads', () => {
     const sent: Sent[] = [];
     let fen: string | null = 'aaa';

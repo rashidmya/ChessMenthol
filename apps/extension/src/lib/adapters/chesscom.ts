@@ -103,6 +103,12 @@ export const chesscomAdapter: SiteAdapter = {
   },
 
   boardPresent: () => !!boardEl(),
+
+  // A selected piece renders move-destination `.hint`s (and a `.capture-hint` ring on
+  // capturable pieces). Its selection highlight is DOM-identical to the last-move
+  // highlight, so use the hints — the one unambiguous "a piece is selected" signal —
+  // to tell the driver to hold the current position instead of re-reading the turn.
+  interacting: () => !!boardEl()?.querySelector('.hint, .capture-hint'),
 };
 
 function hostOf(url: string): string { try { return new URL(url).hostname; } catch { return ''; } }
