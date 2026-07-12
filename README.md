@@ -14,6 +14,10 @@ TypeScript; the board-vision pipeline runs in **WebAssembly** (onnxruntime-web) 
 **Svelte 5** UI, wrapped in a thin **Tauri 2 (Rust)** shell that does what a web page cannot —
 capture the screen and run a **native Stockfish** engine.
 
+<p align="center">
+  <img src="docs/demo.gif" alt="ChessMenthol in action" width="720" />
+</p>
+
 ## Features
 
 - **Screen-capture board recognition** — drag a box over any on-screen board (chess.com,
