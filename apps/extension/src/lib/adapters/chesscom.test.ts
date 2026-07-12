@@ -65,6 +65,23 @@ describe('chesscomAdapter.readPosition', () => {
     expect(chesscomAdapter.readPosition()!.turn).toBe('w');
   });
 
+  it('does not let a same-colour annotation pair outrank the real last move', () => {
+    // Position after 1.e4 e5 => White to move. Black's last move e7-e5 shows a yellow
+    // pair (e7 empty, e5 occupied). The user also drew a GREEN annotation pair on their
+    // own a2 pawn (occupied) + a3 (empty) — which chess.com renders BEFORE the last-move
+    // highlights. Both groups qualify, so we must not pick the annotation (that would flip
+    // to Black); decline to the White fail-safe, which is the correct side here.
+    const e4e5 = START_PIECES.map((c) => (c === 'wp52' ? 'wp54' : c === 'bp57' ? 'bp55' : c));
+    const GREEN = 'background-color: rgb(0, 150, 0);';
+    document.body.innerHTML = board(e4e5,
+      hl('12', GREEN) +       // a2 annotation (occupied, white) — DOM-first
+      hl('13', GREEN) +       // a3 annotation (empty)
+      hl('55', LASTMOVE) +    // e5 real dest (occupied, black)
+      hl('57', LASTMOVE),     // e7 real origin (empty)
+    );
+    expect(chesscomAdapter.readPosition()!.turn).toBe('w');
+  });
+
   it('reads the main board when the page has multiple boards', () => {
     // A decoy mini-board (2 pieces) precedes the real board (full start position).
     const decoy = board(['wk51', 'bk58']);

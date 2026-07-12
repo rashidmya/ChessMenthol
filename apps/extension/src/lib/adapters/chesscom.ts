@@ -54,9 +54,12 @@ function highlightColor(el: Element): string {
  *  live DOM: last-move squares are one colour, annotations another, and there is no
  *  dedicated `.last-move` class like lichess). A genuine last move is a same-COLOURED
  *  pair: the destination still holds a piece, the origin is empty. Group highlights by
- *  colour and trust only a group with exactly one occupied square (the destination);
- *  anything else (single-square selection/annotation/check, or an ambiguous group)
- *  declines to White. */
+ *  colour and trust a group only when it looks like a completed move: >=2 squares with
+ *  exactly one still occupied (the destination). Require EXACTLY ONE such group — a
+ *  same-coloured annotation pair (one occupied, one empty) can also qualify and would
+ *  otherwise win by DOM order (chess.com renders annotations before the last-move pair),
+ *  so if two rival groups qualify we decline to the White fail-safe rather than risk a
+ *  confident wrong flip. Single-square selection/annotation/check never qualifies. */
 function readTurn(board: Element, grid: (string | null)[][]): 'w' | 'b' {
   const groups = new Map<string, (string | null)[]>();
   for (const hl of board.querySelectorAll('.highlight')) {
@@ -69,13 +72,13 @@ function readTurn(board: Element, grid: (string | null)[][]): 'w' | 'b' {
     if (!bucket) { bucket = []; groups.set(key, bucket); }
     bucket.push(code);
   }
+  const dests: string[] = [];
   for (const codes of groups.values()) {
-    const occupied = codes.filter((c) => c !== null);
-    if (codes.length >= 2 && occupied.length === 1) {
-      return occupied[0]![0] === 'w' ? 'b' : 'w';
-    }
+    const occupied = codes.filter((c): c is string => c !== null);
+    if (codes.length >= 2 && occupied.length === 1) dests.push(occupied[0]);
   }
-  return 'w';
+  if (dests.length !== 1) return 'w';         // 0 = no move; >1 = ambiguous -> fail-safe
+  return dests[0][0] === 'w' ? 'b' : 'w';
 }
 
 export const chesscomAdapter: SiteAdapter = {
