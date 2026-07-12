@@ -14,9 +14,10 @@
   import SettingsPanel from './SettingsPanel.svelte';
   import { browser } from 'wxt/browser';
 
-  async function requestCapture(): Promise<string | null> {
+  async function requestCapture(): Promise<string> {
     const res = (await browser.runtime.sendMessage({ kind: 'capture-request' })) as CaptureResult | undefined;
-    return res?.dataUrl ?? null;
+    if (!res?.dataUrl) throw new Error(res?.error ?? 'screen capture failed');
+    return res.dataUrl;
   }
 
   const tracker = makeTabTracker(requestCapture);

@@ -47,7 +47,12 @@ export default defineConfig({
     name: 'ChessMenthol',
     description: 'Reconstructs the board on any page and analyzes it with Stockfish.',
     permissions: ['storage', 'activeTab'],
-    host_permissions: ['*://*.chess.com/*', '*://lichess.org/*'],
+    // captureVisibleTab (the on-demand vision path) requires <all_urls> or an
+    // in-effect activeTab grant; a SPECIFIC host permission does NOT satisfy it, and
+    // the persistent side panel never receives activeTab (that grant is tied to the
+    // toolbar-action click, revoked on nav/tab-switch). The vision path's purpose is
+    // "reconstruct the board on ANY page", so <all_urls> is the honest scope.
+    host_permissions: ['<all_urls>'],
     action: {}, // toolbar button — required for sidePanel.setPanelBehavior({ openPanelOnActionClick })
     // A sidepanel entrypoint makes WXT emit Chrome `side_panel` + Firefox `sidebar_action`.
     cross_origin_embedder_policy: { value: 'require-corp' },
