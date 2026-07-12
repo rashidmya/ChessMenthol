@@ -1,0 +1,68 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "ChessMenthol",
+  "version": "0.3.0",
+  "identifier": "app.chessmenthol",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "ChessMenthol",
+        "width": 1280,
+        "height": 800,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true
+      }
+    ],
+    "security": {
+      "csp": null,
+      "headers": {
+        "Cross-Origin-Opener-Policy": "same-origin",
+        "Cross-Origin-Embedder-Policy": "require-corp"
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "externalBin": [
+      "binaries/stockfish"
+    ],
+    "resources": [
+      "resources/engine/*"
+    ],
+    "targets": [
+      "msi",
+      "dmg",
+      "deb",
+      "rpm",
+      "appimage"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "category": "Education",
+    "shortDescription": "Cross-platform desktop chess assistant (engine + vision).",
+    "longDescription": "ChessMenthol watches a chess board on your screen, recognizes the position, and analyzes it with Stockfish — streaming evaluations, best lines, and chess.com-style move classification. Chess logic and move classification are plain TypeScript; board vision runs in WebAssembly (onnxruntime-web). Stockfish runs as a bundled native process, with a thin Rust shell for screen capture and engine I/O.",
+    "copyright": "Copyright (C) 2026 rashidmya. GPL-3.0-or-later.",
+    "licenseFile": "../../../LICENSE",
+    "linux": {
+      "deb": {
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0"
+        ],
+        "section": "games"
+      }
+    }
+  }
+}

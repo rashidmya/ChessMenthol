@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="app/src/assets/logo.png" alt="ChessMenthol logo" width="420" />
+  <img src="apps/desktop/src/assets/logo.png" alt="ChessMenthol logo" width="420" />
 </p>
 
 # ChessMenthol
@@ -78,13 +78,13 @@ chmod +x ChessMenthol_*.AppImage && ./ChessMenthol_*.AppImage
 
 ## Development
 
-The app lives in `app/` — a Svelte 5 + TypeScript renderer with the Tauri (Rust) shell under
-`app/src-tauri/`.
+The app lives in `apps/desktop/` — a Svelte 5 + TypeScript renderer with the Tauri (Rust) shell under
+`apps/desktop/src-tauri/`.
 
 **Prerequisites**
 
 - **Node.js** (LTS) and **npm**
-- **Rust** (stable) + the [Tauri 2 system prerequisites](https://tauri.app/start/prerequisites/)
+- **Rust** (stable) + the [Tauri 2 system prerequisites](https://tauri.apps/desktop/start/prerequisites/)
   for your OS. On Debian/Ubuntu:
   ```bash
   sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev patchelf
@@ -93,7 +93,7 @@ The app lives in `app/` — a Svelte 5 + TypeScript renderer with the Tauri (Rus
 **Run**
 
 ```bash
-cd app
+cd apps/desktop
 npm install
 npm run tauri dev     # desktop app (screen capture enabled)
 ```
@@ -105,7 +105,7 @@ with `WEBKIT_DISABLE_DMABUF_RENDERER=1` (see the Linux notes above).
 **Test & type-check**
 
 ```bash
-cd app
+cd apps/desktop
 npm run test    # Vitest (engine, orchestrator, classify, vision parity)
 npm run check   # svelte-check + tsc
 ```
@@ -113,8 +113,8 @@ npm run check   # svelte-check + tsc
 **Build installers**
 
 ```bash
-cd app
-npm run tauri build   # -> app/src-tauri/target/release/bundle/
+cd apps/desktop
+npm run tauri build   # -> apps/desktop/src-tauri/target/release/bundle/
 ```
 
 Pushing a `v*` tag builds and uploads installers for all three OSes to a draft GitHub Release

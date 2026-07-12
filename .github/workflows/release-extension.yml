@@ -1,0 +1,85 @@
+name: Release Extension
+
+# Browser-extension releases, kept SEPARATE from the desktop app (which releases on `v*`).
+# Cut a release by pushing a tag like `ext-v0.1.0`; the manual button builds artifacts only.
+on:
+  push:
+    tags:
+      - 'ext-v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release-extension:
+    name: Build + package the browser extension
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install workspaces
+        run: npm ci
+
+      - name: Resolve version
+        id: ver
+        run: |
+          PKG=$(node -p "require('./apps/extension/package.json').version")
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            TAG_VER="${GITHUB_REF_NAME#ext-v}"
+            if [ "$TAG_VER" != "$PKG" ]; then
+              echo "::error::Tag ${GITHUB_REF_NAME} does not match apps/extension/package.json version ${PKG}. Bump the manifest version to match the tag before releasing (stores reject re-uploads of the same version)."
+              exit 1
+            fi
+          fi
+          echo "version=$PKG" >> "$GITHUB_OUTPUT"
+
+      - name: Gate — tests + typecheck
+        run: |
+          npm test --workspace chessmenthol-extension
+          npm run --workspace chessmenthol-extension check
+
+      - name: Build + zip (Chrome MV3)
+        run: npm run --workspace chessmenthol-extension zip
+
+      - name: Build + zip (Firefox MV2 + sources)
+        run: npm run --workspace chessmenthol-extension zip:firefox
+
+      - name: List artifacts
+        run: ls -lh apps/extension/.output/chessmenthol-extension-*.zip
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: chessmenthol-extension-${{ steps.ver.outputs.version }}
+          path: apps/extension/.output/chessmenthol-extension-*.zip
+          if-no-files-found: error
+
+      - name: Create GitHub Release (tag pushes only)
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NOTES=$(cat <<'EOF'
+          Browser-extension build of ChessMenthol — reconstruct the board on any page and analyze it with Stockfish in a side panel.
+
+          **Assets**
+          - `…-chrome.zip` — Chrome / Edge / Brave (Manifest V3). Unzip → `chrome://extensions` → *Load unpacked*, or upload the zip to the Chrome Web Store.
+          - `…-firefox.zip` — Firefox (Manifest V2). `about:debugging` → *Load Temporary Add-on*, or submit to AMO.
+          - `…-sources.zip` — source bundle for AMO's reviewer requirement (bundled/minified add-ons).
+
+          The desktop app is released separately under `v*` tags.
+          EOF
+          )
+          gh release create "${GITHUB_REF_NAME}" apps/extension/.output/chessmenthol-extension-*.zip \
+            --draft \
+            --title "ChessMenthol Extension ${GITHUB_REF_NAME}" \
+            --notes "$NOTES" \
+          || gh release upload "${GITHUB_REF_NAME}" apps/extension/.output/chessmenthol-extension-*.zip --clobber

@@ -1,0 +1,13 @@
+node_modules
+.output
+.wxt
+*.local
+
+# Staged by scripts/copy-engine.mjs (predev/prebuild) from node_modules/stockfish —
+# build artifact, not source.
+public/engine/
+
+# Staged by scripts/copy-vision-assets.mjs (predev/prebuild) from ../app/models
+# and node_modules/onnxruntime-web/dist — build artifacts, not source.
+public/models/
+public/ort/

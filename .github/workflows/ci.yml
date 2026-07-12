@@ -18,18 +18,21 @@ jobs:
         with:
           node-version: lts/*
           cache: npm
-          cache-dependency-path: app/package-lock.json
-      - name: Install frontend dependencies
-        working-directory: app
+          cache-dependency-path: package-lock.json
+      - name: Install workspaces
         run: npm ci
-      - name: Vitest
-        working-directory: app
+      - name: Vitest (core)
+        run: npm test --workspace @chessmenthol/core
+      - name: Vitest (extension)
+        run: npm test --workspace chessmenthol-extension
+      - name: Vitest (app)
+        working-directory: apps/desktop
         run: npm run test
-      - name: Typecheck
-        working-directory: app
+      - name: Typecheck (app)
+        working-directory: apps/desktop
         run: npx tsc -p tsconfig.app.json --noEmit
-      - name: Svelte check
-        working-directory: app
+      - name: Svelte check (app)
+        working-directory: apps/desktop
         run: npx svelte-check --tsconfig ./tsconfig.app.json
 
   build-smoke:
@@ -47,13 +50,13 @@ jobs:
         with:
           node-version: lts/*
           cache: npm
-          cache-dependency-path: app/package-lock.json
+          cache-dependency-path: package-lock.json
       - name: Install Rust (stable)
         uses: dtolnay/rust-toolchain@stable
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: ./app/src-tauri -> target
+          workspaces: ./apps/desktop/src-tauri -> target
       - name: Install Linux build deps
         if: matrix.platform == 'ubuntu-24.04'
         run: |
@@ -70,12 +73,11 @@ jobs:
             libwayland-dev \
             libdrm-dev \
             libxcb1-dev
-      - name: Install frontend dependencies
-        working-directory: app
+      - name: Install workspaces
         run: npm ci
       - name: Provision Stockfish sidecar + net (host triple)
-        working-directory: app
+        working-directory: apps/desktop
         run: node scripts/fetch-sidecar.mjs
       - name: Build (no bundle)
-        working-directory: app
+        working-directory: apps/desktop
         run: npx tauri build --no-bundle
