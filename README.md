@@ -4,15 +4,21 @@
 
 # ChessMenthol
 
-A cross-platform desktop chess assistant. ChessMenthol watches a chess board on your screen,
-recognizes the position with computer vision, and analyzes it with Stockfish — streaming
-evaluations, best lines, and chess.com-style move classification (brilliant / great / best / …
-/ blunder / miss).
+A cross-platform chess assistant that reads a chess board — from your screen or from a web
+page — recognizes the position (with computer vision or the site's own DOM), and analyzes it
+with Stockfish: streaming evaluations, best lines, and chess.com-style move classification
+(brilliant / great / best / … / blunder / miss). It ships as a **desktop app** and a **browser
+extension** that share one analysis core.
 
 Everything runs **locally and offline**: chess logic and move classification are plain
 TypeScript; the board-vision pipeline runs in **WebAssembly** (onnxruntime-web) inside a
-**Svelte 5** UI, wrapped in a thin **Tauri 2 (Rust)** shell that does what a web page cannot —
-capture the screen and run a **native Stockfish** engine.
+**Svelte 5** UI. The **desktop app** wraps that in a thin **Tauri 2 (Rust)** shell that does what
+a web page cannot — capture the screen and run a **native Stockfish** engine.
+
+The **browser extension** (Chrome & Firefox) brings the same core into a **side panel**: on
+**chess.com** and **Lichess** it reads the board live from the page, and on any other page it
+captures the tab on demand and recognizes it with the same vision pipeline. In the extension,
+Stockfish runs as **WebAssembly** in the panel. Nothing leaves your machine either way.
 
 <p align="center">
   <img src="docs/demo.gif" alt="ChessMenthol in action" width="720" />
@@ -22,7 +28,7 @@ capture the screen and run a **native Stockfish** engine.
 
 - **Screen-capture board recognition** — drag a box over any on-screen board (chess.com,
   Lichess, a PDF, a video) and ChessMenthol reads the position with computer vision; no
-  extension, no account, no upload.
+  account, no upload.
 - **Live Stockfish analysis** — evaluation, best move, and multiple principal variations
   (MultiPV) with an eval bar that updates as the position changes.
 - **chess.com-style move classification** — every move labeled across 10 classes (brilliant,
@@ -32,7 +38,10 @@ capture the screen and run a **native Stockfish** engine.
   that steps through the game move-by-move with badges and auto-play.
 - **Position editor & play** — set up any position by hand, flip the board, and play out moves.
 - **Bring-your-own engine** — ships with a native Stockfish, and you can add any external UCI
-  engine and tune its options.
+  engine and tune its options (desktop).
+- **Browser extension (Chrome & Firefox)** — a side panel that reads chess.com / Lichess boards
+  live, captures any other page on demand, and shows the same eval bar, best lines, best-move
+  arrows, and turn / FEN controls. See [Installation](#browser-extension-chrome--firefox).
 
 ## Installation
 
@@ -76,15 +85,44 @@ chmod +x ChessMenthol_*.AppImage && ./ChessMenthol_*.AppImage
   WEBKIT_DISABLE_DMABUF_RENDERER=1 ./ChessMenthol_*.AppImage
   ```
 
+### Browser extension (Chrome / Firefox)
+
+The extension isn't on the Chrome Web Store / Add-ons (AMO) yet — install it unpacked from the
+[**Releases**](https://github.com/rashidmya/ChessMenthol/releases) page (the latest **`ext-v*`**
+release, e.g. `ext-v0.1.0`).
+
+**Chrome / Edge**
+
+1. Download `chessmenthol-extension-*-chrome.zip` and unzip it.
+2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, and pick the
+   unzipped folder.
+3. Click the ChessMenthol toolbar icon to open the side panel, then open a **chess.com** or
+   **Lichess** game — the board is read live. On any other page, click **Capture** in the panel.
+
+**Firefox**
+
+1. Download `chessmenthol-extension-*-firefox.zip`.
+2. Open `about:debugging#/runtime/this-firefox` → **Load Temporary Add-on** → select the zip (or
+   the `manifest.json` inside the unzipped folder). Temporary add-ons are removed on restart.
+
+Chrome shows a *"Read and change all your data on all websites"* prompt at install: that access
+is what the on-demand **Capture** button needs (`chrome.tabs.captureVisibleTab` requires
+`<all_urls>`); live board reading by itself only touches chess.com and Lichess.
+
 ## Development
 
-The app lives in `apps/desktop/` — a Svelte 5 + TypeScript renderer with the Tauri (Rust) shell under
-`apps/desktop/src-tauri/`.
+This is an **npm-workspace monorepo**: the desktop app (`apps/desktop`), the browser extension
+(`apps/extension`), and the shared chess / engine / vision core (`packages/core`). Run
+`npm install` (or `npm ci`) **from the repo root** to install every workspace.
+
+### Desktop app
+
+The renderer is Svelte 5 + TypeScript; the Tauri (Rust) shell lives under `apps/desktop/src-tauri/`.
 
 **Prerequisites**
 
 - **Node.js** (LTS) and **npm**
-- **Rust** (stable) + the [Tauri 2 system prerequisites](https://tauri.apps/desktop/start/prerequisites/)
+- **Rust** (stable) + the [Tauri 2 system prerequisites](https://tauri.app/start/prerequisites/)
   for your OS. On Debian/Ubuntu:
   ```bash
   sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev patchelf
@@ -93,9 +131,10 @@ The app lives in `apps/desktop/` — a Svelte 5 + TypeScript renderer with the T
 **Run**
 
 ```bash
+npm install                       # from the repo root (installs every workspace)
 cd apps/desktop
-npm install
-npm run tauri dev     # desktop app (screen capture enabled)
+node scripts/fetch-sidecar.mjs    # ONCE: provision the native Stockfish sidecar (gitignored)
+npm run tauri dev                 # desktop app (screen capture enabled)
 ```
 
 `npm run dev` serves the renderer in a plain browser for **UI work only** — analysis (native
@@ -114,11 +153,34 @@ npm run check   # svelte-check + tsc
 
 ```bash
 cd apps/desktop
-npm run tauri build   # -> apps/desktop/src-tauri/target/release/bundle/
+node scripts/fetch-sidecar.mjs    # once (see above)
+npm run tauri build               # -> apps/desktop/src-tauri/target/release/bundle/
 ```
 
-Pushing a `v*` tag builds and uploads installers for all three OSes to a draft GitHub Release
-(`.github/workflows/release.yml`); PRs and branch pushes run `ci.yml`.
+On Linux the AppImage step needs FUSE; in a container prefix
+`APPIMAGE_EXTRACT_AND_RUN=1 npm run tauri build`, or pass `-- --bundles deb,rpm` to skip it.
+
+### Browser extension
+
+Built with [WXT](https://wxt.dev) (Chrome MV3 + Firefox MV2) and Svelte 5.
+
+```bash
+npm install                # from the repo root
+cd apps/extension
+npm run dev                # Chrome dev build with live reload
+npm run dev:firefox        # Firefox dev build
+npm run build              # -> apps/extension/.output/chrome-mv3
+npm run build:firefox      # -> apps/extension/.output/firefox-mv2
+npm test                   # Vitest
+npm run check              # svelte-check
+```
+
+Load the built `.output/chrome-mv3` (or `.output/firefox-mv2/manifest.json`) unpacked as in
+[Installation](#browser-extension-chrome--firefox).
+
+**Releases** — pushing a `v*` tag builds and uploads the desktop installers for all three OSes to
+a GitHub Release (`.github/workflows/release.yml`); an **`ext-v*`** tag builds the Chrome/Firefox
+zips via a separate workflow (`release-extension.yml`). PRs and branch pushes run `ci.yml`.
 
 ## License
 
