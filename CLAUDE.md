@@ -36,6 +36,7 @@ npm test --workspace @chessmenthol/core    # shared-core vitest suite
 npm test --workspace chessmenthol-extension  # extension vitest suite
 
 cd apps/desktop
+node scripts/fetch-sidecar.mjs  # ONE-TIME per checkout: provision the native Stockfish sidecar
 npm run tauri dev     # desktop app (Tauri + WebKit) — vision + native engine enabled
 npm run dev           # renderer in a plain browser (UI only) — no vision, no engine
 
@@ -62,6 +63,20 @@ shells out to a screenshot CLI — install `spectacle`, `grim`, or `gnome-screen
 The `predev`/`prebuild` hook runs `scripts/copy-vision-assets.mjs`, which stages the ONNX
 vision assets into `public/`. If the model fails to load in dev, re-run
 `npm run copy-vision-assets`.
+
+`tauri dev`/`tauri build` bundle a **native Stockfish sidecar** (`externalBin binaries/stockfish-<triple>`
++ the NNUE net under `resources/engine/`). Those files are **gitignored** (large, native, per-platform),
+so a fresh checkout must provision them once with **`node scripts/fetch-sidecar.mjs`** (host triple by
+default; pass explicit triples for cross-builds) — otherwise the Rust build fails with
+`resource path 'binaries/stockfish-…' doesn't exist`. It is NOT wired into `npm run tauri build` (CI runs
+it as its own step, `release.yml`); run it yourself once. The binary persists on disk, so later builds
+don't re-fetch.
+
+Local Linux `tauri build`: `.deb` + `.rpm` bundle fine, but the **AppImage** step (`linuxdeploy`) fails
+with `failed to run linuxdeploy` in sandboxes/containers where its bundled AppImage tools can't
+FUSE-mount (even when `/dev/fuse` exists). Prefix with **`APPIMAGE_EXTRACT_AND_RUN=1`** (extract instead
+of mount) to build all three, or `npm run tauri build -- --bundles deb,rpm` to skip AppImage. CI builds
+the AppImage without this.
 
 ## Architecture
 
