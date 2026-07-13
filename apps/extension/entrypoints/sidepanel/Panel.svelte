@@ -7,16 +7,18 @@
   import { loadWasmEngine } from '../../src/engine/wasmEngine';
   import { makeTabTracker } from '../../src/vision/visionTracker';
   import { isPositionMessage, type ExtMessage, type CaptureResult } from '../../src/lib/messages';
-  import { settings, hydrateSettings } from '../../src/lib/settings';
+  import { settings, hydrateSettings, patchSettings } from '../../src/lib/settings';
   import { settingsToCommands } from '../../src/lib/settingsToCommands';
   import { panelStatus } from '../../src/lib/panelStatus';
   import SourceBadge from './SourceBadge.svelte';
   import SettingsPanel from './SettingsPanel.svelte';
+  import TurnToggle from './TurnToggle.svelte';
   import { browser } from 'wxt/browser';
 
-  async function requestCapture(): Promise<string | null> {
+  async function requestCapture(): Promise<string> {
     const res = (await browser.runtime.sendMessage({ kind: 'capture-request' })) as CaptureResult | undefined;
-    return res?.dataUrl ?? null;
+    if (!res?.dataUrl) throw new Error(res?.error ?? 'screen capture failed');
+    return res.dataUrl;
   }
 
   const tracker = makeTabTracker(requestCapture);
@@ -27,7 +29,6 @@
 
   const STARTPOS = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
   let fenInput = STARTPOS;
-  let analyzing = false;
   let revertSignal = 0;
   let view: 'analysis' | 'settings' = 'analysis';
   let showFen = false;
@@ -36,6 +37,9 @@
   let adapterOk = true;
 
   $: currentFen = $panelState?.fen ?? STARTPOS;
+  // The orchestrator's analysisEnabled is the single source of truth for the toggle —
+  // no local flag to drift from the engine's actual state.
+  $: analyzing = $panelState?.analysisEnabled ?? false;
   $: if (source === 'vision' && $panelState?.detectedOrientation) boardOrientation = $panelState.detectedOrientation;
 
   // Re-send engine-affecting settings only when lines/time change (an arrows/toggle
@@ -47,17 +51,16 @@
   }
 
   function maybeAnalyze() {
-    if ($s.autoAnalyze) { analyzing = true; client.send({ type: 'set_analysis_enabled', enabled: true }); }
+    if ($s.autoAnalyze) client.send({ type: 'set_analysis_enabled', enabled: true });
   }
   function loadFen() {
     source = 'manual'; boardOrientation = 'white'; adapterOk = true;
     lastError.set(null);
     client.send({ type: 'set_fen', fen: fenInput.trim() });
-    if (analyzing) client.send({ type: 'set_analysis_enabled', enabled: true });
+    maybeAnalyze();
   }
   function toggleAnalysis() {
-    analyzing = !analyzing;
-    client.send({ type: 'set_analysis_enabled', enabled: analyzing });
+    client.send({ type: 'set_analysis_enabled', enabled: !analyzing });
   }
   function captureNow() {
     source = 'vision'; adapterOk = true; lastError.set(null);
@@ -70,7 +73,7 @@
     if (!isPositionMessage(msg)) return;
     if (!$s.liveSiteReading) return;
     adapterOk = true; source = msg.site; boardOrientation = msg.orientation; lastError.set(null);
-    if ($s.autoAnalyze) { analyzing = true; applyPosition(client.send, msg); }
+    if ($s.autoAnalyze) applyPosition(client.send, msg);
     else client.send({ type: 'set_fen', fen: msg.fen });
   }
 
@@ -118,6 +121,19 @@
     </div>
     {#if lowConfidence}<p class="ribbon" data-testid="low-confidence">Low-confidence read — double-check the pieces.</p>{/if}
 
+    <div class="tools">
+      <span class="tool">
+        <TurnToggle sideToMove={$panelState?.sideToMove ?? 'white'}
+          onSetTurn={(white) => client.send({ type: 'set_turn', white })} />
+        <span class="tlabel">{($panelState?.sideToMove ?? 'white') === 'white' ? 'White' : 'Black'} to move</span>
+      </span>
+      <label class="tool">
+        <input type="checkbox" data-testid="toggle-live-main" checked={$s.liveSiteReading}
+          on:change={() => patchSettings({ liveSiteReading: !$s.liveSiteReading })} />
+        <span class="tlabel">Live site reading</span>
+      </label>
+    </div>
+
     <div class="evalcard">
       <div class="evaltop">
         <span class="score" data-testid="eval-readout">{evalDto?.text ?? '0.0'}</span>
@@ -149,6 +165,10 @@
   .hdr .title { font-weight: 700; }
   .hdr .gear { margin-left: auto; background: transparent; border: none; font-size: 16px; cursor: pointer; color: inherit; }
   .board-row { display: flex; gap: 6px; }
+  .tools { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .tool { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; }
+  .tool input { margin: 0; }
+  .tlabel { opacity: .85; }
   .evalcard { border: 1px solid rgba(255,255,255,.12); border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
   .evaltop { display: flex; justify-content: space-between; align-items: baseline; }
   .evaltop .score { font-size: 20px; font-weight: 700; }

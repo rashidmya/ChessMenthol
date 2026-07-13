@@ -20,4 +20,10 @@ export interface SiteAdapter {
   /** Cheap check: is this site's board container in the DOM at all? Distinguishes
    *  "not a chess page" (false) from "board present but unreadable" (true + null read). */
   boardPresent(): boolean;
+  /** Optional: true while the user is mid-interaction (a piece selected / being dragged,
+   *  its move hints shown). The board position is unchanged during a selection, and on
+   *  chess.com the selection highlight is DOM-identical to the last-move highlight — so
+   *  the driver skips updates while this is true, keeping the last (correct) position and
+   *  turn instead of mis-reading the turn from the polluted highlights. */
+  interacting?(): boolean;
 }

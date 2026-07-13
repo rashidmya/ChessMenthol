@@ -5,8 +5,22 @@ import { observeBoard } from './observe';
 const CODE_RE = /\b([wb])([pnbrqk])\b/; // e.g. 'wp', 'bk' -> ['w','p']/['b','k']
 const SQ_RE = /\bsquare-(\d)(\d)\b/;        // file, rank (1..8, absolute White's view)
 
+/** Rank a board candidate: on-screen area in a real browser; piece count as a jsdom
+ *  fallback (jsdom has no layout, so getBoundingClientRect returns all zeros). */
+function boardScore(el: Element): number {
+  const r = el.getBoundingClientRect();
+  const area = r.width * r.height;
+  return area > 0 ? area : el.querySelectorAll('.piece').length;
+}
+
+/** The board to read. Multi-board pages (puzzles / analysis mini-boards) have more
+ *  than one candidate, so pick the most prominent rather than the first match. Prefer
+ *  the `wc-chess-board` custom element over `.board` wrappers. */
 function boardEl(): Element | null {
-  return document.querySelector('wc-chess-board, .board .pieces, .board');
+  const wc = document.querySelectorAll('wc-chess-board');
+  const list = wc.length ? [...wc] : [...document.querySelectorAll('.board')];
+  if (list.length === 0) return null;
+  return list.reduce((best, el) => (boardScore(el) > boardScore(best) ? el : best));
 }
 
 /** Build the white-bottom grid assembleFromGrid expects from chess.com pieces.
@@ -29,17 +43,42 @@ function readGrid(board: Element): (string | null)[][] {
   return grid;
 }
 
-/** Side to move from the last-move highlight: the highlighted square that still
- *  holds a piece is the mover's destination ⇒ opposite side is to move. */
+/** Normalized inline background-color of a highlight element ('' if none). */
+function highlightColor(el: Element): string {
+  return (el as HTMLElement).style?.backgroundColor ?? '';
+}
+
+/** Side to move from the last-move highlight. chess.com reuses `.highlight` for the
+ *  last-move pair AND right-click annotations / selection / premove / check, so trusting
+ *  any highlighted occupied square wrongly flips the turn (e.g. touching a piece — see
+ *  live DOM: last-move squares are one colour, annotations another, and there is no
+ *  dedicated `.last-move` class like lichess). A genuine last move is a same-COLOURED
+ *  pair: the destination still holds a piece, the origin is empty. Group highlights by
+ *  colour and trust a group only when it looks like a completed move: >=2 squares with
+ *  exactly one still occupied (the destination). Require EXACTLY ONE such group — a
+ *  same-coloured annotation pair (one occupied, one empty) can also qualify and would
+ *  otherwise win by DOM order (chess.com renders annotations before the last-move pair),
+ *  so if two rival groups qualify we decline to the White fail-safe rather than risk a
+ *  confident wrong flip. Single-square selection/annotation/check never qualifies. */
 function readTurn(board: Element, grid: (string | null)[][]): 'w' | 'b' {
+  const groups = new Map<string, (string | null)[]>();
   for (const hl of board.querySelectorAll('.highlight')) {
     const sq = hl.className.match(SQ_RE);
     if (!sq) continue;
     const file = Number(sq[1]); const rank = Number(sq[2]);
     const code = grid[8 - rank][file - 1];
-    if (code) return code[0] === 'w' ? 'b' : 'w';
+    const key = highlightColor(hl);
+    let bucket = groups.get(key);
+    if (!bucket) { bucket = []; groups.set(key, bucket); }
+    bucket.push(code);
   }
-  return 'w';
+  const dests: string[] = [];
+  for (const codes of groups.values()) {
+    const occupied = codes.filter((c): c is string => c !== null);
+    if (codes.length >= 2 && occupied.length === 1) dests.push(occupied[0]);
+  }
+  if (dests.length !== 1) return 'w';         // 0 = no move; >1 = ambiguous -> fail-safe
+  return dests[0][0] === 'w' ? 'b' : 'w';
 }
 
 export const chesscomAdapter: SiteAdapter = {
@@ -64,6 +103,12 @@ export const chesscomAdapter: SiteAdapter = {
   },
 
   boardPresent: () => !!boardEl(),
+
+  // A selected piece renders move-destination `.hint`s (and a `.capture-hint` ring on
+  // capturable pieces). Its selection highlight is DOM-identical to the last-move
+  // highlight, so use the hints — the one unambiguous "a piece is selected" signal —
+  // to tell the driver to hold the current position instead of re-reading the turn.
+  interacting: () => !!boardEl()?.querySelector('.hint, .capture-hint'),
 };
 
 function hostOf(url: string): string { try { return new URL(url).hostname; } catch { return ''; } }

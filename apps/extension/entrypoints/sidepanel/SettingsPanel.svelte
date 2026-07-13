@@ -32,10 +32,6 @@
   <label class="row"><span class="name">Best-move arrows</span>
     <input type="checkbox" data-testid="toggle-arrows" checked={$s.arrows}
       on:change={() => patchSettings({ arrows: !$s.arrows })} /></label>
-
-  <label class="row"><span class="name">Live site reading</span>
-    <input type="checkbox" data-testid="toggle-live" checked={$s.liveSiteReading}
-      on:change={() => patchSettings({ liveSiteReading: !$s.liveSiteReading })} /></label>
 </div>
 
 <style>

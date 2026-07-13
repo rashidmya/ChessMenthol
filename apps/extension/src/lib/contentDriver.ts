@@ -11,6 +11,10 @@ export function runContentDriver(adapter: SiteAdapter, send: (m: Out) => void): 
   let lastFen: string | null = null;
   let adapterOk = true; // start optimistic; only announce a *problem* or its recovery
   const emit = () => {
+    // A piece being selected/dragged is a transient interaction, not a new position —
+    // skip so a selection highlight (DOM-identical to the last move on chess.com) can't
+    // pollute the read. When the interaction ends, the next mutation reads cleanly.
+    if (adapter.interacting?.()) return;
     const pos = adapter.readPosition();
     if (!pos) {
       if (adapter.boardPresent() && adapterOk) { adapterOk = false; send({ kind: 'adapter-status', site: adapter.site, ok: false }); }

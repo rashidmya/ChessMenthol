@@ -32,4 +32,12 @@ describe('lichessAdapter.readPosition', () => {
     document.body.innerHTML = '<div>nothing</div>';
     expect(lichessAdapter.readPosition()).toBeNull();
   });
+
+  it('reports interacting() while a piece is selected or its destinations are shown', () => {
+    expect(lichessAdapter.interacting!()).toBe(false);
+    document.querySelector('cg-board')!.insertAdjacentHTML('beforeend',
+      '<square class="selected" style="transform: translate(64px, 448px);"></square>' +
+      '<square class="move-dest" style="transform: translate(64px, 320px);"></square>');
+    expect(lichessAdapter.interacting!()).toBe(true);
+  });
 });
