@@ -99,11 +99,13 @@ release, e.g. `ext-v0.1.0`).
 3. Click the ChessMenthol toolbar icon to open the side panel, then open a **chess.com** or
    **Lichess** game — the board is read live. On any other page, click **Capture** in the panel.
 
-**Firefox**
+**Firefox** (Developer Edition, Nightly, or ESR — release/Beta can't install unsigned add-ons)
 
 1. Download `chessmenthol-extension-*-firefox.zip`.
-2. Open `about:debugging#/runtime/this-firefox` → **Load Temporary Add-on** → select the zip (or
-   the `manifest.json` inside the unzipped folder). Temporary add-ons are removed on restart.
+2. Open `about:config`, set `xpinstall.signatures.required` to **`false`**, then open
+   `about:addons` → **⚙ → Install Add-on From File** and pick the zip.
+3. Open the **ChessMenthol** sidebar, then open a **chess.com** or **Lichess** game — the board is
+   read live. On any other page, click **Capture** in the panel.
 
 Chrome shows a *"Read and change all your data on all websites"* prompt at install: that access
 is what the on-demand **Capture** button needs (`chrome.tabs.captureVisibleTab` requires
