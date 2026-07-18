@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { state, errorSeq, regionShot, connect, send, report, reportProgress } from './lib/engineClient';
+  import { state, errorSeq, lastError, regionShot, connect, send, report, reportProgress } from './lib/engineClient';
   import { buildFen, kingCountOk, castleFromFen } from '@chessmenthol/core/lib/edit';
   import { currentLastMoveUci } from '@chessmenthol/core/lib/board';
   import type { CastlingRights } from '@chessmenthol/core/lib/edit';
@@ -45,7 +45,20 @@
   let lastReport: import('@chessmenthol/core/lib/types').GameReportDto | null = null;
   const hasCapture = hasNativeCapture(); // true inside Tauri; false in a plain browser
   let pickingRegion = false;
-  function onPickRegion() { regionShot.set(null); pickingRegion = true; send({ type: 'request_region_shot' }); }
+  // Capture failures (e.g. no screenshot tool, a Wayland env issue) come back as an
+  // error frame with no region_shot. Surface it in the overlay instead of leaving a
+  // perpetual "capturing…". pickSeq snapshots errorSeq at request time so we only
+  // react to an error raised by THIS request, not a stale one from earlier.
+  let captureError: string | null = null;
+  let pickSeq = 0;
+  function onPickRegion() {
+    captureError = null;
+    pickSeq = $errorSeq;
+    regionShot.set(null);
+    pickingRegion = true;
+    send({ type: 'request_region_shot' });
+  }
+  $: if (pickingRegion && $errorSeq > pickSeq && $regionShot === null) captureError = $lastError;
   function onConfirmRegion(r: Region, side: 'auto' | 'white' | 'black') {
     pickingRegion = false;
     // Apply the chosen capture orientation BEFORE the capture fires. The region is
@@ -55,7 +68,7 @@
     for (const c of captureCommands(r)) send(c);
     enterAnalysis();
   }
-  function onCancelRegion() { pickingRegion = false; }
+  function onCancelRegion() { pickingRegion = false; captureError = null; }
 
   function onToggleView(key: 'evalBar' | 'lines' | 'arrows' | 'feedback') {
     viewPrefs = { ...viewPrefs, [key]: !viewPrefs[key] };
@@ -331,7 +344,7 @@
     </div>
   </main>
   {#if pickingRegion && hasCapture}
-    <RegionOverlay shot={$regionShot} onConfirm={onConfirmRegion} onCancel={onCancelRegion} />
+    <RegionOverlay shot={$regionShot} error={captureError} onConfirm={onConfirmRegion} onCancel={onCancelRegion} onRetry={onPickRegion} />
   {/if}
 </div>
 

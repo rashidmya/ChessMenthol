@@ -3,8 +3,12 @@
   import { toDesktopRegion, type Region } from '@chessmenthol/core/lib/region';
   import Icon from './Icon.svelte';
   export let shot: RegionShotFrame | null = null;
+  // A capture failure while waiting for the shot. Shown instead of a perpetual
+  // "capturing…" so the user learns why and can retry, rather than seeing a freeze.
+  export let error: string | null = null;
   export let onConfirm: (r: Region, side: 'auto' | 'white' | 'black') => void = () => {};
   export let onCancel: () => void = () => {};
+  export let onRetry: () => void = () => {};
 
   // Capture-time board orientation. 'auto' lets the pipeline resolve it (coord-label
   // OCR + piece heuristic); white/black force it. Applied when the capture fires.
@@ -83,6 +87,11 @@
         <div class="sel" style={`left:${selL}px;top:${selT}px;width:${selW}px;height:${selH}px`}></div>
       {/if}
     </div>
+  {:else if error}
+    <div class="capture-error" data-testid="overlay-error">
+      <p class="msg"><Icon name="CautionTriangle" /> {error}</p>
+      <button data-testid="overlay-retry" on:click={onRetry}>Try again</button>
+    </div>
   {:else}
     <div class="capturing" data-testid="overlay-capturing">capturing…</div>
   {/if}
@@ -110,4 +119,9 @@
   .sel { position: absolute; border: 2px solid #11a26b; background: rgba(17,162,107,0.18);
     box-shadow: 0 0 0 9999px rgba(0,0,0,0.55); pointer-events: none; }
   .capturing { color: #aaa; font: 13px system-ui; margin: auto; }
+  .capture-error { margin: auto; display: flex; flex-direction: column; align-items: center;
+    gap: 12px; max-width: 560px; padding: 0 20px; text-align: center; }
+  .capture-error .msg { color: #f0a500; font: 13px system-ui; margin: 0; word-break: break-word; }
+  .capture-error button { font: 12px system-ui; padding: 6px 14px; border-radius: 6px; cursor: pointer;
+    background: #11a26b; border: 1px solid #11a26b; color: #04150e; font-weight: 600; }
 </style>
