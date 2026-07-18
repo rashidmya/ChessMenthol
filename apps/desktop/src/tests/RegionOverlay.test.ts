@@ -10,6 +10,30 @@ describe('RegionOverlay', () => {
     expect(screen.getByTestId('overlay-capturing')).toBeTruthy();
   });
 
+  it('shows the capture error (not a perpetual capturing state) when one occurs', () => {
+    render(RegionOverlay, {
+      props: { shot: null, error: 'screen capture unavailable: boom', onConfirm: vi.fn(), onCancel: vi.fn() } as any,
+    });
+    expect(screen.queryByTestId('overlay-capturing')).toBeNull();
+    const err = screen.getByTestId('overlay-error');
+    expect(err.textContent).toContain('screen capture unavailable: boom');
+  });
+
+  it('the error state offers a retry that calls onRetry', async () => {
+    const onRetry = vi.fn();
+    render(RegionOverlay, {
+      props: { shot: null, error: 'boom', onRetry, onConfirm: vi.fn(), onCancel: vi.fn() } as any,
+    });
+    await fireEvent.click(screen.getByTestId('overlay-retry'));
+    expect(onRetry).toHaveBeenCalled();
+  });
+
+  it('a shot takes precedence over a stale error', () => {
+    render(RegionOverlay, { props: { shot, error: 'boom', onConfirm: vi.fn(), onCancel: vi.fn() } as any });
+    expect(screen.getByTestId('overlay-img')).toBeTruthy();
+    expect(screen.queryByTestId('overlay-error')).toBeNull();
+  });
+
   it('renders the screenshot when a shot is present', () => {
     render(RegionOverlay, { props: { shot, onConfirm: vi.fn(), onCancel: vi.fn() } as any });
     const img = screen.getByTestId('overlay-img') as HTMLImageElement;

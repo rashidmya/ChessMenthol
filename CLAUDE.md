@@ -75,8 +75,10 @@ don't re-fetch.
 Local Linux `tauri build`: `.deb` + `.rpm` bundle fine, but the **AppImage** step (`linuxdeploy`) fails
 with `failed to run linuxdeploy` in sandboxes/containers where its bundled AppImage tools can't
 FUSE-mount (even when `/dev/fuse` exists). Prefix with **`APPIMAGE_EXTRACT_AND_RUN=1`** (extract instead
-of mount) to build all three, or `npm run tauri build -- --bundles deb,rpm` to skip AppImage. CI builds
-the AppImage without this.
+of mount) to build all three, or `npm run tauri build -- --bundles deb,rpm` to skip AppImage. On modern
+rolling distros (Arch/CachyOS) `linuxdeploy` *also* fails at the strip step — its bundled `strip` can't
+parse the `.relr.dyn` (packed relative relocations) in current system libs (`unknown type [0x13] section
+.relr.dyn`) — so add **`NO_STRIP=1`** as well. CI (Ubuntu 24.04) needs neither env var.
 
 ## Architecture
 
@@ -167,6 +169,13 @@ live in `@chessmenthol/core/lib/image`, driven by `apps/desktop/src/lib/capture.
 grab on X11/Windows/macOS, screenshot-CLI fallback on Wayland) plus the `engine::*` bridge in
 `engine.rs` (spawns/streams one native UCI process; kills it on app exit). Nets and the bundled
 Stockfish binary live under `src-tauri/binaries/` and `src-tauri/resources/engine/`.
+
+**AppImage env gotcha:** the Wayland screenshot fallback shells out to a **system** binary
+(spectacle/grim/gnome-screenshot). Inside an AppImage, `AppRun` exports `LD_LIBRARY_PATH`
+(+ GTK/GIO/GSettings module paths) into the bundle, which a spawned system tool would inherit —
+loading the bundle's older `libwayland-client` and dying with `undefined symbol:
+wl_display_create_queue_with_name`. So spawn system helpers via `system_command()`, which strips
+those vars (`APPIMAGE_ENV_VARS`). Any new `Command::new(...)` for a system binary must go through it.
 
 ### UI (`components/`)
 
