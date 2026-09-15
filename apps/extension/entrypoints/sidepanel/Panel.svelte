@@ -6,7 +6,8 @@
   import { createPanelClient, applyPosition } from '../../src/lib/panelClient';
   import { loadWasmEngine } from '../../src/engine/wasmEngine';
   import { makeTabTracker } from '../../src/vision/visionTracker';
-  import { isPositionMessage, type ExtMessage, type CaptureResult } from '../../src/lib/messages';
+  import { isPositionMessage, type ExtMessage, type CaptureResult, type PositionMessage } from '../../src/lib/messages';
+  import { getMyWindowId, requestPosition, isFromActiveTab, onActiveTabChanged, type SenderLike, type TabsApi } from '../../src/lib/activeTab';
   import { settings, hydrateSettings, patchSettings } from '../../src/lib/settings';
   import { settingsToCommands } from '../../src/lib/settingsToCommands';
   import { panelStatus } from '../../src/lib/panelStatus';
@@ -36,6 +37,20 @@
   let boardOrientation: 'white' | 'black' = 'white';
   let adapterOk = true;
 
+  // Tab affinity: only the active tab of THIS window may drive the panel. null = unknown
+  // (plain-browser dev / tests) -> no filtering.
+  let myWindowId: number | null = null;
+  let unsubTab: () => void = () => {};
+  let destroyed = false;
+  const tabsApi: TabsApi = browser;
+  // Bumped per pull so an older in-flight request (quick tab switches) can't land after
+  // a newer one and overwrite the current tab's board with a stale reply.
+  let pullSeq = 0;
+  // The FEN last received from the site. A re-read that returns the same position (window
+  // refocus, tab re-activation, Capture on an unchanged board) must not restart the search
+  // or wipe the panel's history — only a genuinely new site position replaces it.
+  let lastSiteFen: string | null = null;
+
   $: currentFen = $panelState?.fen ?? STARTPOS;
   // The orchestrator's analysisEnabled is the single source of truth for the toggle —
   // no local flag to drift from the engine's actual state.
@@ -54,7 +69,7 @@
     if ($s.autoAnalyze) client.send({ type: 'set_analysis_enabled', enabled: true });
   }
   function loadFen() {
-    source = 'manual'; boardOrientation = 'white'; adapterOk = true;
+    source = 'manual'; boardOrientation = 'white'; adapterOk = true; lastSiteFen = null;
     lastError.set(null);
     client.send({ type: 'set_fen', fen: fenInput.trim() });
     maybeAnalyze();
@@ -63,22 +78,57 @@
     client.send({ type: 'set_analysis_enabled', enabled: !analyzing });
   }
   function captureNow() {
-    source = 'vision'; adapterOk = true; lastError.set(null);
+    source = 'vision'; adapterOk = true; lastSiteFen = null; lastError.set(null);
     client.send({ type: 'capture_now' });
     maybeAnalyze();
   }
 
-  function onMessage(msg: ExtMessage) {
-    if (msg?.kind === 'adapter-status') { if ($s.liveSiteReading) adapterOk = msg.ok; return; }
-    if (!isPositionMessage(msg)) return;
-    if (!$s.liveSiteReading) return;
-    adapterOk = true; source = msg.site; boardOrientation = msg.orientation; lastError.set(null);
+  /** Apply a site position (pushed or requested) — the one path all sources share. */
+  function applyIncoming(msg: PositionMessage) {
+    adapterOk = true; boardOrientation = msg.orientation; lastError.set(null);
+    if (msg.fen === lastSiteFen) return;
+    lastSiteFen = msg.fen; source = msg.site;
     if ($s.autoAnalyze) applyPosition(client.send, msg);
     else client.send({ type: 'set_fen', fen: msg.fen });
   }
 
-  onMount(() => { hydrateSettings(); return browser?.runtime?.onMessage?.addListener?.(onMessage); });
-  onDestroy(() => browser?.runtime?.onMessage?.removeListener?.(onMessage));
+  /** Ask the active tab for its board; true when a position came back and was applied. */
+  async function pullPosition(): Promise<boolean> {
+    const seq = ++pullSeq;
+    const pos = await requestPosition(tabsApi, myWindowId);
+    if (seq !== pullSeq || destroyed) return false;   // a newer pull superseded this one
+    if (pos) applyIncoming(pos);
+    return pos !== null;
+  }
+
+  function onMessage(msg: ExtMessage, sender?: SenderLike) {
+    if (!isFromActiveTab(sender, myWindowId)) return;
+    if (msg?.kind === 'adapter-status') { if ($s.liveSiteReading) adapterOk = msg.ok; return; }
+    if (!isPositionMessage(msg)) return;
+    if (!$s.liveSiteReading) return;
+    applyIncoming(msg);
+  }
+
+  function setLiveReading(on: boolean) {
+    patchSettings({ liveSiteReading: on });
+    if (on) void pullPosition();
+  }
+
+  onMount(() => {
+    browser?.runtime?.onMessage?.addListener?.(onMessage);
+    void (async () => {
+      await hydrateSettings();
+      if (destroyed) return;
+      myWindowId = await getMyWindowId(tabsApi);
+      if (destroyed) return;
+      if (myWindowId !== null) {
+        unsubTab = onActiveTabChanged(tabsApi, myWindowId, () => { if ($s.liveSiteReading) void pullPosition(); });
+      }
+      // Pushes only happen on CHANGE, so a panel opened mid-game must ask.
+      if ($s.liveSiteReading) await pullPosition();
+    })();
+  });
+  onDestroy(() => { destroyed = true; browser?.runtime?.onMessage?.removeListener?.(onMessage); unsubTab(); });
 
   $: evalDto = $panelState?.eval ?? null;
   $: lines = $panelState?.lines ?? [];
@@ -130,7 +180,7 @@
       </span>
       <label class="tool">
         <input type="checkbox" data-testid="toggle-live-main" checked={$s.liveSiteReading}
-          on:change={() => patchSettings({ liveSiteReading: !$s.liveSiteReading })} />
+          on:change={() => setLiveReading(!$s.liveSiteReading)} />
         <span class="tlabel">Live site reading</span>
       </label>
     </div>
