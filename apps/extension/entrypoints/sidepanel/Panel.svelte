@@ -86,8 +86,11 @@
     // would stop and relaunch the same search.
     if ($s.autoAnalyze && !$panelState?.analysisEnabled) client.send({ type: 'set_analysis_enabled', enabled: true });
   }
+  // Deliberately keeps lastSiteFen: a pasted FEN has diverged from the site like a manual
+  // line, so a refocus re-read of the UNCHANGED site position must not wipe it (only an
+  // explicit Capture, or a genuinely new site position, replaces it).
   function loadFen() {
-    source = 'manual'; boardOrientation = 'white'; adapterOk = true; lastSiteFen = null;
+    source = 'manual'; boardOrientation = 'white'; adapterOk = true;
     lastError.set(null);
     client.send({ type: 'set_fen', fen: fenInput.trim() });
     maybeAnalyze();
@@ -106,18 +109,29 @@
     maybeAnalyze();
   }
   function onNavigate(index: number) { client.send({ type: 'navigate', index }); }
+  // True while captureNow's own pull is in flight. Clicking the panel of an unfocused
+  // window delivers windows.onFocusChanged around the click; if that affinity pull bumped
+  // pullSeq under ours, captureNow would see 'superseded' and silently skip the screenshot
+  // fallback on a non-site page. So affinity pulls stand down while a Capture is pulling
+  // (pushes via onMessage are unaffected — they don't use pullSeq).
+  let capturing = false;
   /** Capture = "read the board now". On chess.com / lichess the site's DOM is the reliable
    *  source, so ask the active tab first; screenshot + vision only when no site position
    *  came back (any other page, or an adapter that can't parse this board). An explicit
    *  Capture always re-applies, even an unchanged site position (bypasses the same-FEN
    *  guard) — the user asked for a re-read. */
   async function captureNow() {
-    if ($busy) return;
-    adapterOk = true; lastError.set(null); lastSiteFen = null;
-    if (await pullPosition() !== 'none') return;
-    source = 'vision';
-    client.send({ type: 'capture_now' });
-    maybeAnalyze();
+    if ($busy || capturing) return;
+    capturing = true;
+    try {
+      adapterOk = true; lastError.set(null); lastSiteFen = null;
+      if (await pullPosition() !== 'none') return;
+      source = 'vision';
+      client.send({ type: 'capture_now' });
+      maybeAnalyze();
+    } finally {
+      capturing = false;
+    }
   }
 
   /** Apply a site position (pushed or requested) — the one path all sources share. */
@@ -161,7 +175,7 @@
       myWindowId = await getMyWindowId(tabsApi);
       if (destroyed) return;
       if (myWindowId !== null) {
-        unsubTab = onActiveTabChanged(tabsApi, myWindowId, () => { if ($s.liveSiteReading) void pullPosition(); });
+        unsubTab = onActiveTabChanged(tabsApi, myWindowId, () => { if ($s.liveSiteReading && !capturing) void pullPosition(); });
       }
       // Pushes only happen on CHANGE, so a panel opened mid-game must ask.
       if ($s.liveSiteReading) await pullPosition();

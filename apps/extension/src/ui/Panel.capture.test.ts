@@ -16,13 +16,21 @@ const h = vi.hoisted(() => {
   };
   // detectError: when set, the mocked tracker throws it (the orchestrator wraps that as
   // `capture failed: …`, which panelStatus maps to capture_denied).
-  const state = { reply: null as unknown, detect: 0, detectError: null as string | null };
+  // `pending`: when an array, tabs.sendMessage parks its resolver there instead of
+  // answering, so a test can interleave events with an in-flight position request.
+  const state = { reply: null as unknown, pending: null as ((v: unknown) => void)[] | null, detect: 0, detectError: null as string | null };
   // runtime.sendMessage spy (the capture-request). A truthy data URL by default so the
   // panel's real requestCapture resolves and the mocked detect decides the outcome
   // (null -> no_board).
   const sendMessage = vi.fn(async (_m: unknown): Promise<unknown> => ({ dataUrl: 'data:,' }));
-  // tabs.sendMessage spy (the position-request): resolves with `state.reply` at call time.
-  const tabSend = vi.fn(async (..._a: unknown[]): Promise<unknown> => state.reply);
+  // tabs.sendMessage spy (the position-request): resolves with `state.reply` at call time,
+  // or parks in `state.pending`.
+  const tabSend = vi.fn((..._a: unknown[]): Promise<unknown> => {
+    const q = state.pending;
+    return q ? new Promise<unknown>((resolve) => q.push(resolve)) : Promise.resolve(state.reply);
+  });
+  const focused: ((windowId: number) => void)[] = [];
+  const activated: ((info: { tabId: number; windowId: number }) => void)[] = [];
   vi.stubGlobal('browser', {
     runtime: {
       id: 'test-extension', getURL: (p: string) => p,
@@ -30,10 +38,18 @@ const h = vi.hoisted(() => {
       sendMessage: (m: unknown) => sendMessage(m),
     },
     storage: { local: { get: async () => ({}), set: async () => {} } },
-    windows: { getCurrent: async () => ({ id: 5 }), onFocusChanged: { addListener: () => {}, removeListener: () => {} }, WINDOW_ID_NONE: -1 },
-    tabs: { query: async () => [{ id: 42 }], sendMessage: (...a: unknown[]) => tabSend(...a), onActivated: { addListener: () => {}, removeListener: () => {} } },
+    windows: {
+      getCurrent: async () => ({ id: 5 }),
+      onFocusChanged: { addListener: (f: (id: number) => void) => focused.push(f), removeListener: () => {} },
+      WINDOW_ID_NONE: -1,
+    },
+    tabs: {
+      query: async () => [{ id: 42 }],
+      sendMessage: (...a: unknown[]) => tabSend(...a),
+      onActivated: { addListener: (f: (i: { tabId: number; windowId: number }) => void) => activated.push(f), removeListener: () => {} },
+    },
   });
-  return { busy, state, POS, sendMessage, tabSend };
+  return { busy, state, POS, sendMessage, tabSend, focused, activated };
 });
 vi.mock('../engine/wasmEngine', () => ({ loadWasmEngine: async () => ({ send() {}, onLine() {}, dispose() {} }) }));
 // The mocked tracker calls the panel's requestCapture from detectPosition the way the
@@ -62,8 +78,8 @@ describe('Panel capture', () => {
   // Live reading off so mount does not pull; Capture must still ask the tab.
   beforeEach(() => {
     settings.set({ ...DEFAULTS, liveSiteReading: false });
-    h.state.reply = null; h.state.detect = 0; h.state.detectError = null; h.busy.set(false);
-    h.sendMessage.mockClear(); h.tabSend.mockClear();
+    h.state.reply = null; h.state.pending = null; h.state.detect = 0; h.state.detectError = null; h.busy.set(false);
+    h.sendMessage.mockClear(); h.tabSend.mockClear(); h.focused.length = 0; h.activated.length = 0;
   });
 
   it('applies the site\'s DOM position when the active tab answers, without a screenshot', async () => {
@@ -141,19 +157,37 @@ describe('Panel capture', () => {
     expect(h.state.detect).toBe(0);
   });
 
-  it('a double-click on a site tab never falls back to a screenshot (a superseded pull is not "no position")', async () => {
+  it('a double-click on a site tab never falls back to a screenshot', async () => {
     h.state.reply = h.POS;
     const { getByTestId } = render(Panel);
     await settle();
     const btn = getByTestId('capture');
-    // Two clicks in the same task: the first pull is superseded by the second before its
-    // reply lands. NOT `await fireEvent.click` — that drains microtasks between the clicks.
+    // Two clicks in the same task: the second is ignored by the `capturing` guard while the
+    // first pull is in flight, and even a superseded pull is never treated as "no position".
+    // NOT `await fireEvent.click` — that drains microtasks between the clicks.
     void fireEvent.click(btn); void fireEvent.click(btn);
     await settle(); await settle();
     expect(h.state.detect).toBe(0);
     expect(h.sendMessage).not.toHaveBeenCalled();
     expect(getByTestId('current-fen').textContent).toContain('3P4');
     expect(getByTestId('source').textContent).toContain('chess.com');
+  });
+
+  it('an affinity re-pull (window refocus) cannot swallow an explicit Capture', async () => {
+    const { getByTestId } = render(Panel);
+    await settle();   // mount chain done (live reading off -> no mount pull)
+    settings.set({ ...DEFAULTS, liveSiteReading: true });   // refocus pulls are live-reading only
+    h.state.pending = [];
+    await fireEvent.click(getByTestId('capture'));   // Capture's pull #1 parks
+    await waitFor(() => expect(h.state.pending).toHaveLength(1));
+    // Clicking the panel of an unfocused window delivers onFocusChanged around the click.
+    // That affinity pull must not bump pullSeq under Capture's in-flight pull.
+    h.focused.forEach((f) => f(5));
+    await settle();
+    expect(h.tabSend).toHaveBeenCalledTimes(1);   // the affinity pull was skipped
+    h.state.pending[0]({ kind: 'no-position', boardPresent: false });   // a non-site page
+    await waitFor(() => expect(h.state.detect).toBe(1));   // the screenshot fallback ran
+    expect(h.tabSend).toHaveBeenCalledTimes(1);
   });
 
   it('a later site/manual position clears a stale vision status card', async () => {

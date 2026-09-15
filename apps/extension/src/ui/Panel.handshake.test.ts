@@ -115,14 +115,20 @@ describe('Panel handshake + tab affinity', () => {
     await settle();
     expect(h.state.sendMessage).toHaveBeenCalledTimes(2);   // mount pull + refocus pull
     expect(getByTestId('current-fen').textContent).toContain(' w ');   // guarded: not re-applied
-    // Negative control: an explicit manual load clears the guard, so the unchanged site
-    // position applies again on the next refocus.
+    // A pasted FEN is "diverged from the site" exactly like a manual line: the guard holds
+    // across a refocus that returns the unchanged site position ...
     await fireEvent.click(getByTestId('fen-toggle'));
     await fireEvent.input(getByTestId('fen-input'), { target: { value: '8/8/8/8/8/8/8/4K2k w - - 0 1' } });
     await fireEvent.click(getByTestId('load-fen'));
     expect(getByTestId('current-fen').textContent).toContain('4K2k');
     h.focused.forEach((f) => f(5));
-    await waitFor(() => expect(getByTestId('current-fen').textContent).toContain('4P3'));
+    await settle();
+    expect(h.state.sendMessage).toHaveBeenCalledTimes(3);
+    expect(getByTestId('current-fen').textContent).toContain('4K2k');   // kept
+    // ... and only a genuinely NEW site position replaces it.
+    h.state.reply = h.POS_D4;
+    h.focused.forEach((f) => f(5));
+    await waitFor(() => expect(getByTestId('current-fen').textContent).toContain('3P4'));
     expect(getByTestId('current-fen').textContent).toContain(' b ');
   });
 
