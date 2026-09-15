@@ -6,23 +6,27 @@
   import { createPanelClient, applyPosition } from '../../src/lib/panelClient';
   import { loadWasmEngine } from '../../src/engine/wasmEngine';
   import { makeTabTracker } from '../../src/vision/visionTracker';
-  import { isPositionMessage, type ExtMessage, type CaptureResult, type PositionMessage } from '../../src/lib/messages';
+  import { isPositionMessage, type ExtMessage, type CaptureRequest, type CaptureResult, type PositionMessage } from '../../src/lib/messages';
   import { getMyWindowId, requestPosition, isFromActiveTab, onActiveTabChanged, type SenderLike, type TabsApi } from '../../src/lib/activeTab';
   import { settings, hydrateSettings, patchSettings } from '../../src/lib/settings';
   import { settingsToCommands } from '../../src/lib/settingsToCommands';
   import { panelStatus } from '../../src/lib/panelStatus';
+  import { STATUS_TEXT } from '../../src/lib/statusText';
   import SourceBadge from './SourceBadge.svelte';
   import SettingsPanel from './SettingsPanel.svelte';
   import TurnToggle from './TurnToggle.svelte';
   import { browser } from 'wxt/browser';
 
   async function requestCapture(): Promise<string> {
-    const res = (await browser.runtime.sendMessage({ kind: 'capture-request' })) as CaptureResult | undefined;
+    // `myWindowId` (declared below) is read at call time, never at definition.
+    const req: CaptureRequest = { kind: 'capture-request', windowId: myWindowId ?? undefined };
+    const res = (await browser.runtime.sendMessage(req)) as CaptureResult | undefined;
     if (!res?.dataUrl) throw new Error(res?.error ?? 'screen capture failed');
     return res.dataUrl;
   }
 
   const tracker = makeTabTracker(requestCapture);
+  const busy = tracker.busy;
   const client = createPanelClient(loadWasmEngine, tracker);
   const panelState = client.state;
   const lastError = client.lastError;
@@ -47,8 +51,8 @@
   // a newer one and overwrite the current tab's board with a stale reply.
   let pullSeq = 0;
   // The FEN last received from the site. A re-read that returns the same position (window
-  // refocus, tab re-activation, Capture on an unchanged board) must not restart the search
-  // or wipe the panel's history — only a genuinely new site position replaces it.
+  // refocus, tab re-activation) must not restart the search or wipe the panel's history —
+  // only a genuinely new site position replaces it. An explicit Capture clears this first.
   let lastSiteFen: string | null = null;
 
   $: currentFen = $panelState?.fen ?? STARTPOS;
@@ -77,8 +81,16 @@
   function toggleAnalysis() {
     client.send({ type: 'set_analysis_enabled', enabled: !analyzing });
   }
-  function captureNow() {
-    source = 'vision'; adapterOk = true; lastSiteFen = null; lastError.set(null);
+  /** Capture = "read the board now". On chess.com / lichess the site's DOM is the reliable
+   *  source, so ask the active tab first; screenshot + vision only when no site position
+   *  came back (any other page, or an adapter that can't parse this board). An explicit
+   *  Capture always re-applies, even an unchanged site position (bypasses the same-FEN
+   *  guard) — the user asked for a re-read. */
+  async function captureNow() {
+    if ($busy) return;
+    adapterOk = true; lastError.set(null); lastSiteFen = null;
+    if (await pullPosition() !== 'none') return;
+    source = 'vision';
     client.send({ type: 'capture_now' });
     maybeAnalyze();
   }
@@ -92,13 +104,15 @@
     else client.send({ type: 'set_fen', fen: msg.fen });
   }
 
-  /** Ask the active tab for its board; true when a position came back and was applied. */
-  async function pullPosition(): Promise<boolean> {
+  /** Ask the active tab for its board. 'applied' = a position came back and was applied;
+   *  'none' = no site position there (fall back to vision); 'superseded' = a newer pull
+   *  or unmount won, so do nothing (in particular, do NOT fall back to a screenshot). */
+  async function pullPosition(): Promise<'applied' | 'none' | 'superseded'> {
     const seq = ++pullSeq;
     const pos = await requestPosition(tabsApi, myWindowId);
-    if (seq !== pullSeq || destroyed) return false;   // a newer pull superseded this one
-    if (pos) applyIncoming(pos);
-    return pos !== null;
+    if (seq !== pullSeq || destroyed) return 'superseded';
+    if (pos) { applyIncoming(pos); return 'applied'; }
+    return 'none';
   }
 
   function onMessage(msg: ExtMessage, sender?: SenderLike) {
@@ -133,16 +147,11 @@
   $: evalDto = $panelState?.eval ?? null;
   $: lines = $panelState?.lines ?? [];
   $: depth = $panelState?.depth ?? 0;
-  $: status = panelStatus({ lastError: $lastError, visionStatus: $panelState?.visionStatus, adapterOk });
-  $: lowConfidence = $panelState?.visionStatus === 'low_confidence';
-
-  const STATUS_TEXT: Record<string, { msg: string; action?: 'capture' }> = {
-    engine_unavailable: { msg: 'Analysis engine unavailable. Board reconstruction still works.' },
-    capture_denied: { msg: "Couldn't capture this page (try a normal web page and click again).", action: 'capture' },
-    adapter_broke: { msg: "Can't read this site's board — capture it instead.", action: 'capture' },
-    no_board: { msg: 'No chessboard detected. Make the board fully visible and try again.', action: 'capture' },
-    unreadable: { msg: "Board found but the pieces couldn't be read — wait for the move animation to finish and try again.", action: 'capture' },
-  };
+  // visionStatus is written only by vision captures and never reset by set_fen, so gate it
+  // on provenance: a no_board/unreadable card (or the low-confidence ribbon) from an earlier
+  // screenshot must not linger over a later site/manual position.
+  $: status = panelStatus({ lastError: $lastError, visionStatus: source === 'vision' ? $panelState?.visionStatus : undefined, adapterOk });
+  $: lowConfidence = source === 'vision' && $panelState?.visionStatus === 'low_confidence';
 </script>
 
 <main class="panel">
@@ -159,8 +168,9 @@
     {#if status !== 'analysis'}
       <div class="status" data-testid="status-card">
         <p>{STATUS_TEXT[status].msg}</p>
+        {#if status === 'capture_denied' && $lastError}<p class="reason" data-testid="status-reason">{$lastError.replace(/^capture failed:\s*/i, '')}</p>{/if}
         {#if STATUS_TEXT[status].action === 'capture'}
-          <button data-testid="status-capture" on:click={captureNow}>Capture screen</button>
+          <button data-testid="status-capture" disabled={$busy} on:click={captureNow}>{$busy ? 'Capturing…' : 'Capture screen'}</button>
         {/if}
       </div>
     {/if}
@@ -195,7 +205,7 @@
 
     <div class="controls">
       <button data-testid="analyze" on:click={toggleAnalysis}>{analyzing ? 'Stop' : 'Analyze'}</button>
-      <button data-testid="capture" on:click={captureNow}>Capture</button>
+      <button data-testid="capture" disabled={$busy} on:click={captureNow}>{$busy ? 'Capturing…' : 'Capture'}</button>
       <button data-testid="fen-toggle" on:click={() => (showFen = !showFen)}>FEN</button>
     </div>
 
@@ -230,6 +240,7 @@
   .fenbox input { flex: 1; }
   .status { border: 1px dashed #6a5; border-radius: 8px; padding: 10px; font-size: 12px;
     background: rgba(120,150,90,.10); display: flex; flex-direction: column; gap: 8px; }
+  .reason { margin: 0; font: 10px/1.3 monospace; opacity: .7; word-break: break-word; }
   .ribbon { margin: 0; font-size: 11px; color: #c93; }
   .fen { font: 11px/1.3 monospace; color: #888; word-break: break-all; margin: 0; }
 </style>
