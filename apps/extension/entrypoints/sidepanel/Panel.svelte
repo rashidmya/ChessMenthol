@@ -15,6 +15,9 @@
   import SourceBadge from './SourceBadge.svelte';
   import SettingsPanel from './SettingsPanel.svelte';
   import TurnToggle from './TurnToggle.svelte';
+  import MoveStepper from './MoveStepper.svelte';
+  import MoveList from './MoveList.svelte';
+  import { currentLastMoveUci } from '@chessmenthol/core/lib/board';
   import { browser } from 'wxt/browser';
 
   async function requestCapture(): Promise<string> {
@@ -30,11 +33,11 @@
   const client = createPanelClient(loadWasmEngine, tracker);
   const panelState = client.state;
   const lastError = client.lastError;
+  const errorSeq = client.errorSeq;
   const s = settings;
 
   const STARTPOS = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
   let fenInput = STARTPOS;
-  let revertSignal = 0;
   let view: 'analysis' | 'settings' = 'analysis';
   let showFen = false;
   let source: 'manual' | 'vision' | 'chesscom' | 'lichess' = 'manual';
@@ -53,6 +56,10 @@
   // The FEN last received from the site. A re-read that returns the same position (window
   // refocus, tab re-activation) must not restart the search or wipe the panel's history —
   // only a genuinely new site position replaces it. An explicit Capture clears this first.
+  // Known edge: a NEW game that starts at the very same position (the content driver resets
+  // its dedupe on board replacement and pushes it) is swallowed here too, so a manual line
+  // survives until that game's first move. Proper fix: a board-generation token on
+  // PositionMessage (follow-up).
   let lastSiteFen: string | null = null;
 
   $: currentFen = $panelState?.fen ?? STARTPOS;
@@ -60,6 +67,10 @@
   // no local flag to drift from the engine's actual state.
   $: analyzing = $panelState?.analysisEnabled ?? false;
   $: if (source === 'vision' && $panelState?.detectedOrientation) boardOrientation = $panelState.detectedOrientation;
+  $: moveList = $panelState?.moveList ?? [];
+  $: currentPly = $panelState?.currentPly ?? 0;
+  // Yellow last-move highlight from authoritative state so it follows the stepper.
+  $: lastMoveUci = currentLastMoveUci(moveList, currentPly);
 
   // Re-send engine-affecting settings only when lines/time change (an arrows/toggle
   // flip must NOT restart the search).
@@ -70,7 +81,10 @@
   }
 
   function maybeAnalyze() {
-    if ($s.autoAnalyze) client.send({ type: 'set_analysis_enabled', enabled: true });
+    // Only flip the switch when it is off: the orchestrator already restarts the search
+    // for a new position on make_move / set_fen / capture, so re-sending `enabled: true`
+    // would stop and relaunch the same search.
+    if ($s.autoAnalyze && !$panelState?.analysisEnabled) client.send({ type: 'set_analysis_enabled', enabled: true });
   }
   function loadFen() {
     source = 'manual'; boardOrientation = 'white'; adapterOk = true; lastSiteFen = null;
@@ -81,6 +95,17 @@
   function toggleAnalysis() {
     client.send({ type: 'set_analysis_enabled', enabled: !analyzing });
   }
+  /** A drag on the panel board: play it in the core (legal-only; chessground already
+   *  filtered), which flips the turn, truncates any forward line and re-analyzes. The
+   *  panel has now diverged from whatever site fed it — the badge says so — until the
+   *  next NEW site position (a set_fen) replaces the history; a re-read of the same
+   *  site position is ignored by the lastSiteFen guard so the line survives. */
+  function onBoardMove(uci: string) {
+    source = 'manual';
+    client.send({ type: 'make_move', uci });
+    maybeAnalyze();
+  }
+  function onNavigate(index: number) { client.send({ type: 'navigate', index }); }
   /** Capture = "read the board now". On chess.com / lichess the site's DOM is the reliable
    *  source, so ask the active tab first; screenshot + vision only when no site position
    *  came back (any other page, or an adapter that can't parse this board). An explicit
@@ -178,7 +203,7 @@
     <div class="board-row">
       <EvalBar {evalDto} orientation={boardOrientation} />
       <Board fen={currentFen} orientation={boardOrientation} {lines} showArrows={$s.arrows}
-        onMove={() => { revertSignal += 1; }} {revertSignal} />
+        onMove={onBoardMove} revertSignal={$errorSeq} lastMove={lastMoveUci} />
     </div>
     {#if lowConfidence}<p class="ribbon" data-testid="low-confidence">Low-confidence read — double-check the pieces.</p>{/if}
 
@@ -194,6 +219,13 @@
         <span class="tlabel">Live site reading</span>
       </label>
     </div>
+
+    {#if moveList.length > 0}
+      <div class="history">
+        <MoveList {moveList} {currentPly} {onNavigate} />
+        <MoveStepper {currentPly} total={moveList.length} {onNavigate} />
+      </div>
+    {/if}
 
     <div class="evalcard">
       <div class="evaltop">
@@ -230,6 +262,7 @@
   .tool { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; }
   .tool input { margin: 0; }
   .tlabel { opacity: .85; }
+  .history { display: flex; flex-direction: column; gap: 6px; }
   .evalcard { border: 1px solid rgba(255,255,255,.12); border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
   .evaltop { display: flex; justify-content: space-between; align-items: baseline; }
   .evaltop .score { font-size: 20px; font-weight: 700; }
