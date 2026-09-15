@@ -11,7 +11,7 @@ export interface Settings {
 }
 
 export const DEFAULTS: Settings = {
-  lines: 3, thinkingMs: 5000, autoAnalyze: true, arrows: true, liveSiteReading: true,
+  lines: 1, thinkingMs: 5000, autoAnalyze: true, arrows: true, liveSiteReading: true,
 };
 
 const KEY = 'settings';

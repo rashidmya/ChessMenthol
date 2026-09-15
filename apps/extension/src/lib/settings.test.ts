@@ -24,7 +24,7 @@ describe('settings store', () => {
 
   it('starts at defaults', () => {
     expect(get(settings)).toEqual(DEFAULTS);
-    expect(DEFAULTS).toEqual({ lines: 3, thinkingMs: 5000, autoAnalyze: true, arrows: true, liveSiteReading: true });
+    expect(DEFAULTS).toEqual({ lines: 1, thinkingMs: 5000, autoAnalyze: true, arrows: true, liveSiteReading: true });
   });
 
   it('patchSettings updates the store and persists', async () => {
