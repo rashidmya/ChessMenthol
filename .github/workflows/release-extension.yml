@@ -80,8 +80,14 @@ jobs:
           The desktop app is released separately under `v*` tags.
           EOF
           )
+          # "What's Changed" in the desktop release's format, but extension-only: GitHub's own
+          # generator is tag-range based and would list desktop PRs merged between two ext-v*
+          # tags. scripts/release-notes.mjs keeps the PRs that touched apps/extension or
+          # packages/core. checkout@v4 only fetches the pushed tag, hence the fetch.
+          git fetch --tags --quiet
+          CHANGES=$(node apps/extension/scripts/release-notes.mjs)
           gh release create "${GITHUB_REF_NAME}" apps/extension/.output/chessmenthol-extension-*.zip \
             --draft \
             --title "ChessMenthol Extension ${GITHUB_REF_NAME}" \
-            --notes "$NOTES" \
+            --notes "$(printf '%s\n\n%s\n' "$NOTES" "$CHANGES")" \
           || gh release upload "${GITHUB_REF_NAME}" apps/extension/.output/chessmenthol-extension-*.zip --clobber
