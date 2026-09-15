@@ -73,4 +73,15 @@ describe('createPanelClient', () => {
     await vi.waitFor(() => expect(get(client.state)?.lines?.length ?? 0).toBeGreaterThan(0));
     expect(attempt).toBe(2);
   });
+
+  it('bumps errorSeq on every error frame so the board can revert a rejected move', () => {
+    const c = createPanelClient(async () => scriptedEngine());
+    expect(get(c.errorSeq)).toBe(0);
+    c.send({ type: 'make_move', uci: 'e2e5' }); // illegal from the start position
+    expect(get(c.errorSeq)).toBe(1);
+    expect(get(c.lastError)).toMatch(/illegal|invalid/i);
+    c.send({ type: 'make_move', uci: 'e2e5' });
+    expect(get(c.errorSeq)).toBe(2);
+    expect(get(c.state)?.fen).toBe(START);
+  });
 });

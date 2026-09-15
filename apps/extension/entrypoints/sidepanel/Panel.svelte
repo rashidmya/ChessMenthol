@@ -91,6 +91,7 @@
     capture_denied: { msg: "Couldn't capture this page (try a normal web page and click again).", action: 'capture' },
     adapter_broke: { msg: "Can't read this site's board — capture it instead.", action: 'capture' },
     no_board: { msg: 'No chessboard detected. Make the board fully visible and try again.', action: 'capture' },
+    unreadable: { msg: "Board found but the pieces couldn't be read — wait for the move animation to finish and try again.", action: 'capture' },
   };
 </script>
 
