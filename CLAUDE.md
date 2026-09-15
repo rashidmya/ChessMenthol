@@ -288,8 +288,11 @@ Two shared "single source of truth" abstractions to reuse rather than re-derive:
   `.github/workflows/release-extension.yml`, which gates on the extension's vitest + svelte-check,
   builds the Chrome/Firefox zips via `wxt zip` (the ORT-prune runs in a WXT `build:done` hook, so
   `wxt build` and `wxt zip` both drop the dead ~13.5 MB ort wasm), and drafts its **own** GitHub
-  release with those zips. The tag version must match `apps/extension/package.json` (the workflow
-  fails otherwise). `workflow_dispatch` runs the same build but only uploads artifacts (no release).
+  release with those zips. Its "What's Changed" comes from `apps/extension/scripts/release-notes.mjs`
+  (same format as GitHub's auto-notes, but only PRs that touched `apps/extension/` or
+  `packages/core/` since the previous `ext-v*` tag — GitHub's own generator would also list
+  desktop PRs merged in between). The tag version must match `apps/extension/package.json` (the
+  workflow fails otherwise). `workflow_dispatch` runs the same build but only uploads artifacts (no release).
   `ext-v*` never matches the desktop's `v*` glob, so the two release cards stay independent.
 
 ## Maintaining this file
