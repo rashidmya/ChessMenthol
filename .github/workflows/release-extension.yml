@@ -80,8 +80,16 @@ jobs:
           The desktop app is released separately under `v*` tags.
           EOF
           )
+          # "What's Changed" is auto-generated like the desktop release (merged PRs + Full
+          # Changelog), appended after $NOTES. Diff from the previous ext-v* tag explicitly —
+          # left to GitHub, the most recent tag might be a desktop v* one. checkout@v4 only
+          # fetches the pushed tag, hence the fetch.
+          git fetch --tags --quiet
+          PREV=$(git tag --list 'ext-v*' --sort=-v:refname | grep -vxF "${GITHUB_REF_NAME}" | head -n1)
+          START=(); [ -n "$PREV" ] && START=(--notes-start-tag "$PREV")
           gh release create "${GITHUB_REF_NAME}" apps/extension/.output/chessmenthol-extension-*.zip \
             --draft \
             --title "ChessMenthol Extension ${GITHUB_REF_NAME}" \
             --notes "$NOTES" \
+            --generate-notes "${START[@]}" \
           || gh release upload "${GITHUB_REF_NAME}" apps/extension/.output/chessmenthol-extension-*.zip --clobber
