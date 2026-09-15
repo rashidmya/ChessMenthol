@@ -16,15 +16,31 @@ export const decodeDataUrl: DecodeFn = async (dataUrl) => {
   return { data, width, height }; // getImageData().data is a fresh Uint8ClampedArray
 };
 
+// Chrome allows at most 2 captureVisibleTab calls per fixed 1 s window and rejects with this text.
+const QUOTA_RE = /MAX_CAPTURE_VISIBLE_TAB_CALLS_PER_SECOND/;
+const QUOTA_RETRY_MS = 1000;
+
 /** Drop-in for the desktop Capturer: same grab/grabFullDesktop/setRegion surface. */
 export class TabCapturer {
   private region: Region | null = null;
-  constructor(private requestCapture: CaptureFn, private decode: DecodeFn = decodeDataUrl) {}
+  constructor(
+    private requestCapture: CaptureFn,
+    private decode: DecodeFn = decodeDataUrl,
+    private sleep: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
+  ) {}
 
   setRegion(region: Region | null): void { this.region = region; }
 
   async grabFullDesktop(): Promise<RgbaImage> {
-    const dataUrl = await this.requestCapture();
+    let dataUrl: string | null;
+    try {
+      dataUrl = await this.requestCapture();
+    } catch (err) {
+      // Three captures inside one second (rapid re-clicks) trip Chrome's quota; waiting out the window clears it.
+      if (!QUOTA_RE.test(String(err))) throw err;
+      await this.sleep(QUOTA_RETRY_MS);
+      dataUrl = await this.requestCapture();
+    }
     if (!dataUrl) throw new Error('captureVisibleTab returned no image (permission or restricted page?)');
     return this.decode(dataUrl);
   }
