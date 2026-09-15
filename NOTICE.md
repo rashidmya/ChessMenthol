@@ -23,9 +23,9 @@ license. The notable copyleft components requiring compliance are:
 
 - **Stockfish (native binary + NNUE net)** — GNU General Public License v3.0 or later.
   The app redistributes a native Stockfish executable as a Tauri sidecar
-  (`app/src-tauri/binaries/`) and its NNUE evaluation network
-  (`app/src-tauri/resources/engine/`), provisioned by
-  `app/scripts/fetch-sidecar.mjs` (pinned tag `sf_18`); driven over the UCI
+  (`apps/desktop/src-tauri/binaries/`) and its NNUE evaluation network
+  (`apps/desktop/src-tauri/resources/engine/`), provisioned by
+  `apps/desktop/scripts/fetch-sidecar.mjs` (pinned tag `sf_18`); driven over the UCI
   protocol in TypeScript.
   Corresponding source: <https://github.com/official-stockfish/Stockfish>
 
@@ -37,15 +37,16 @@ license. The notable copyleft components requiring compliance are:
   Chess move generation, SAN/FEN, and game-outcome logic.
   Corresponding source: <https://github.com/niklasf/chessops>
 
-- **Chess Figurine font** (`app/src/assets/fonts/chess-figurine.woff2`) —
+- **Chess Figurine font** (`apps/desktop/src/assets/fonts/chess-figurine.woff2`) —
   GNU General Public License v2.0 or later. The figurine-notation webfont by the
   pgn4web authors (the same font Lichess ships as `lichess-chess.woff2`); it
   renders piece letters as chess glyphs in move lists. Corresponding source
   (FontForge `.sfd`): <https://github.com/lichess-org/lila/tree/master/public/font>
 
-- **Lichess icon font** (`app/src/assets/fonts/lichess.woff2`) — GNU Affero
+- **Lichess icon font** (`apps/desktop/src/assets/fonts/lichess.woff2` and
+  `apps/extension/assets/fonts/lichess.woff2`) — GNU Affero
   General Public License v3.0 or later. The UI icon webfont from lila, rendered via
-  the `licon` name→codepoint map vendored at `app/src/lib/licon.ts`; it provides
+  the `licon` name→codepoint map vendored at `packages/core/src/lib/licon.ts`; it provides
   the toolbar, navigation, and control glyphs. Corresponding source (FontForge `.sfd`
   + the generated `licon.ts`): <https://github.com/lichess-org/lila/tree/master/public/font>
   and <https://github.com/lichess-org/lila/blob/master/ui/lib/src/licon.ts>

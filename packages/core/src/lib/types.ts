@@ -40,7 +40,7 @@ export interface StateFrame {
   type: 'state'; fen: string; sideToMove: 'white' | 'black'; engineId: string;
   analyzing: boolean; eval: EvalDto | null; depth: number; lines: LineDto[];
   lastMove: LastMoveDto | null;
-  visionStatus: 'idle' | 'found' | 'no_board' | 'low_confidence';
+  visionStatus: 'idle' | 'found' | 'no_board' | 'low_confidence' | 'unreadable';
   detectedOrientation: 'white' | 'black' | null; lowConfidence: string[];
   boardSide: 'auto' | 'white' | 'black';
   region: { left: number; top: number; width: number; height: number } | null;

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { MoveEntryDto } from '@chessmenthol/core/lib/types';
-  import { moveColor } from '../lib/moveclass';
+  import { moveColor } from '@chessmenthol/core/lib/moveclass';
   import { tick } from 'svelte';
   import MoveBadge from './MoveBadge.svelte';
 

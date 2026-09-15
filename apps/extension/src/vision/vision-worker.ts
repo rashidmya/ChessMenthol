@@ -4,21 +4,21 @@ import { Tracker } from '@chessmenthol/core/vision/tracker';
 import { PieceClassifier, ortRunner, type InferenceLike } from '@chessmenthol/core/vision/pieces';
 import type { RgbaImage } from '@chessmenthol/core/lib/image';
 import type { Orientation } from '@chessmenthol/core/vision/types';
+import { memoizeInit } from './memoizeInit';
 
 // Extension pages/workers run at chrome-extension://<id>/ — resolve staged assets there.
 const base = self.location.origin;
 ort.env.wasm.wasmPaths = { wasm: `${base}/ort/ort-wasm-simd-threaded.wasm` };
 ort.env.wasm.numThreads = 1;
 
-let trackerPromise: Promise<Tracker> | null = null;
-function getTracker(): Promise<Tracker> {
-  if (!trackerPromise) {
-    trackerPromise = ort.InferenceSession
-      .create(`${base}/models/pieces.onnx`, { executionProviders: ['wasm'] })
-      .then((session) => new Tracker(new PieceClassifier(ortRunner(session as unknown as InferenceLike, ort.Tensor))));
-  }
-  return trackerPromise;
-}
+// A failed model fetch/parse is retried on the next detect (see memoizeInit) instead of
+// bricking every later capture. (A wasm *backend* init failure is latched by ORT itself
+// and needs a fresh Worker.)
+const getTracker = memoizeInit(() =>
+  ort.InferenceSession
+    .create(`${base}/models/pieces.onnx`, { executionProviders: ['wasm'] })
+    .then((session) => new Tracker(new PieceClassifier(ortRunner(session as unknown as InferenceLike, ort.Tensor)))),
+);
 
 self.onmessage = async (e: MessageEvent) => {
   const msg = e.data as

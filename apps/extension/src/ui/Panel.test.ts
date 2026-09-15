@@ -29,6 +29,7 @@ vi.mock('../engine/wasmEngine', () => ({ loadWasmEngine: async () => ({ send() {
 vi.mock('../vision/visionTracker', () => ({ makeTabTracker: () => ({
   detectPosition: async () => null, grabFullDesktop: async () => ({ data: new Uint8ClampedArray(0), width: 0, height: 0 }),
   setRegion() {}, setSideOverride() {}, setOrientationOverride() {}, reset() {},
+  busy: { subscribe: (run: (v: boolean) => void) => { run(false); return () => {}; } },
 }) }));
 
 import Panel from '../../entrypoints/sidepanel/Panel.svelte';

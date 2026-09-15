@@ -20,4 +20,10 @@ describe('panelStatus', () => {
   it('no_board when vision found nothing', () => {
     expect(panelStatus({ ...base, visionStatus: 'no_board' })).toBe('no_board');
   });
+  it('unreadable when a board was found but its pieces did not assemble', () => {
+    expect(panelStatus({ ...base, visionStatus: 'unreadable' })).toBe('unreadable');
+  });
+  it('a broken adapter still beats unreadable', () => {
+    expect(panelStatus({ ...base, adapterOk: false, visionStatus: 'unreadable' })).toBe('adapter_broke');
+  });
 });

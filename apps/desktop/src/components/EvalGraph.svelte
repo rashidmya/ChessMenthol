@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { moveColor } from '../lib/moveclass';
+  import { moveColor } from '@chessmenthol/core/lib/moveclass';
   import type { ClassificationDto } from '@chessmenthol/core/lib/types';
 
   export let wins: number[] = [];         // White-POV win% per position (index 0 = base)

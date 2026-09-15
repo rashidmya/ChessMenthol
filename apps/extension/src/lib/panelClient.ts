@@ -21,13 +21,16 @@ export function applyPosition(send: (cmd: Command) => void, m: PositionMessage):
 export function createPanelClient(load: EngineLoader, tracker?: VisionTrackerLike) {
   const state = writable<StateFrame | null>(null);
   const lastError = writable<string | null>(null);
+  // Increments on every error frame; the board binds it as `revertSignal` so a rejected
+  // (illegal) move snaps back even when the message text repeats (mirrors the desktop).
+  const errorSeq = writable(0);
 
   // Plan 1 surfaces only state + errors. `report`/`region_shot` frames (and the
   // analyze_game / region commands that produce them) are intentionally ignored
   // until the vision/report UI lands in a later plan.
   function applyFrame(frame: ServerFrame): void {
     if (frame.type === 'state') state.set(frame);
-    else if (frame.type === 'error') lastError.set(frame.message);
+    else if (frame.type === 'error') { lastError.set(frame.message); errorSeq.update((n) => n + 1); }
   }
 
   const engineController = createEngineController(load);
@@ -74,6 +77,7 @@ export function createPanelClient(load: EngineLoader, tracker?: VisionTrackerLik
   return {
     state,
     lastError,
+    errorSeq,
     send(cmd: Command): void { orch.handle(cmd); },
   };
 }

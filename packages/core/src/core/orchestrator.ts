@@ -184,7 +184,7 @@ export class Orchestrator {
 
   // ---- vision (on-demand; tracker injected only under Tauri) ----
   _tracker: VisionTrackerLike | null;
-  _visionStatus: 'idle' | 'found' | 'low_confidence' | 'no_board' = 'idle';
+  _visionStatus: StateFrame['visionStatus'] = 'idle';
   _detectedOrientation: 'white' | 'black' | null = null;
   _boardSide: 'auto' | 'white' | 'black' = 'auto';
   _lowConfidence: string[] = [];
@@ -602,7 +602,10 @@ export class Orchestrator {
 
   private _applyDetection(assembled: AssembledPosition | null): void {
     if (assembled === null || !assembled.isLegal) {
-      this._visionStatus = 'no_board';
+      // null = nothing board-like was found; illegal = a board was located but its
+      // squares did not classify into a legal position (piece mid-animation, misread
+      // piece set). Callers word their guidance differently for the two.
+      this._visionStatus = assembled === null ? 'no_board' : 'unreadable';
       this._send(this._stateFrame(this._lastAnalysis));
       return;
     }

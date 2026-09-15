@@ -10,4 +10,14 @@ describe('message guards', () => {
     expect(isPositionMessage({ kind: 'capture-request' } as ExtMessage)).toBe(false);
     expect(isPositionMessage({} as ExtMessage)).toBe(false);
   });
+  it('recognizes the position-request / no-position handshake shapes', () => {
+    const req: ExtMessage = { kind: 'position-request' };
+    const none: ExtMessage = { kind: 'no-position', boardPresent: true };
+    expect(isPositionMessage(req)).toBe(false);
+    expect(isPositionMessage(none)).toBe(false);
+  });
+  it('a capture request may carry the requesting window id', () => {
+    const m: ExtMessage = { kind: 'capture-request', windowId: 7 };
+    expect(m.kind).toBe('capture-request');
+  });
 });

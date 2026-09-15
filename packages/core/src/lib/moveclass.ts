@@ -1,4 +1,4 @@
-import type { ClassificationDto } from '@chessmenthol/core/lib/types';
+import type { ClassificationDto } from './types';
 import { glyphFor } from './glyphs';
 
 // The move-history list highlights only "notable" moves, matching Lichess's

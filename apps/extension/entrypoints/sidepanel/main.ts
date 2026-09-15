@@ -1,3 +1,4 @@
+import './app.css';
 import { mount } from 'svelte';
 import Panel from './Panel.svelte';
 

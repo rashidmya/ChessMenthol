@@ -1,4 +1,5 @@
-import type { ExtMessage, CaptureResult } from '../src/lib/messages';
+import type { ExtMessage } from '../src/lib/messages';
+import { brokerCapture } from '../src/lib/captureBroker';
 
 export default defineBackground({
   main() {
@@ -10,14 +11,12 @@ export default defineBackground({
     browser.sidePanel?.setPanelBehavior?.({ openPanelOnActionClick: true }).catch(() => {});
 
     // Broker for the panel's vision path: the panel has no tab context of its own,
-    // so it asks the background (which does) to grab the visible tab as a PNG.
+    // so it asks the background (which does) to grab the visible tab as a PNG. The
+    // request carries the panel's windowId so a second browser window can't be the
+    // one captured.
     browser.runtime.onMessage.addListener((msg: ExtMessage, _sender, sendResponse) => {
       if (msg?.kind !== 'capture-request') return;
-      // Capture the active tab of the current window as a PNG data URL.
-      browser.tabs
-        .captureVisibleTab(undefined as never, { format: 'png' })
-        .then((dataUrl) => sendResponse({ kind: 'capture-result', dataUrl } satisfies CaptureResult))
-        .catch((err) => sendResponse({ kind: 'capture-result', dataUrl: null, error: String(err) } satisfies CaptureResult));
+      void brokerCapture(browser.tabs, msg).then(sendResponse);
       return true; // keep the message channel open for the async sendResponse
     });
   },

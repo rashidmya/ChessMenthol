@@ -711,6 +711,25 @@ describe('orchestrator — vision', () => {
     expect(lastState(frames).visionStatus).toBe('no_board');
   });
 
+  it('capture_now with a board whose pieces assemble illegally -> visionStatus unreadable', async () => {
+    const frames: ServerFrame[] = [];
+    const orch = new Orchestrator((f) => frames.push(f), {
+      engine: fakeEngine(),
+      tracker: fakeTracker({
+        detectPosition: async () => ({
+          fen: '8/8/8/8/8/8/8/8 w - - 0 1', isLegal: false, status: 'kings',
+          lowConfidence: [], move: null, orientation: 'white_bottom', sideToMove: 'white',
+        }),
+      }),
+    });
+    orch.handle({ type: 'capture_now' });
+    await flush();
+    const last = lastState(frames);
+    expect(last.visionStatus).toBe('unreadable');
+    // illegal detection must not clobber the working board
+    expect(last.fen.split(' ')[0]).toBe('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR');
+  });
+
   it('request_region_shot emits a region_shot frame with the true dimensions', async () => {
     const frames: ServerFrame[] = [];
     const tracker = fakeTracker({
