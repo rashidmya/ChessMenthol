@@ -1,0 +1,21 @@
+/* Lichess UI icon webfont (vendored from lila public/font/lichess.woff2 — the same AGPL
+   asset the desktop ships, attributed in NOTICE.md). Glyphs live in the Unicode Private
+   Use Area; names → codepoints in @chessmenthol/core/lib/licon. Rendered via the
+   [data-icon] rule below (see components/Icon.svelte). font-display:block so the raw
+   PUA char never flashes before the font loads. */
+@font-face {
+  font-family: 'lichess';
+  src: url('../../assets/fonts/lichess.woff2') format('woff2');
+  font-display: block;
+}
+[data-icon]::before {
+  font-family: 'lichess';
+  content: attr(data-icon);
+  line-height: 1;
+  font-weight: normal;
+  font-style: normal;
+  font-variant: normal;
+  text-transform: none;
+  speak: none;
+  -webkit-font-smoothing: antialiased;
+}
