@@ -4,7 +4,7 @@
 </script>
 
 <script lang="ts">
-  import { glyphFor } from '../lib/glyphs';
+  import { glyphFor } from '@chessmenthol/core/lib/glyphs';
 
   export let label: string;
   export let size = 20;
