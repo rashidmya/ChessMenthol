@@ -15,11 +15,11 @@ export interface SiteAdapter {
   matches(url: string): boolean;
   /** Parse the current DOM into a position, or null if no readable board / illegal parse. */
   readPosition(): AdapterPosition | null;
-  /** Fire `onChange` on each settled board mutation; returns an unsubscribe fn. */
-  observe(onChange: () => void): () => void;
-  /** Cheap check: is this site's board container in the DOM at all? Distinguishes
-   *  "not a chess page" (false) from "board present but unreadable" (true + null read). */
-  boardPresent(): boolean;
+  /** The board container to read/observe, or null when this page has none (yet). The
+   *  driver compares identities across DOM churn to notice a late render / a new game. */
+  boardElement(): Element | null;
+  /** Fire `onChange` on each settled mutation of `board`; returns an unsubscribe fn. */
+  observe(board: Element, onChange: () => void): () => void;
   /** Optional: true while the user is mid-interaction (a piece selected / being dragged,
    *  its move hints shown). The board position is unchanged during a selection, and on
    *  chess.com the selection highlight is DOM-identical to the last-move highlight — so

@@ -66,13 +66,9 @@ export const lichessAdapter: SiteAdapter = {
     return { fen: res.fen, orientation: black ? 'black' : 'white', turn };
   },
 
-  observe(onChange) {
-    const board = boardEl();
-    if (!board) return () => {};
-    return observeBoard(board, onChange);
-  },
+  boardElement: () => boardEl(),
 
-  boardPresent: () => !!boardEl(),
+  observe: (board, onChange) => observeBoard(board, onChange),
 
   // chessground marks a selected piece's square `.selected` and its legal targets
   // `.move-dest`. lichess already ignores these for turn (readTurn reads only

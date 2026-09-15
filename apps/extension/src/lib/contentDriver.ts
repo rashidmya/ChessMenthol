@@ -17,7 +17,7 @@ export function runContentDriver(adapter: SiteAdapter, send: (m: Out) => void): 
     if (adapter.interacting?.()) return;
     const pos = adapter.readPosition();
     if (!pos) {
-      if (adapter.boardPresent() && adapterOk) { adapterOk = false; send({ kind: 'adapter-status', site: adapter.site, ok: false }); }
+      if (adapter.boardElement() && adapterOk) { adapterOk = false; send({ kind: 'adapter-status', site: adapter.site, ok: false }); }
       return;
     }
     if (!adapterOk) { adapterOk = true; send({ kind: 'adapter-status', site: adapter.site, ok: true }); }
@@ -26,5 +26,6 @@ export function runContentDriver(adapter: SiteAdapter, send: (m: Out) => void): 
     send({ kind: 'position', site: adapter.site, ...pos });
   };
   emit();
-  return adapter.observe(emit);
+  const board = adapter.boardElement();
+  return board ? adapter.observe(board, emit) : () => {};
 }

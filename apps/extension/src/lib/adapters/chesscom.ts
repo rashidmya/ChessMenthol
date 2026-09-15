@@ -96,13 +96,9 @@ export const chesscomAdapter: SiteAdapter = {
     return { fen: res.fen, orientation, turn };
   },
 
-  observe(onChange) {
-    const board = boardEl();
-    if (!board) return () => {};
-    return observeBoard(board, onChange);
-  },
+  boardElement: () => boardEl(),
 
-  boardPresent: () => !!boardEl(),
+  observe: (board, onChange) => observeBoard(board, onChange),
 
   // A selected piece renders move-destination `.hint`s (and a `.capture-hint` ring on
   // capturable pieces). Its selection highlight is DOM-identical to the last-move
