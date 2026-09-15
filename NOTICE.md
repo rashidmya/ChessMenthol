@@ -23,9 +23,9 @@ license. The notable copyleft components requiring compliance are:
 
 - **Stockfish (native binary + NNUE net)** — GNU General Public License v3.0 or later.
   The app redistributes a native Stockfish executable as a Tauri sidecar
-  (`app/src-tauri/binaries/`) and its NNUE evaluation network
-  (`app/src-tauri/resources/engine/`), provisioned by
-  `app/scripts/fetch-sidecar.mjs` (pinned tag `sf_18`); driven over the UCI
+  (`apps/desktop/src-tauri/binaries/`) and its NNUE evaluation network
+  (`apps/desktop/src-tauri/resources/engine/`), provisioned by
+  `apps/desktop/scripts/fetch-sidecar.mjs` (pinned tag `sf_18`); driven over the UCI
   protocol in TypeScript.
   Corresponding source: <https://github.com/official-stockfish/Stockfish>
 

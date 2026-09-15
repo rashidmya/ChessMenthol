@@ -97,7 +97,9 @@ release, e.g. `ext-v0.1.0`).
 2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, and pick the
    unzipped folder.
 3. Click the ChessMenthol toolbar icon to open the side panel, then open a **chess.com** or
-   **Lichess** game — the board is read live. On any other page, click **Capture** in the panel.
+   **Lichess** game — the board is read live. **Capture** re-reads the board (from the site on
+   chess.com/Lichess, from a screenshot anywhere else), and you can drag pieces on the panel
+   board to explore lines.
 
 **Firefox** (Developer Edition, Nightly, or ESR — release/Beta can't install unsigned add-ons)
 
@@ -105,7 +107,8 @@ release, e.g. `ext-v0.1.0`).
 2. Open `about:config`, set `xpinstall.signatures.required` to **`false`**, then open
    `about:addons` → **⚙ → Install Add-on From File** and pick the zip.
 3. Open the **ChessMenthol** sidebar, then open a **chess.com** or **Lichess** game — the board is
-   read live. On any other page, click **Capture** in the panel.
+   read live. **Capture** re-reads the board (from the site on chess.com/Lichess, from a
+   screenshot anywhere else), and you can drag pieces on the panel board to explore lines.
 
 Chrome shows a *"Read and change all your data on all websites"* prompt at install: that access
 is what the on-demand **Capture** button needs (`chrome.tabs.captureVisibleTab` requires

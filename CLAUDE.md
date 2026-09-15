@@ -177,6 +177,46 @@ loading the bundle's older `libwayland-client` and dying with `undefined symbol:
 wl_display_create_queue_with_name`. So spawn system helpers via `system_command()`, which strips
 those vars (`APPIMAGE_ENV_VARS`). Any new `Command::new(...)` for a system binary must go through it.
 
+### Browser extension (`apps/extension`) — how the panel gets a position
+
+Three sources drive the reused `Orchestrator` (`src/lib/panelClient.ts`) — two via `set_fen`,
+manual via `make_move`:
+
+- **Live site reading** (chess.com / lichess): `entrypoints/content.ts` runs `runContentDriver`
+  (`src/lib/contentDriver.ts`) with a `SiteAdapter` (`src/lib/adapters/`). The driver — not
+  the adapter — owns board acquisition: a throttled childList+subtree observer on
+  `document.body` re-runs `attach()` (at most once per `settleMs`, so a busy page can't
+  starve it), which compares `adapter.boardElement()` by identity and (re)attaches the
+  per-board observer when the board renders late or is replaced by a new game (both sites
+  are SPAs — never look the board up once). Positions are pushed on change only, so the
+  panel also **asks**: `{ kind: 'position-request' }` via `tabs.sendMessage` on mount, on
+  `tabs.onActivated` / window refocus, and on Capture (`src/lib/activeTab.ts`); the content
+  script answers with `driver.readNow()`. Pushed messages are applied only from the
+  **active tab of the panel's own window** (`isFromActiveTab`) — with no `windows` API
+  (plain-browser dev, jsdom) affinity is off. `Panel.svelte`'s `applyIncoming` is the one
+  apply path; its `lastSiteFen` guard drops a re-read of the *same* site position (refocus,
+  tab re-activation) because core's `set_fen` is unconditional (wipes history + eval cache,
+  restarts the search) — only a genuinely new site position replaces a manual line.
+  `pullPosition()` returns `'applied' | 'none' | 'superseded'`; only `'none'` falls back to
+  vision.
+- **Capture** is DOM-first: `Panel.captureNow()` resets `lastSiteFen` (an explicit Capture
+  always re-applies) and tries the position request; only when no site position comes back
+  does it fall to the vision path (`capture_now` → `TabTracker` → background
+  `captureVisibleTab(windowId)` → `vision-worker`). `TabTracker` runs one capture at a time
+  and exposes `busy`; `TabCapturer` retries once (1 s) on Chrome's captures-per-second quota;
+  the worker's model load is `memoizeInit`-wrapped so a failed fetch is retried instead of
+  cached (a wasm *backend* init failure is latched by ORT and needs a fresh Worker). Core
+  reports `visionStatus: 'unreadable'` (board located, pieces illegal) separately from
+  `'no_board'`; `src/lib/panelStatus.ts` + `statusText.ts` map both to cards. Because core
+  never resets `visionStatus` on `set_fen`, the panel gates it on `source === 'vision'` so a
+  stale card can't linger over a later site/manual position.
+- **Manual**: `Board.onMove` → `make_move`; history/undo via `navigate` (`MoveStepper` /
+  `MoveList` in `entrypoints/sidepanel/`); `client.errorSeq` (bumped per error frame) is the
+  board's `revertSignal`. A later *new* site position replaces the history.
+
+The extension ships the Lichess icon font itself (`assets/fonts/lichess.woff2` +
+`entrypoints/sidepanel/app.css`); without it `Icon.svelte` renders an empty span.
+
 ### UI (`components/`)
 
 All components are **Svelte 5 on the legacy API** — `export let` props, `$:` reactive
@@ -184,8 +224,8 @@ statements, `on:click`. **Do not introduce runes** (`$state`/`$props`/etc.); mat
 surrounding component. `App.svelte` is the top-level composition; the rest are presentational,
 driven by props + the `engineClient` stores.
 
-**Component-drift caveat:** `@chessmenthol/core` is TS-only, so the 4 components the browser
-extension also renders — `Board`/`EvalBar`/`Lines`/`Icon.svelte` — are **duplicated**: the
+**Component-drift caveat:** `@chessmenthol/core` is TS-only, so the 5 components the browser
+extension also renders — `Board`/`EvalBar`/`Lines`/`Icon`/`MoveBadge.svelte` — are **duplicated**: the
 originals in `apps/desktop/src/components` and copies in `apps/extension/entrypoints/sidepanel/components`
 (both import their logic from `@chessmenthol/core`). Edit both copies together.
 
@@ -196,12 +236,12 @@ Two shared "single source of truth" abstractions to reuse rather than re-derive:
   name→PUA-codepoint map); the font + `[data-icon]::before` rule live in `app.css`. Pass
   `label` only for a standalone meaningful icon (→ `role="img"`); omit it for decorative icons
   next to text. `assets/fonts/chess-figurine.woff2` separately renders figurine notation.
-- **Move-quality badges** — the 10-class taxonomy (`brilliant, great, best, excellent, good,
-  book, inaccuracy, mistake, blunder, miss`, `MoveClass` in `core/classify.ts`) maps to a
-  glyph + color in exactly one place: `lib/glyphs.ts` `glyphFor(label)` and `lib/moveclass.ts`
-  `moveColor`. `components/MoveBadge.svelte` renders from a label; the board, move list,
-  feedback card, and report summary all go through it. Note: `book` never fires in the report
-  batch (no opening book wired in), so its count reads 0 by design.
+- **Move-quality badges** — the 9-class taxonomy (`brilliant, great, best, excellent, good,
+  inaccuracy, mistake, blunder, miss`, `MoveClass` in `core/classify.ts`) maps to a glyph +
+  color in exactly one place: `@chessmenthol/core/lib/glyphs` `glyphFor(label)` and
+  `@chessmenthol/core/lib/moveclass` `moveColor` (in core so the extension's copy of
+  `MoveBadge` shares them). `components/MoveBadge.svelte` renders from a label; the board,
+  move list, feedback card, and report summary all go through it.
 
 ## Conventions & gotchas
 
